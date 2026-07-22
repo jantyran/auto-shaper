@@ -25,6 +25,17 @@ db.exec(`
   )
 `);
 
+// 汎用コレクション(レシピ等の任意オブジェクトを name 空間ごとに保存)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS collections (
+    collection TEXT NOT NULL,
+    id         TEXT NOT NULL,
+    data       TEXT NOT NULL,   -- JSON
+    updated_at INTEGER NOT NULL,
+    PRIMARY KEY (collection, id)
+  )
+`);
+
 const stmtList = db.prepare('SELECT id, name, fields FROM schemas ORDER BY updated_at DESC');
 const stmtUpsert = db.prepare(`
   INSERT INTO schemas (id, name, fields, updated_at)
@@ -56,4 +67,37 @@ export function upsertSchema(schema) {
 /** 1件を削除 */
 export function deleteSchema(id) {
   stmtDelete.run(String(id));
+}
+
+// ── 汎用コレクション ──
+const stmtColList = db.prepare(
+  'SELECT id, data FROM collections WHERE collection = ? ORDER BY updated_at DESC',
+);
+const stmtColUpsert = db.prepare(`
+  INSERT INTO collections (collection, id, data, updated_at)
+  VALUES (@collection, @id, @data, @updated_at)
+  ON CONFLICT(collection, id) DO UPDATE SET data = @data, updated_at = @updated_at
+`);
+const stmtColDelete = db.prepare(
+  'DELETE FROM collections WHERE collection = ? AND id = ?',
+);
+
+export function listCollection(name) {
+  return stmtColList.all(String(name)).map((row) => ({
+    id: row.id,
+    ...JSON.parse(row.data),
+  }));
+}
+
+export function upsertCollectionItem(name, item) {
+  stmtColUpsert.run({
+    collection: String(name),
+    id: String(item.id),
+    data: JSON.stringify(item),
+    updated_at: Date.now(),
+  });
+}
+
+export function deleteCollectionItem(name, id) {
+  stmtColDelete.run(String(name), String(id));
 }

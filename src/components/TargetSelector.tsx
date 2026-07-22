@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import { useStore } from '../state/store';
 import { PRESET_SCHEMAS } from '../core/targetSchemas';
+import { findMatchingRecipes } from '../core/recipes';
 import { FileDrop } from './FileDrop';
 
 /** ステップ2: インポート先フォーマット(ターゲットスキーマ)の選択 */
@@ -10,6 +12,14 @@ export function TargetSelector() {
   const source = useStore((s) => s.source);
   const customSchemas = useStore((s) => s.customSchemas);
   const setView = useStore((s) => s.setView);
+  const recipes = useStore((s) => s.recipes);
+  const applyRecipe = useStore((s) => s.applyRecipe);
+  const recipesEnabled = useStore((s) => s.settings.features.recipes);
+
+  const matchingRecipes = useMemo(
+    () => (source && recipesEnabled ? findMatchingRecipes(recipes, source) : []),
+    [source, recipes, recipesEnabled],
+  );
 
   return (
     <div className="panel">
@@ -23,6 +33,28 @@ export function TargetSelector() {
           読み込み済みソース: <b>{source.fileName}</b>（{source.columns.length}列 /{' '}
           {source.rows.length.toLocaleString()}行）
         </div>
+      )}
+
+      {matchingRecipes.length > 0 && (
+        <>
+          <h3>💡 この列構成に合うレシピが見つかりました</h3>
+          <p className="subtitle" style={{ marginBottom: 10 }}>
+            過去に保存したマッピングを、そのまま再適用できます。
+          </p>
+          <div className="card-grid">
+            {matchingRecipes.map((r) => (
+              <button
+                key={r.id}
+                className="select-card"
+                style={{ borderColor: 'var(--green)' }}
+                onClick={() => applyRecipe(r)}
+              >
+                <span className="name">🔁 {r.name}</span>
+                <span className="meta">{r.mapping.fields.length} 項目・レシピ適用</span>
+              </button>
+            ))}
+          </div>
+        </>
       )}
 
       {isSuggesting && (

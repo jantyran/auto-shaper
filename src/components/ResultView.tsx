@@ -3,6 +3,7 @@ import { useStore } from '../state/store';
 import { transformAll } from '../core/transformEngine';
 import { toCsv, downloadCsv, downloadXlsx } from '../core/exportCsv';
 import { validateRows, ISSUE_LABELS } from '../core/validate';
+import { findDuplicates } from '../core/dedupe';
 import type {
   TransformRequest,
   TransformResponse,
@@ -77,9 +78,19 @@ export function ResultView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source, mapping]);
 
+  const dedupeEnabled = useStore((s) => s.settings.features.duplicateDetection);
+
   const validation = useMemo(
     () => (transformedRows && target ? validateRows(transformedRows, target) : null),
     [transformedRows, target],
+  );
+
+  const duplicates = useMemo(
+    () =>
+      transformedRows && target && dedupeEnabled
+        ? findDuplicates(transformedRows, target)
+        : null,
+    [transformedRows, target, dedupeEnabled],
   );
 
   if (!source || !target || !mapping) return null;
@@ -132,6 +143,30 @@ export function ResultView() {
 
           {validation && (
             <ValidationPanel validation={validation} total={transformedRows.length} />
+          )}
+
+          {duplicates && duplicates.groups.length > 0 && (
+            <div className="validation" style={{ borderColor: 'var(--accent)', background: 'var(--accent-soft)' }}>
+              <div className="validation-head">
+                <span className="v-title" style={{ color: 'var(--accent)' }}>
+                  🔎 重複の可能性: {duplicates.groups.length} グループ
+                </span>
+                <span className="v-sub">
+                  {duplicates.duplicateRows.size} 行が重複候補（照合キー:{' '}
+                  {duplicates.keyFields.join(' + ')}）
+                </span>
+              </div>
+              <ul className="v-list">
+                {duplicates.groups.slice(0, 6).map((g, i) => (
+                  <li key={i}>
+                    {g.rows.map((r) => `${r + 1}行目`).join('、')} が重複
+                  </li>
+                ))}
+                {duplicates.groups.length > 6 && (
+                  <li className="v-more">…ほか {duplicates.groups.length - 6} グループ</li>
+                )}
+              </ul>
+            </div>
           )}
 
           <ResultPreview

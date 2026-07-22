@@ -22,9 +22,20 @@ import {
   removeSchemaFromRepo,
   type StorageMode,
 } from '../core/schemaRepository';
+import { loadSettings, saveSettings, type Settings } from '../core/settings';
+import { llmSuggester } from '../core/inference/llm';
+import { loadLearned, recordAssociation } from '../core/learning';
+import {
+  createRecipe,
+  deleteRecipe,
+  listRecipes,
+  saveRecipe as persistRecipe,
+  type Recipe,
+} from '../core/recipes';
+import { findSchemaById } from '../core/schemaStore';
 
 export type Step = 'source' | 'target' | 'mapping' | 'result';
-export type View = 'app' | 'admin';
+export type View = 'app' | 'admin' | 'settings';
 
 interface AppState {
   view: View;
@@ -37,6 +48,10 @@ interface AppState {
   customSchemas: TargetSchema[];
   /** テンプレートの保存先(SQLite API / ブラウザのlocalStorage) */
   storageMode: StorageMode | 'unknown';
+  /** ユーザー設定(機能ON/OFF・AI・マスキング) */
+  settings: Settings;
+  /** 保存済みマッピングレシピ */
+  recipes: Recipe[];
   isSuggesting: boolean;
   isTransforming: boolean;
   transformProgress: number; // 0-1
@@ -64,6 +79,15 @@ interface AppState {
   // template management (admin)
   saveSchema: (schema: TargetSchema) => Promise<void>;
   removeSchema: (id: string) => Promise<void>;
+
+  // settings
+  updateSettings: (settings: Settings) => void;
+
+  // recipes (mapping memory)
+  refreshRecipes: () => Promise<void>;
+  saveCurrentAsRecipe: (name: string) => Promise<void>;
+  removeRecipe: (id: string) => Promise<void>;
+  applyRecipe: (recipe: Recipe) => void;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -72,6 +96,8 @@ export const useStore = create<AppState>((set, get) => ({
   // まず localStorage から即時に読み込み(初回描画を待たせない)、後で refreshSchemas で同期
   customSchemas: loadCustomSchemas(),
   storageMode: 'unknown',
+  settings: loadSettings(),
+  recipes: [],
   isSuggesting: false,
   isTransforming: false,
   transformProgress: 0,
@@ -124,11 +150,18 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   updateFieldMapping: (targetKey, mapping) => {
-    const { mapping: config } = get();
+    const { mapping: config, settings } = get();
     if (!config) return;
     const fields = config.fields.map((f) =>
       f.targetKey === targetKey ? mapping : f,
     );
+    // 学習: ユーザーが1列を直接割り当てたら「列名→ターゲット」を記録する
+    if (
+      settings.features.learningDictionary &&
+      mapping.transform.kind === 'direct'
+    ) {
+      recordAssociation(mapping.transform.source, targetKey);
+    }
     // マッピングを変えたら既存の変換結果は無効化し、再実行させる
     set({
       mapping: { ...config, fields },
@@ -161,22 +194,83 @@ export const useStore = create<AppState>((set, get) => ({
     const customSchemas = await removeSchemaFromRepo(id);
     set({ customSchemas });
   },
+
+  updateSettings: (settings) => {
+    saveSettings(settings);
+    set({ settings });
+  },
+
+  refreshRecipes: async () => {
+    if (!get().settings.features.recipes) {
+      set({ recipes: [] });
+      return;
+    }
+    set({ recipes: await listRecipes() });
+  },
+
+  saveCurrentAsRecipe: async (name) => {
+    const { source, mapping } = get();
+    if (!source || !mapping) return;
+    const recipes = await persistRecipe(createRecipe(name, source, mapping));
+    set({ recipes });
+  },
+
+  removeRecipe: async (id) => {
+    set({ recipes: await deleteRecipe(id) });
+  },
+
+  applyRecipe: (recipe) => {
+    const { customSchemas } = get();
+    const target = findSchemaById(recipe.targetSchemaId, customSchemas);
+    // レシピのマッピングをそのまま適用(確定済みなので確信度は1扱い)
+    set({
+      target,
+      mapping: recipe.mapping,
+      step: 'mapping',
+      transformedRows: undefined,
+      transformProgress: 0,
+      error: target
+        ? undefined
+        : '元のテンプレートが見つかりません。マッピングだけ適用しました。',
+    });
+  },
 }));
 
-/** ターゲット確定 → 匿名化 → サジェスト実行 → マッピング画面へ */
+/** ターゲット確定 → マスキング → サジェスト実行 → マッピング画面へ */
 async function runSuggestion(
   set: (partial: Partial<AppState>) => void,
   get: () => AppState,
   target: TargetSchema,
 ) {
-  const source = get().source;
+  const { source, settings } = get();
   if (!source) return;
   set({ isSuggesting: true, target, error: undefined });
   try {
-    // 実データは渡さず、匿名化済みコンテキストのみを推論器に渡す
-    const ctx = buildSuggestContext(source.columns, target);
-    const mapping = await heuristicSuggester.suggest(ctx);
-    set({ mapping, step: 'mapping', isSuggesting: false });
+    // 実データは渡さず、設定に従ってマスキングしたコンテキストのみを推論器に渡す
+    const ctx = buildSuggestContext(
+      source.columns,
+      target,
+      settings.masking,
+      settings.features.masking,
+    );
+    const learned = settings.features.learningDictionary ? loadLearned() : [];
+
+    let mapping;
+    let warning: string | undefined;
+    if (settings.features.llm && settings.llm.apiKey.trim()) {
+      try {
+        mapping = await llmSuggester.suggest(ctx, settings.llm);
+      } catch (e) {
+        // LLM が失敗したらローカル推論にフォールバック
+        mapping = await heuristicSuggester.suggest(ctx, learned);
+        warning = `LLM推論に失敗したためローカル推論に切り替えました（${
+          e instanceof Error ? e.message : ''
+        }）`;
+      }
+    } else {
+      mapping = await heuristicSuggester.suggest(ctx, learned);
+    }
+    set({ mapping, step: 'mapping', isSuggesting: false, error: warning });
   } catch (e) {
     set({
       isSuggesting: false,

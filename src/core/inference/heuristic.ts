@@ -24,6 +24,7 @@ import {
   matchesAnyKeyword,
   similarity,
 } from './dictionary';
+import { learnedBoost, type LearnedEntry } from '../learning';
 
 const EMAIL_RE = /[^\s@]+@[^\s@]+\.[^\s@]+/;
 const PHONE_LIKE_RE = /^[\d\-+()\s]{7,}$/;
@@ -81,6 +82,7 @@ function patternMatchRate(samples: string[], type: DataType): number {
 function scoreColumns(
   field: TargetField,
   ctx: SuggestContext,
+  learned: LearnedEntry[] = [],
 ): ScoredColumn[] {
   const candidates = field.aliases.length
     ? [field.key, field.label, ...field.aliases]
@@ -114,9 +116,16 @@ function scoreColumns(
       // fillRateが低い列は少し減点(欠損だらけの列は誤マップしやすい)
       const fillPenalty = col.fillRate < 0.1 ? -0.1 : 0;
 
-      const score = Math.max(0, Math.min(1, nameScore + typeBonus + fillPenalty));
+      // 学習辞書による加点(過去にユーザーがこの対応を確定していれば)
+      const boost = learnedBoost(col.name, field.key, learned);
+
+      const score = Math.max(
+        0,
+        Math.min(1, nameScore + typeBonus + fillPenalty + boost),
+      );
 
       const reasons: string[] = [];
+      if (boost > 0) reasons.push('過去の修正履歴から学習');
       if (nameScore >= 0.6) reasons.push(`列名が「${bestAlias}」に類似`);
       else if (nameScore > 0) reasons.push(`列名がやや類似(${bestAlias})`);
       if (typeBonus > 0) reasons.push(`データ形式が${field.type}と一致`);
@@ -159,7 +168,10 @@ export class HeuristicSuggester implements MappingSuggester {
   readonly id = 'heuristic-local';
   readonly label = 'ローカル推論 (辞書＋類似度)';
 
-  async suggest(ctx: SuggestContext): Promise<MappingConfig> {
+  async suggest(
+    ctx: SuggestContext,
+    learned: LearnedEntry[] = [],
+  ): Promise<MappingConfig> {
     const usedColumns = new Set<string>();
     const fields: FieldMapping[] = [];
 
@@ -168,10 +180,10 @@ export class HeuristicSuggester implements MappingSuggester {
     const firstNameField = ctx.target.fields.find((f) => isFirstNameField(f.key) || isFirstNameField(f.label));
 
     const directLastCandidate = lastNameField
-      ? scoreColumns(lastNameField, ctx)[0]
+      ? scoreColumns(lastNameField, ctx, learned)[0]
       : undefined;
     const directFirstCandidate = firstNameField
-      ? scoreColumns(firstNameField, ctx)[0]
+      ? scoreColumns(firstNameField, ctx, learned)[0]
       : undefined;
 
     const hasSeparateName =
@@ -219,7 +231,7 @@ export class HeuristicSuggester implements MappingSuggester {
       }
 
       // 通常のスコアリング
-      const scored = scoreColumns(field, ctx).filter(
+      const scored = scoreColumns(field, ctx, learned).filter(
         (s) => !usedColumns.has(s.name),
       );
       const best = scored[0];

@@ -5,6 +5,7 @@ import { TargetSelector } from './components/TargetSelector';
 import { MappingEditor } from './components/MappingEditor';
 import { ResultView } from './components/ResultView';
 import { SchemaAdmin } from './components/SchemaAdmin';
+import { SettingsPage } from './components/Settings';
 
 const STEPS: { id: Step; label: string }[] = [
   { id: 'source', label: 'ソース投入' },
@@ -19,11 +20,13 @@ export function App() {
   const step = useStore((s) => s.step);
   const error = useStore((s) => s.error);
   const refreshSchemas = useStore((s) => s.refreshSchemas);
+  const refreshRecipes = useStore((s) => s.refreshRecipes);
 
-  // 起動時に保存先(SQLite API / localStorage)を判定してテンプレートを同期
+  // 起動時に保存先を判定してテンプレート/レシピを同期
   useEffect(() => {
     void refreshSchemas();
-  }, [refreshSchemas]);
+    void refreshRecipes();
+  }, [refreshSchemas, refreshRecipes]);
 
   return (
     <div className="app">
@@ -43,18 +46,28 @@ export function App() {
           >
             テンプレート管理
           </button>
+          <button
+            className={view === 'settings' ? 'navbtn active' : 'navbtn'}
+            onClick={() => setView('settings')}
+          >
+            設定
+          </button>
         </nav>
       </div>
       <p className="subtitle">
         {view === 'app'
           ? '雑多なExcel/CSVを、AIがカラムを読み取ってインポート用フォーマットへ自動整形します。'
-          : 'インポート先（整形後）のフォーマットを自由に追加・編集できます。'}
+          : view === 'admin'
+            ? 'インポート先（整形後）のフォーマットを自由に追加・編集できます。'
+            : '機能のON/OFF、AI(LLM)接続、マスキングをここで管理します。'}
       </p>
 
       {error && <div className="alert error">{error}</div>}
 
       {view === 'admin' ? (
         <SchemaAdmin />
+      ) : view === 'settings' ? (
+        <SettingsPage />
       ) : (
         <>
           <Stepper current={step} />
@@ -111,6 +124,9 @@ function MappingStep() {
   const goTo = useStore((s) => s.goTo);
   const target = useStore((s) => s.target);
   const mapping = useStore((s) => s.mapping);
+  const source = useStore((s) => s.source);
+  const recipesEnabled = useStore((s) => s.settings.features.recipes);
+  const saveCurrentAsRecipe = useStore((s) => s.saveCurrentAsRecipe);
 
   const requiredUnmet =
     target && mapping
@@ -121,6 +137,12 @@ function MappingStep() {
         })
       : false;
 
+  const handleSaveRecipe = () => {
+    const suggested = `${source?.fileName ?? 'レシピ'} → ${target?.name ?? ''}`;
+    const name = prompt('レシピ名を入力してください', suggested);
+    if (name && name.trim()) void saveCurrentAsRecipe(name.trim());
+  };
+
   return (
     <>
       <MappingEditor />
@@ -128,6 +150,11 @@ function MappingStep() {
         <button className="ghost" onClick={() => goTo('target')}>
           ← インポート先を選び直す
         </button>
+        {recipesEnabled && (
+          <button className="ghost" onClick={handleSaveRecipe}>
+            🔁 レシピとして保存
+          </button>
+        )}
         <div className="spacer" />
         <button
           className="primary"

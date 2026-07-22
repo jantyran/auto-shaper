@@ -8,13 +8,36 @@
  * サーバーを起動しない場合、フロントは自動的に localStorage 保存へフォールバックする。
  */
 import express from 'express';
-import { listSchemas, upsertSchema, deleteSchema } from './db.mjs';
+import {
+  listSchemas,
+  upsertSchema,
+  deleteSchema,
+  listCollection,
+  upsertCollectionItem,
+  deleteCollectionItem,
+} from './db.mjs';
+import { runSuggest } from './suggest.mjs';
 
 const app = express();
 app.use(express.json({ limit: '4mb' }));
 
 /** 疎通確認(フロントが API の有無を判定するのに使う) */
 app.get('/api/health', (_req, res) => res.json({ ok: true, storage: 'sqlite' }));
+
+/**
+ * LLM マッピング推論。受け取るのはマスキング済みコンテキストと接続情報のみ。
+ * APIキーはこのリクエストで受け取り、プロバイダ呼び出しに使うだけで保存しない。
+ */
+app.post('/api/suggest', async (req, res) => {
+  try {
+    const { provider, model, apiKey, context } = req.body ?? {};
+    const mapping = await runSuggest({ provider, model, apiKey, context });
+    res.json(mapping);
+  } catch (e) {
+    const status = e.status ?? 502;
+    res.status(status).json({ error: e.message ?? 'LLM推論に失敗しました' });
+  }
+});
 
 /** 一覧 */
 app.get('/api/schemas', (_req, res) => {
@@ -40,6 +63,30 @@ app.put('/api/schemas/:id', (req, res) => {
 app.delete('/api/schemas/:id', (req, res) => {
   deleteSchema(req.params.id);
   res.json(listSchemas());
+});
+
+// ── 汎用コレクション(レシピ等) ──
+const ALLOWED_COLLECTIONS = new Set(['recipes']);
+function guardCollection(req, res, next) {
+  if (!ALLOWED_COLLECTIONS.has(req.params.name)) {
+    return res.status(404).json({ error: 'unknown collection' });
+  }
+  next();
+}
+
+app.get('/api/collections/:name', guardCollection, (req, res) => {
+  res.json(listCollection(req.params.name));
+});
+
+app.put('/api/collections/:name/:id', guardCollection, (req, res) => {
+  const item = { ...(req.body ?? {}), id: req.params.id };
+  upsertCollectionItem(req.params.name, item);
+  res.json(listCollection(req.params.name));
+});
+
+app.delete('/api/collections/:name/:id', guardCollection, (req, res) => {
+  deleteCollectionItem(req.params.name, req.params.id);
+  res.json(listCollection(req.params.name));
 });
 
 const PORT = process.env.PORT || 8787;

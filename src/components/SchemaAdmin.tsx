@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useStore } from '../state/store';
 import type { DataType, TargetField, TargetSchema } from '../types';
 import { PRESET_SCHEMAS } from '../core/targetSchemas';
@@ -6,6 +6,7 @@ import {
   createEmptyField,
   createEmptySchema,
   duplicateSchema,
+  schemaFromImport,
 } from '../core/schemaStore';
 
 const TYPE_LABELS: Record<DataType, string> = {
@@ -34,11 +35,39 @@ const EDITABLE_TYPES: DataType[] = [
  */
 export function SchemaAdmin() {
   const customSchemas = useStore((s) => s.customSchemas);
+  const storageMode = useStore((s) => s.storageMode);
   const saveSchema = useStore((s) => s.saveSchema);
   const removeSchema = useStore((s) => s.removeSchema);
 
   // 編集中スキーマ(ドラフト)。null なら一覧表示。
   const [draft, setDraft] = useState<TargetSchema | null>(null);
+  const importRef = useRef<HTMLInputElement>(null);
+
+  const handleExport = () => {
+    const blob = new Blob([JSON.stringify(customSchemas, null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'auto-shaper-templates.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = async (file: File) => {
+    try {
+      const parsed = JSON.parse(await file.text());
+      const list = Array.isArray(parsed) ? parsed : [parsed];
+      for (const raw of list) {
+        await saveSchema(schemaFromImport(raw));
+      }
+    } catch {
+      alert('JSONの読み込みに失敗しました。エクスポートしたファイルを選んでください。');
+    }
+  };
 
   if (draft) {
     return (
@@ -58,17 +87,40 @@ export function SchemaAdmin() {
     <div className="panel">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <h2 style={{ margin: 0 }}>テンプレート管理</h2>
+        <span className={`storage-badge ${storageMode === 'api' ? 'api' : ''}`}>
+          <span className="dot" />
+          {storageMode === 'api'
+            ? '保存先: SQLite（サーバー同期）'
+            : storageMode === 'local'
+              ? '保存先: このブラウザ（localStorage）'
+              : '保存先を確認中…'}
+        </span>
         <div className="spacer" />
-        <button
-          className="primary"
-          onClick={() => setDraft(createEmptySchema())}
-        >
+        <button onClick={handleExport} disabled={customSchemas.length === 0}>
+          エクスポート
+        </button>
+        <button onClick={() => importRef.current?.click()}>インポート</button>
+        <input
+          ref={importRef}
+          type="file"
+          accept="application/json,.json"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void handleImport(f);
+            e.target.value = '';
+          }}
+        />
+        <button className="primary" onClick={() => setDraft(createEmptySchema())}>
           + 新規テンプレートを作成
         </button>
       </div>
       <p className="subtitle" style={{ marginTop: 8 }}>
-        整形後（インポート先）のフォーマットをここで管理します。作成したテンプレートは
-        このブラウザに保存され、整形フローの「インポート先選択」で選べます。
+        整形後（インポート先）のフォーマットをここで管理します。
+        {storageMode === 'api'
+          ? 'テンプレートはSQLiteサーバーに保存され、他の端末やチームでも共有できます。'
+          : 'テンプレートはこのブラウザに保存されます（サーバーを起動すると自動でSQLite保存に切り替わります）。'}
+        整形フローの「インポート先選択」で選べます。
       </p>
 
       <h3>あなたのテンプレート</h3>

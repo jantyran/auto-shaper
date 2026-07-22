@@ -29,10 +29,30 @@ CRM(Salesforce / HubSpot 等)への取り込み前に発生する、代理店リ
 
 ```bash
 npm install
-npm run dev        # 開発サーバー
+npm run dev        # フロント開発サーバー(Vite)
+npm run server     # テンプレート保存用 SQLite API (任意・別ターミナル)
 npm run build      # 本番ビルド(型チェック含む)
-npm run test       # 変換エンジン/推論のユニットテスト
+npm run test       # 変換エンジン/推論/検証のユニットテスト
 ```
+
+`npm run server` を起動しておくと、テンプレートは SQLite に保存され複数端末・
+チームで共有できます。起動しない場合はフロントが自動的に localStorage 保存へ
+フォールバックするため、`npm run dev` だけでもそのまま使えます。
+
+## テンプレートの保存(SQLite / localStorage)
+
+インポート先テンプレートは「ローカルファースト + サーバー同期」で永続化します。
+
+| 状態 | 保存先 | 用途 |
+| --- | --- | --- |
+| `npm run server` 起動あり | **SQLite**(`server/data/auto-shaper.db`) | 複数端末・チーム共有、キャッシュ削除に強い |
+| サーバーなし | ブラウザの **localStorage** | ゼロ設定・オフラインで即利用 |
+
+- API: `GET /api/health`・`GET /api/schemas`・`PUT /api/schemas/:id`・`DELETE /api/schemas/:id`
+- フロントは `src/core/schemaRepository.ts` で両者を抽象化し、起動時に保存先を自動判定します。
+- 保存されるのは**テンプレート定義(列名・型・別名)のみ**。顧客の実データは
+  サーバーに送られず、ブラウザ内から出ません(アプリの中核方針を維持)。
+- 管理ページから全テンプレートを **JSON でエクスポート/インポート**できます。
 
 ## アーキテクチャ
 
@@ -44,7 +64,9 @@ npm run test       # 変換エンジン/推論のユニットテスト
 | 正規化 | `src/core/normalize.ts` | 全角半角/会社名略記/電話番号などのクレンジング |
 | 変換エンジン | `src/core/transformEngine.ts` | JSON ルールを解釈して行を変換(純粋関数) |
 | 変換(全件) | `src/worker/transform.worker.ts` | Web Worker で数万行を UI を止めずに処理 |
-| 出力 | `src/core/exportCsv.ts` | UTF-8 BOM 付き CSV をブラウザから直接ダウンロード |
+| 検証 | `src/core/validate.ts` | 必須欠落・メール/電話の形式不正をインポート前に検出 |
+| 出力 | `src/core/exportCsv.ts` | UTF-8 BOM 付き CSV / Excel(.xlsx) をブラウザから直接ダウンロード |
+| テンプレート保存 | `src/core/schemaRepository.ts`, `server/` | SQLite API + localStorage フォールバック |
 
 ### LLM への差し替え
 

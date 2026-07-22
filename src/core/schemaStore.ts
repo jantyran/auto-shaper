@@ -83,6 +83,12 @@ export function createEmptyField(): TargetField {
   return { key: '', label: '', required: false, type: 'string', aliases: [] };
 }
 
+/** インポートしたJSONを、新しいIDを振った安全なテンプレートに変換する */
+export function schemaFromImport(raw: unknown): TargetSchema {
+  const s = sanitizeSchema((raw ?? {}) as TargetSchema);
+  return { ...s, id: genId() };
+}
+
 /** プリセットを複製して編集可能なユーザーテンプレートにする */
 export function duplicateSchema(src: TargetSchema): TargetSchema {
   return {

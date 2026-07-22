@@ -491,6 +491,131 @@ td.empty-cell {
   border: 1px solid var(--accent);
 }
 
+.alert.ok {
+  background: rgba(62, 207, 142, 0.12);
+  border: 1px solid var(--green);
+  color: #b6f0d6;
+}
+
+/* Validation panel */
+.validation {
+  border: 1px solid var(--amber);
+  background: rgba(240, 180, 41, 0.08);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 14px 0;
+}
+
+.validation-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.v-title {
+  font-weight: 700;
+  color: var(--amber);
+}
+
+.v-sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.v-counts {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin: 8px 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.v-count b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.v-list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+  color: var(--text);
+}
+
+.v-list li {
+  margin: 2px 0;
+}
+
+.v-row {
+  font-family: var(--mono, monospace);
+  color: var(--amber);
+  margin-right: 4px;
+}
+
+.v-more {
+  color: var(--muted);
+  list-style: none;
+  margin-left: -18px;
+}
+
+.preview-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 18px 0 9px;
+  flex-wrap: wrap;
+}
+
+.toggle {
+  font-size: 12.5px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+td.invalid {
+  background: rgba(240, 180, 41, 0.16);
+  color: var(--amber);
+}
+
+td.rownum {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Storage mode badge */
+.storage-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  padding: 3px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.storage-badge .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.storage-badge.api {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.storage-badge.api .dot {
+  background: var(--green);
+}
+
 .security-note {
   font-size: 12px;
   color: var(--muted);

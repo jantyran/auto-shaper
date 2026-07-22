@@ -14,12 +14,14 @@ import { parseWorkbook } from '../core/parse';
 import { buildSuggestContext } from '../core/anonymize';
 import { heuristicSuggester } from '../core/inference/heuristic';
 import { schemaFromUploadedHeader } from '../core/targetSchemas';
+import { getAllSchemas, loadCustomSchemas } from '../core/schemaStore';
 import {
-  deleteCustomSchema,
-  findSchemaById,
-  loadCustomSchemas,
-  upsertCustomSchema,
-} from '../core/schemaStore';
+  detectStorageMode,
+  listSchemas,
+  persistSchema,
+  removeSchemaFromRepo,
+  type StorageMode,
+} from '../core/schemaRepository';
 
 export type Step = 'source' | 'target' | 'mapping' | 'result';
 export type View = 'app' | 'admin';
@@ -33,6 +35,8 @@ interface AppState {
   transformedRows?: Record<string, string>[];
   /** ユーザーが管理ページで作成したテンプレート */
   customSchemas: TargetSchema[];
+  /** テンプレートの保存先(SQLite API / ブラウザのlocalStorage) */
+  storageMode: StorageMode | 'unknown';
   isSuggesting: boolean;
   isTransforming: boolean;
   transformProgress: number; // 0-1
@@ -41,6 +45,9 @@ interface AppState {
   // navigation
   setView: (view: View) => void;
   goTo: (step: Step) => void;
+
+  /** 起動時: 保存先を判定してテンプレート一覧を読み込む */
+  refreshSchemas: () => Promise<void>;
 
   // formatting process
   loadSource: (fileName: string, data: ArrayBuffer) => void;
@@ -55,20 +62,30 @@ interface AppState {
   reset: () => void;
 
   // template management (admin)
-  saveSchema: (schema: TargetSchema) => void;
-  removeSchema: (id: string) => void;
+  saveSchema: (schema: TargetSchema) => Promise<void>;
+  removeSchema: (id: string) => Promise<void>;
 }
 
 export const useStore = create<AppState>((set, get) => ({
   view: 'app',
   step: 'source',
+  // まず localStorage から即時に読み込み(初回描画を待たせない)、後で refreshSchemas で同期
   customSchemas: loadCustomSchemas(),
+  storageMode: 'unknown',
   isSuggesting: false,
   isTransforming: false,
   transformProgress: 0,
 
   setView: (view) => set({ view, error: undefined }),
   goTo: (step) => set({ step }),
+
+  refreshSchemas: async () => {
+    const [mode, customSchemas] = await Promise.all([
+      detectStorageMode(),
+      listSchemas(),
+    ]);
+    set({ storageMode: mode, customSchemas });
+  },
 
   loadSource: (fileName, data) => {
     try {
@@ -84,7 +101,7 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   selectSchema: async (id) => {
-    const target = findSchemaById(id, get().customSchemas);
+    const target = getAllSchemas(get().customSchemas).find((s) => s.id === id);
     if (!target) {
       set({ error: 'テンプレートが見つかりませんでした。' });
       return;
@@ -135,13 +152,13 @@ export const useStore = create<AppState>((set, get) => ({
       error: undefined,
     }),
 
-  saveSchema: (schema) => {
-    const customSchemas = upsertCustomSchema(schema);
+  saveSchema: async (schema) => {
+    const customSchemas = await persistSchema(schema);
     set({ customSchemas });
   },
 
-  removeSchema: (id) => {
-    const customSchemas = deleteCustomSchema(id);
+  removeSchema: async (id) => {
+    const customSchemas = await removeSchemaFromRepo(id);
     set({ customSchemas });
   },
 }));

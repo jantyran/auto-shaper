@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useStore, type Step } from './state/store';
 import { FileDrop } from './components/FileDrop';
 import { TargetSelector } from './components/TargetSelector';
@@ -17,6 +18,12 @@ export function App() {
   const setView = useStore((s) => s.setView);
   const step = useStore((s) => s.step);
   const error = useStore((s) => s.error);
+  const refreshSchemas = useStore((s) => s.refreshSchemas);
+
+  // 起動時に保存先(SQLite API / localStorage)を判定してテンプレートを同期
+  useEffect(() => {
+    void refreshSchemas();
+  }, [refreshSchemas]);
 
   return (
     <div className="app">

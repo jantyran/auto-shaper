@@ -3,6 +3,7 @@ import { FileDrop } from './components/FileDrop';
 import { TargetSelector } from './components/TargetSelector';
 import { MappingEditor } from './components/MappingEditor';
 import { ResultView } from './components/ResultView';
+import { SchemaAdmin } from './components/SchemaAdmin';
 
 const STEPS: { id: Step; label: string }[] = [
   { id: 'source', label: 'ソース投入' },
@@ -12,6 +13,8 @@ const STEPS: { id: Step; label: string }[] = [
 ];
 
 export function App() {
+  const view = useStore((s) => s.view);
+  const setView = useStore((s) => s.setView);
   const step = useStore((s) => s.step);
   const error = useStore((s) => s.error);
 
@@ -20,19 +23,40 @@ export function App() {
       <div className="app-header">
         <h1>Auto Shaper</h1>
         <span className="tag">ブラウザ完結・データは外部に出ません</span>
+        <nav className="topnav">
+          <button
+            className={view === 'app' ? 'navbtn active' : 'navbtn'}
+            onClick={() => setView('app')}
+          >
+            整形
+          </button>
+          <button
+            className={view === 'admin' ? 'navbtn active' : 'navbtn'}
+            onClick={() => setView('admin')}
+          >
+            テンプレート管理
+          </button>
+        </nav>
       </div>
       <p className="subtitle">
-        雑多なExcel/CSVを、AIがカラムを読み取ってインポート用フォーマットへ自動整形します。
+        {view === 'app'
+          ? '雑多なExcel/CSVを、AIがカラムを読み取ってインポート用フォーマットへ自動整形します。'
+          : 'インポート先（整形後）のフォーマットを自由に追加・編集できます。'}
       </p>
-
-      <Stepper current={step} />
 
       {error && <div className="alert error">{error}</div>}
 
-      {step === 'source' && <SourceStep />}
-      {step === 'target' && <TargetSelector />}
-      {step === 'mapping' && <MappingStep />}
-      {step === 'result' && <ResultStep />}
+      {view === 'admin' ? (
+        <SchemaAdmin />
+      ) : (
+        <>
+          <Stepper current={step} />
+          {step === 'source' && <SourceStep />}
+          {step === 'target' && <TargetSelector />}
+          {step === 'mapping' && <MappingStep />}
+          {step === 'result' && <ResultStep />}
+        </>
+      )}
     </div>
   );
 }

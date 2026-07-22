@@ -59,8 +59,8 @@ export interface TargetField {
 export interface TargetSchema {
   id: string;
   name: string;
-  /** 出所: 内蔵プリセット or ユーザーアップロード */
-  origin: 'preset' | 'uploaded';
+  /** 出所: 内蔵プリセット / アップロード / ユーザーが管理ページで作成 */
+  origin: 'preset' | 'uploaded' | 'custom';
   fields: TargetField[];
 }
 

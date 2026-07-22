@@ -1,6 +1,7 @@
 /**
  * アプリ全体の状態管理(zustand)。
- * ステップ: 1.ソース投入 → 2.ターゲット選択 → 3.マッピング確認/修正 → 4.実行/出力
+ * ビュー: 'app'(整形プロセス) / 'admin'(テンプレート管理)。
+ * 整形プロセスのステップ: 1.ソース投入 → 2.ターゲット選択 → 3.マッピング確認/修正 → 4.実行/出力
  */
 import { create } from 'zustand';
 import type {
@@ -12,27 +13,38 @@ import type {
 import { parseWorkbook } from '../core/parse';
 import { buildSuggestContext } from '../core/anonymize';
 import { heuristicSuggester } from '../core/inference/heuristic';
+import { schemaFromUploadedHeader } from '../core/targetSchemas';
 import {
-  getPresetById,
-  schemaFromUploadedHeader,
-} from '../core/targetSchemas';
+  deleteCustomSchema,
+  findSchemaById,
+  loadCustomSchemas,
+  upsertCustomSchema,
+} from '../core/schemaStore';
 
 export type Step = 'source' | 'target' | 'mapping' | 'result';
+export type View = 'app' | 'admin';
 
 interface AppState {
+  view: View;
   step: Step;
   source?: SourceDataset;
   target?: TargetSchema;
   mapping?: MappingConfig;
   transformedRows?: Record<string, string>[];
+  /** ユーザーが管理ページで作成したテンプレート */
+  customSchemas: TargetSchema[];
   isSuggesting: boolean;
   isTransforming: boolean;
   transformProgress: number; // 0-1
   error?: string;
 
-  // actions
+  // navigation
+  setView: (view: View) => void;
+  goTo: (step: Step) => void;
+
+  // formatting process
   loadSource: (fileName: string, data: ArrayBuffer) => void;
-  selectPreset: (id: string) => Promise<void>;
+  selectSchema: (id: string) => Promise<void>;
   loadUploadedTarget: (fileName: string, data: ArrayBuffer) => Promise<void>;
   updateFieldMapping: (targetKey: string, mapping: FieldMapping) => void;
   setTransformState: (
@@ -40,15 +52,23 @@ interface AppState {
       Pick<AppState, 'isTransforming' | 'transformProgress' | 'transformedRows' | 'step'>
     >,
   ) => void;
-  goTo: (step: Step) => void;
   reset: () => void;
+
+  // template management (admin)
+  saveSchema: (schema: TargetSchema) => void;
+  removeSchema: (id: string) => void;
 }
 
 export const useStore = create<AppState>((set, get) => ({
+  view: 'app',
   step: 'source',
+  customSchemas: loadCustomSchemas(),
   isSuggesting: false,
   isTransforming: false,
   transformProgress: 0,
+
+  setView: (view) => set({ view, error: undefined }),
+  goTo: (step) => set({ step }),
 
   loadSource: (fileName, data) => {
     try {
@@ -63,9 +83,16 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  selectPreset: async (id) => {
-    const target = getPresetById(id);
-    if (!target) return;
+  selectSchema: async (id) => {
+    const target = findSchemaById(id, get().customSchemas);
+    if (!target) {
+      set({ error: 'テンプレートが見つかりませんでした。' });
+      return;
+    }
+    if (target.fields.length === 0) {
+      set({ error: 'このテンプレートには項目がありません。管理ページで項目を追加してください。' });
+      return;
+    }
     await runSuggestion(set, get, target);
   },
 
@@ -95,8 +122,6 @@ export const useStore = create<AppState>((set, get) => ({
 
   setTransformState: (partial) => set(partial),
 
-  goTo: (step) => set({ step }),
-
   reset: () =>
     set({
       step: 'source',
@@ -109,6 +134,16 @@ export const useStore = create<AppState>((set, get) => ({
       isSuggesting: false,
       error: undefined,
     }),
+
+  saveSchema: (schema) => {
+    const customSchemas = upsertCustomSchema(schema);
+    set({ customSchemas });
+  },
+
+  removeSchema: (id) => {
+    const customSchemas = deleteCustomSchema(id);
+    set({ customSchemas });
+  },
 }));
 
 /** ターゲット確定 → 匿名化 → サジェスト実行 → マッピング画面へ */

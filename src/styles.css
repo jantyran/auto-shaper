@@ -63,6 +63,86 @@ a {
   font-size: 13px;
 }
 
+/* Top navigation (整形 / テンプレート管理) */
+.topnav {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.navbtn {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.navbtn:hover {
+  border-color: transparent;
+  color: var(--text);
+}
+
+.navbtn.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* Admin: field editor grid */
+.admin-head,
+.admin-row {
+  display: grid;
+  grid-template-columns: 1.2fr 1.2fr 0.9fr 1.8fr 0.5fr 0.9fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.admin-head {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0 2px 6px;
+}
+
+.admin-row {
+  margin-bottom: 8px;
+}
+
+.admin-row input[type='text'],
+.admin-row select {
+  width: 100%;
+}
+
+.admin-actions {
+  display: flex;
+  gap: 4px;
+}
+
+button.icon {
+  padding: 4px 8px;
+  line-height: 1;
+  background: var(--panel-2);
+}
+
+@media (max-width: 720px) {
+  .admin-head {
+    display: none;
+  }
+  .admin-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+}
+
 /* Stepper */
 .stepper {
   display: flex;

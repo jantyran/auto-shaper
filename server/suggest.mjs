@@ -30,6 +30,11 @@ const SYSTEM_PROMPT = `あなたはCRMインポート用データのマッピン
 Transform は次のいずれか:
 - {"kind":"direct","source":"<列名>"}                     … 1列をそのまま
 - {"kind":"concat","sources":["<列名>",...],"separator":" "} … 複数列を結合(姓+名→氏名 など)
+    改行区切りにするなら separator に "\\n"。
+    「項目名: 値」形式でまとめたい場合は "withLabels":true, "labelSeparator":": " を付ける
+    (例: 役職と獲得経路を備考へ → "役職: 部長\\n獲得経路: 展示会")。
+    項目名を別名にしたい場合は "labels":{"<列名>":"<表示名>"}。
+    CRM側に無い情報や、余った複数列を備考/メモにまとめる用途に使う。
 - {"kind":"split","source":"<列名>","delimiter":" ","index":0} … 1列を分割(氏名→姓/名 など)
 - {"kind":"constant","value":"<固定値>"}                   … 固定値
 - {"kind":"conditional","source":"<列名>","cases":[{"op":"contains|equals|startsWith|endsWith|isEmpty|notEmpty","value":"<比較値>","then":"<出力>"}],"fallback":"<既定>"}

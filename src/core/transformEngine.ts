@@ -48,11 +48,21 @@ export function evalTransform(row: Row, transform: Transform): string {
     case 'direct':
       return get(row, transform.source);
 
-    case 'concat':
-      return transform.sources
-        .map((s) => get(row, s).trim())
-        .filter((s) => s !== '')
-        .join(transform.separator);
+    case 'concat': {
+      const labelSep = transform.labelSeparator ?? ': ';
+      const parts: string[] = [];
+      for (const s of transform.sources) {
+        const v = get(row, s).trim();
+        if (v === '') continue; // 空の値はまとめない
+        if (transform.withLabels) {
+          const label = transform.labels?.[s] ?? s;
+          parts.push(`${label}${labelSep}${v}`);
+        } else {
+          parts.push(v);
+        }
+      }
+      return parts.join(transform.separator);
+    }
 
     case 'split': {
       const value = get(row, transform.source);

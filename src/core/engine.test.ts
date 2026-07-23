@@ -46,6 +46,40 @@ describe('transformEngine', () => {
     ).toBe('山田太郎');
   });
 
+  it('concat: 改行区切りで結合する', () => {
+    expect(
+      evalTransform({ 役職: '部長', 経路: '展示会' }, {
+        kind: 'concat',
+        sources: ['役職', '経路'],
+        separator: '\n',
+      }),
+    ).toBe('部長\n展示会');
+  });
+
+  it('concat: 「項目名: 値」のラベル付き結合(空はスキップ)', () => {
+    expect(
+      evalTransform({ 役職: '部長', 経路: '', 予算: '100万' }, {
+        kind: 'concat',
+        sources: ['役職', '経路', '予算'],
+        separator: '\n',
+        withLabels: true,
+        labelSeparator: ': ',
+      }),
+    ).toBe('役職: 部長\n予算: 100万');
+  });
+
+  it('concat: ラベルを別名に上書きできる', () => {
+    expect(
+      evalTransform({ 経路: '展示会' }, {
+        kind: 'concat',
+        sources: ['経路'],
+        separator: '\n',
+        withLabels: true,
+        labels: { 経路: '獲得経路' },
+      }),
+    ).toBe('獲得経路: 展示会');
+  });
+
   it('split: 1列を分割して取り出す', () => {
     expect(
       evalTransform(row, { kind: 'split', source: '氏名', delimiter: ' ', index: 1 }),
@@ -132,6 +166,31 @@ describe('heuristicSuggester', () => {
 
     const email = mapping.fields.find((f) => f.targetKey === 'Email');
     expect(email?.transform).toEqual({ kind: 'direct', source: 'メールアドレス' });
+  });
+
+  it('備考フィールドに未割り当ての列を「項目名:値」で集約する', async () => {
+    const columns: SourceColumn[] = [
+      { name: '会社名', inferredType: 'string', sampleValues: ['A社'], fillRate: 1 },
+      { name: '予算感', inferredType: 'string', sampleValues: ['100万'], fillRate: 1 },
+      { name: '検討時期', inferredType: 'string', sampleValues: ['Q3'], fillRate: 1 },
+    ];
+    const target: TargetSchema = {
+      id: 'crm',
+      name: 'CRM',
+      origin: 'preset',
+      fields: [
+        { key: 'Company', label: '会社名', required: true, type: 'string', aliases: ['会社名'] },
+        { key: 'Notes', label: '備考', required: false, type: 'string', aliases: ['備考', 'notes'] },
+      ],
+    };
+    const ctx = buildSuggestContext(columns, target);
+    const mapping = await heuristicSuggester.suggest(ctx);
+    const notes = mapping.fields.find((f) => f.targetKey === 'Notes');
+    expect(notes?.transform.kind).toBe('concat');
+    if (notes?.transform.kind === 'concat') {
+      expect(notes.transform.withLabels).toBe(true);
+      expect(notes.transform.sources).toEqual(['予算感', '検討時期']); // 会社名は使用済みなので除外
+    }
   });
 
   it('氏名の結合列しか無いとき姓/名へ分割を提案する', async () => {

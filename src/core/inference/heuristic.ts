@@ -257,8 +257,39 @@ export class HeuristicSuggester implements MappingSuggester {
       }
     }
 
+    // ── 備考/メモ系フィールドに、どこにも割り当てられなかった列を「項目名: 値」で集約 ──
+    const leftover = ctx.columns
+      .map((c) => c.name)
+      .filter((name) => !usedColumns.has(name));
+    if (leftover.length > 0) {
+      for (const mapping of fields) {
+        const field = ctx.target.fields.find((f) => f.key === mapping.targetKey);
+        if (!field) continue;
+        if (mapping.transform.kind !== 'empty') continue;
+        if (!isNotesField(field.key) && !isNotesField(field.label)) continue;
+        mapping.transform = {
+          kind: 'concat',
+          sources: [...leftover],
+          separator: '\n',
+          withLabels: true,
+          labelSeparator: ': ',
+        };
+        mapping.normalizers = [];
+        mapping.confidence = 0.5;
+        mapping.rationale = `未割り当ての ${leftover.length} 列を「項目名: 値」で集約`;
+        break; // 最初の備考系フィールドにのみ集約する
+      }
+    }
+
     return { targetSchemaId: ctx.target.id, fields };
   }
+}
+
+/** 備考・メモ・自由記述のようなフィールドか */
+function isNotesField(keyOrLabel: string): boolean {
+  return /備考|摘要|メモ|コメント|自由|補足|notes?|remarks?|memo|comment|description|others?|その他/i.test(
+    keyOrLabel,
+  );
 }
 
 export const heuristicSuggester = new HeuristicSuggester();

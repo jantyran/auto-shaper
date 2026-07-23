@@ -300,7 +300,7 @@ function ResultPreview({
                     className={issueCells.has(`${i}:${k}`) ? 'invalid' : ''}
                     title={r[k]}
                   >
-                    {r[k] || '—'}
+                    {r[k] ? r[k].replace(/\n/g, ' ⏎ ') : '—'}
                   </td>
                 ))}
               </tr>

@@ -274,6 +274,15 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
   );
 }
 
+/** 区切りのプリセット(実文字への対応) */
+const SEP_PRESETS: { label: string; value: string }[] = [
+  { label: 'スペース', value: ' ' },
+  { label: 'カンマ', value: ', ' },
+  { label: 'スラッシュ', value: ' / ' },
+  { label: '改行', value: '\n' },
+  { label: '（なし）', value: '' },
+];
+
 function ConcatEditor({
   transform,
   columnNames,
@@ -290,10 +299,21 @@ function ConcatEditor({
       : [...transform.sources, col];
     onChange({ ...transform, sources });
   };
+
+  const preset = SEP_PRESETS.find((p) => p.value === transform.separator);
+  const isCustom = !preset;
+
+  const setLabel = (col: string, value: string) => {
+    const labels = { ...(transform.labels ?? {}) };
+    if (value.trim() === '' || value === col) delete labels[col];
+    else labels[col] = value;
+    onChange({ ...transform, labels });
+  };
+
   return (
     <>
       <div className="field-label">
-        結合する列（順に選択）
+        まとめる列（クリックした順に結合）
         <div className="norm-chips">
           {columnNames.map((c) => (
             <span
@@ -308,15 +328,77 @@ function ConcatEditor({
           ))}
         </div>
       </div>
+
       <label className="field-label">
         区切り
-        <input
-          type="text"
-          style={{ width: 60 }}
-          value={transform.separator}
-          onChange={(e) => onChange({ ...transform, separator: e.target.value })}
-        />
+        <select
+          value={isCustom ? '__custom__' : transform.separator}
+          onChange={(e) => {
+            const v = e.target.value;
+            onChange({ ...transform, separator: v === '__custom__' ? ' / ' : v });
+          }}
+        >
+          {SEP_PRESETS.map((p) => (
+            <option key={p.label} value={p.value}>
+              {p.label}
+            </option>
+          ))}
+          <option value="__custom__">カスタム…</option>
+        </select>
       </label>
+      {isCustom && (
+        <label className="field-label">
+          区切り文字
+          <input
+            type="text"
+            style={{ width: 70 }}
+            value={transform.separator}
+            onChange={(e) => onChange({ ...transform, separator: e.target.value })}
+          />
+        </label>
+      )}
+
+      <label className="field-label" style={{ justifyContent: 'flex-end' }}>
+        <span
+          className={`chip${transform.withLabels ? ' on' : ''}`}
+          onClick={() =>
+            onChange({
+              ...transform,
+              withLabels: !transform.withLabels,
+              labelSeparator: transform.labelSeparator ?? ': ',
+            })
+          }
+        >
+          項目名を付ける（例: 役職: 部長）
+        </span>
+      </label>
+
+      {transform.withLabels && (
+        <div className="field-label" style={{ width: '100%' }}>
+          項目名の表示（未入力なら元の列名を使用）
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+            <span style={{ fontSize: 11, color: 'var(--muted)' }}>項目名と値の区切り:</span>
+            <input
+              type="text"
+              style={{ width: 60 }}
+              value={transform.labelSeparator ?? ': '}
+              onChange={(e) => onChange({ ...transform, labelSeparator: e.target.value })}
+            />
+          </div>
+          {transform.sources.map((c) => (
+            <div key={c} style={{ display: 'flex', gap: 6, marginBottom: 4, alignItems: 'center' }}>
+              <span style={{ minWidth: 90, fontSize: 12, color: 'var(--muted)' }}>{c}</span>
+              <span>→</span>
+              <input
+                type="text"
+                placeholder={c}
+                value={transform.labels?.[c] ?? ''}
+                onChange={(e) => setLabel(c, e.target.value)}
+              />
+            </div>
+          ))}
+        </div>
+      )}
     </>
   );
 }
@@ -442,7 +524,7 @@ function PreviewTable() {
                     }`}
                     title={cell.out}
                   >
-                    {cell.empty ? '—' : cell.out}
+                    {cell.empty ? '—' : cell.out.replace(/\n/g, ' ⏎ ')}
                   </td>
                 ))}
               </tr>

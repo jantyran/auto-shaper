@@ -72,8 +72,25 @@ export interface TargetSchema {
 export type Transform =
   /** 1つのソース列をそのまま使う */
   | { kind: 'direct'; source: string }
-  /** 複数のソース列を区切り文字で結合する(姓+名→氏名 など) */
-  | { kind: 'concat'; sources: string[]; separator: string }
+  /**
+   * 複数のソース列を1つの項目にまとめる。
+   *  - 単純結合(姓+名→氏名)
+   *  - 改行区切り(separator に "\n")
+   *  - 「項目名: 値」のラベル付き結合(withLabels)
+   * CRM側に無い情報を備考等へまとめる用途にも使える。
+   */
+  | {
+      kind: 'concat';
+      sources: string[];
+      /** 各値の区切り(改行 "\n" も可) */
+      separator: string;
+      /** 各値の前に元の項目名を付ける(例: "役職: 部長") */
+      withLabels?: boolean;
+      /** 項目名と値の区切り(既定 ": ")。withLabels 時のみ有効 */
+      labelSeparator?: string;
+      /** 項目名の表示ラベル上書き(キー=ソース列名)。未指定なら列名をそのまま使う */
+      labels?: Record<string, string>;
+    }
   /** 1つのソース列を区切りで分割し、指定インデックスを使う(氏名→姓 など) */
   | { kind: 'split'; source: string; delimiter: string; index: number }
   /** 全行に同じ固定値を入れる */

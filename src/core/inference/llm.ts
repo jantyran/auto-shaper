@@ -110,9 +110,23 @@ function sanitizeTransform(t: any, columns: Set<string>): Transform {
       const sources = Array.isArray(t.sources)
         ? t.sources.filter((s: unknown) => columns.has(s as string)).map(String)
         : [];
-      return sources.length
-        ? { kind: 'concat', sources, separator: String(t.separator ?? ' ') }
-        : { kind: 'empty' };
+      if (!sources.length) return { kind: 'empty' };
+      const out: Transform = {
+        kind: 'concat',
+        sources,
+        separator: String(t.separator ?? ' '),
+      };
+      if (t.withLabels) {
+        out.withLabels = true;
+        out.labelSeparator = String(t.labelSeparator ?? ': ');
+        if (t.labels && typeof t.labels === 'object') {
+          const labels: Record<string, string> = {};
+          for (const s of sources)
+            if (typeof t.labels[s] === 'string') labels[s] = t.labels[s];
+          if (Object.keys(labels).length) out.labels = labels;
+        }
+      }
+      return out;
     }
     case 'split':
       return columns.has(t.source)

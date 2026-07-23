@@ -260,13 +260,15 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
       {t.kind !== 'empty' && (
         <div className="norm-chips">
           {ALL_NORMALIZERS.map((n) => (
-            <span
+            <button
+              type="button"
               key={n}
               className={`chip${mapping.normalizers.includes(n) ? ' on' : ''}`}
+              aria-pressed={mapping.normalizers.includes(n)}
               onClick={() => toggleNormalizer(n)}
             >
               {NORMALIZER_LABELS[n]}
-            </span>
+            </button>
           ))}
         </div>
       )}
@@ -316,15 +318,17 @@ function ConcatEditor({
         まとめる列（クリックした順に結合）
         <div className="norm-chips">
           {columnNames.map((c) => (
-            <span
+            <button
+              type="button"
               key={c}
               className={`chip${transform.sources.includes(c) ? ' on' : ''}`}
+              aria-pressed={transform.sources.includes(c)}
               onClick={() => toggle(c)}
             >
               {transform.sources.includes(c)
                 ? `${transform.sources.indexOf(c) + 1}. ${c}`
                 : c}
-            </span>
+            </button>
           ))}
         </div>
       </div>
@@ -359,8 +363,10 @@ function ConcatEditor({
       )}
 
       <label className="field-label" style={{ justifyContent: 'flex-end' }}>
-        <span
+        <button
+          type="button"
           className={`chip${transform.withLabels ? ' on' : ''}`}
+          aria-pressed={!!transform.withLabels}
           onClick={() =>
             onChange({
               ...transform,
@@ -370,7 +376,7 @@ function ConcatEditor({
           }
         >
           項目名を付ける（例: 役職: 部長）
-        </span>
+        </button>
       </label>
 
       {transform.withLabels && (

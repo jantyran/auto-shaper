@@ -21,12 +21,14 @@ export function App() {
   const error = useStore((s) => s.error);
   const refreshSchemas = useStore((s) => s.refreshSchemas);
   const refreshRecipes = useStore((s) => s.refreshRecipes);
+  const refreshLearning = useStore((s) => s.refreshLearning);
 
-  // 起動時に保存先を判定してテンプレート/レシピを同期
+  // 起動時に保存先を判定してテンプレート/レシピ/学習辞書を同期
   useEffect(() => {
     void refreshSchemas();
     void refreshRecipes();
-  }, [refreshSchemas, refreshRecipes]);
+    refreshLearning();
+  }, [refreshSchemas, refreshRecipes, refreshLearning]);
 
   return (
     <div className="app">

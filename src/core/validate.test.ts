@@ -34,4 +34,34 @@ describe('validateRows', () => {
     expect(r.issues.length).toBe(0);
     expect(r.invalidRows.size).toBe(0);
   });
+
+  it('数値・URL・選択肢の型を検証する', () => {
+    const t: TargetSchema = {
+      id: 't2',
+      name: 'T2',
+      origin: 'preset',
+      fields: [
+        { key: 'Emp', label: '従業員数', required: false, type: 'number', aliases: [] },
+        { key: 'Web', label: 'サイト', required: false, type: 'url', aliases: [] },
+        {
+          key: 'Rank',
+          label: 'ランク',
+          required: false,
+          type: 'string',
+          aliases: [],
+          options: ['A', 'B', 'C'],
+        },
+      ],
+    };
+    const rows = [
+      { Emp: '1,200', Web: 'https://a.example', Rank: 'A' }, // OK (カンマ数値・URL・選択肢内)
+      { Emp: '約100名', Web: 'example.com', Rank: 'Z' }, // 3件の問題
+    ];
+    const r = validateRows(rows, t);
+    expect(r.counts.number).toBe(1);
+    expect(r.counts.url).toBe(1);
+    expect(r.counts.option).toBe(1);
+    expect(r.invalidRows.has(0)).toBe(false);
+    expect(r.invalidRows.has(1)).toBe(true);
+  });
 });

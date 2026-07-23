@@ -24,7 +24,12 @@ import {
 } from '../core/schemaRepository';
 import { loadSettings, saveSettings, type Settings } from '../core/settings';
 import { llmSuggester } from '../core/inference/llm';
-import { loadLearned, recordAssociation } from '../core/learning';
+import {
+  clearLearned,
+  loadLearned,
+  recordAssociation,
+  type LearnedEntry,
+} from '../core/learning';
 import {
   createRecipe,
   deleteRecipe,
@@ -41,6 +46,8 @@ interface AppState {
   view: View;
   step: Step;
   source?: SourceDataset;
+  /** シート切替のためにアップロード生データを保持 */
+  sourceRaw?: { fileName: string; data: ArrayBuffer };
   target?: TargetSchema;
   mapping?: MappingConfig;
   transformedRows?: Record<string, string>[];
@@ -52,6 +59,8 @@ interface AppState {
   settings: Settings;
   /** 保存済みマッピングレシピ */
   recipes: Recipe[];
+  /** 学習辞書のエントリ(件数表示・管理用) */
+  learnedEntries: LearnedEntry[];
   isSuggesting: boolean;
   isTransforming: boolean;
   transformProgress: number; // 0-1
@@ -66,6 +75,7 @@ interface AppState {
 
   // formatting process
   loadSource: (fileName: string, data: ArrayBuffer) => void;
+  selectSheet: (sheetName: string) => void;
   selectSchema: (id: string) => Promise<void>;
   loadUploadedTarget: (fileName: string, data: ArrayBuffer) => Promise<void>;
   updateFieldMapping: (targetKey: string, mapping: FieldMapping) => void;
@@ -87,7 +97,12 @@ interface AppState {
   refreshRecipes: () => Promise<void>;
   saveCurrentAsRecipe: (name: string) => Promise<void>;
   removeRecipe: (id: string) => Promise<void>;
+  renameRecipe: (id: string, name: string) => Promise<void>;
   applyRecipe: (recipe: Recipe) => void;
+
+  // learning dictionary
+  refreshLearning: () => void;
+  clearLearning: () => void;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -98,6 +113,7 @@ export const useStore = create<AppState>((set, get) => ({
   storageMode: 'unknown',
   settings: loadSettings(),
   recipes: [],
+  learnedEntries: [],
   isSuggesting: false,
   isTransforming: false,
   transformProgress: 0,
@@ -113,16 +129,35 @@ export const useStore = create<AppState>((set, get) => ({
     set({ storageMode: mode, customSchemas });
   },
 
-  loadSource: (fileName, data) => {
+  loadSource: async (fileName, data) => {
     try {
-      const source = parseWorkbook(fileName, data);
+      const source = await parseWorkbook(fileName, data);
       if (source.columns.length === 0) {
         set({ error: 'カラムを検出できませんでした。ヘッダー行があるか確認してください。' });
         return;
       }
-      set({ source, step: 'target', error: undefined });
+      set({ source, sourceRaw: { fileName, data }, step: 'target', error: undefined });
     } catch (e) {
       set({ error: e instanceof Error ? e.message : 'ファイルの読み込みに失敗しました。' });
+    }
+  },
+
+  selectSheet: async (sheetName) => {
+    const raw = get().sourceRaw;
+    if (!raw) return;
+    try {
+      const source = await parseWorkbook(raw.fileName, raw.data, sheetName);
+      // シートが変わると列構成も変わるため、下流(ターゲット/マッピング/結果)をリセット
+      set({
+        source,
+        target: undefined,
+        mapping: undefined,
+        transformedRows: undefined,
+        step: 'target',
+        error: undefined,
+      });
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : 'シートの読み込みに失敗しました。' });
     }
   },
 
@@ -141,7 +176,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   loadUploadedTarget: async (fileName, data) => {
     try {
-      const parsed = parseWorkbook(fileName, data);
+      const parsed = await parseWorkbook(fileName, data);
       const target = schemaFromUploadedHeader(parsed);
       await runSuggestion(set, get, target);
     } catch (e) {
@@ -160,7 +195,8 @@ export const useStore = create<AppState>((set, get) => ({
       settings.features.learningDictionary &&
       mapping.transform.kind === 'direct'
     ) {
-      recordAssociation(mapping.transform.source, targetKey);
+      const learnedEntries = recordAssociation(mapping.transform.source, targetKey);
+      set({ learnedEntries });
     }
     // マッピングを変えたら既存の変換結果は無効化し、再実行させる
     set({
@@ -200,6 +236,13 @@ export const useStore = create<AppState>((set, get) => ({
     set({ settings });
   },
 
+  refreshLearning: () => set({ learnedEntries: loadLearned() }),
+
+  clearLearning: () => {
+    clearLearned();
+    set({ learnedEntries: [] });
+  },
+
   refreshRecipes: async () => {
     if (!get().settings.features.recipes) {
       set({ recipes: [] });
@@ -217,6 +260,13 @@ export const useStore = create<AppState>((set, get) => ({
 
   removeRecipe: async (id) => {
     set({ recipes: await deleteRecipe(id) });
+  },
+
+  renameRecipe: async (id, name) => {
+    const recipe = get().recipes.find((r) => r.id === id);
+    if (!recipe) return;
+    const recipes = await persistRecipe({ ...recipe, name, updatedAt: Date.now() });
+    set({ recipes });
   },
 
   applyRecipe: (recipe) => {

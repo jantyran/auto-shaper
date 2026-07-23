@@ -8,7 +8,7 @@ export function normalizeHeader(input: string): string {
   return input
     .normalize('NFKC') // 全角英数→半角、互換文字の正規化
     .toLowerCase()
-    .replace(/[\s_\-.・（）()【】\[\]「」『』:：/、,，。]/g, '')
+    .replace(/[\s_\-.・（）()【】[\]「」『』:：/、,，。]/g, '')
     .trim();
 }
 

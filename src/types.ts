@@ -37,6 +37,10 @@ export interface SourceDataset {
   columns: SourceColumn[];
   /** 全行。key = カラム名, value = セルの文字列表現 */
   rows: Record<string, string>[];
+  /** Excel の全シート名(複数シート時のシート選択に使う) */
+  sheetNames?: string[];
+  /** 現在読み込んでいるシート名 */
+  activeSheet?: string;
 }
 
 /** インポート先(整形後)の1フィールド定義 */

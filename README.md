@@ -39,19 +39,42 @@ CRM(Salesforce / HubSpot 等)への取り込み前に発生する、代理店リ
 `samples/messy-leads.csv` を投入 → Salesforce リードを選ぶと動作を試せます。
 （全角電話番号の半角化、`(株)`→`株式会社`、`氏名`→姓/名の分割 などが自動提案されます）
 
-## 開発
+## セットアップ / 開発
+
+前提: Node.js 22 以上。
 
 ```bash
+git clone https://github.com/jantyran/auto-shaper.git
+cd auto-shaper
 npm install
-npm run dev        # フロント開発サーバー(Vite)
-npm run server     # テンプレート保存用 SQLite API (任意・別ターミナル)
-npm run build      # 本番ビルド(型チェック含む)
-npm run test       # 変換エンジン/推論/検証のユニットテスト
+
+npm run dev          # フロント開発サーバー(Vite)  → http://localhost:5173
+npm run server       # テンプレート保存用 SQLite API (任意・別ターミナル)
 ```
 
-`npm run server` を起動しておくと、テンプレートは SQLite に保存され複数端末・
+`npm run server` を起動しておくと、テンプレート/レシピは SQLite に保存され複数端末・
 チームで共有できます。起動しない場合はフロントが自動的に localStorage 保存へ
 フォールバックするため、`npm run dev` だけでもそのまま使えます。
+
+### スクリプト
+
+```bash
+npm run typecheck     # 型チェック(tsc)
+npm run lint          # ESLint
+npm run test          # 変換エンジン/推論/検証のユニットテスト(vitest)
+npm run build         # 本番ビルド
+npm run format        # Prettier で整形
+```
+
+CI(GitHub Actions, `.github/workflows/ci.yml`)で push/PR ごとに
+typecheck・lint・test・build を自動実行します。
+
+## OSS として使う
+
+MIT ライセンスの個人利用向け OSS です。各自が自分の環境で clone して動かす
+想定で、認証やマルチテナントは持ちません（＝自分専用ツールとして使う）。
+LLM を使う場合の API キーは各自がブラウザの設定画面で入力し、そのブラウザ内
+にのみ保存されます。改善提案・PR 歓迎です。
 
 ## テンプレートの保存(SQLite / localStorage)
 

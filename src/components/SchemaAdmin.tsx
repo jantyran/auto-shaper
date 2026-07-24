@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { useStore } from '../state/store';
 import type { DataType, TargetField, TargetSchema } from '../types';
-import { PRESET_SCHEMAS } from '../core/targetSchemas';
+import { PRESET_SCHEMAS, schemaFromUploadedHeader } from '../core/targetSchemas';
+import { parseWorkbook } from '../core/parse';
 import {
   createEmptyField,
   createEmptySchema,
@@ -58,14 +59,33 @@ export function SchemaAdmin() {
   };
 
   const handleImport = async (file: File) => {
+    // .json はエクスポートしたテンプレート定義として取り込む。
+    // それ以外(CSV/TSV/Excel)はヘッダー行から列を読み取り、型を推定して
+    // 「編集画面」を開く → ユーザーが確認・調整してから保存する。
+    const isJson = /\.json$/i.test(file.name);
     try {
-      const parsed = JSON.parse(await file.text());
-      const list = Array.isArray(parsed) ? parsed : [parsed];
-      for (const raw of list) {
-        await saveSchema(schemaFromImport(raw));
+      if (isJson) {
+        const parsed = JSON.parse(await file.text());
+        const list = Array.isArray(parsed) ? parsed : [parsed];
+        for (const raw of list) {
+          await saveSchema(schemaFromImport(raw));
+        }
+      } else {
+        const buf = await file.arrayBuffer();
+        const dataset = await parseWorkbook(file.name, buf);
+        if (dataset.columns.length === 0) {
+          alert('列が読み取れませんでした。1行目にヘッダーがあるCSV/Excelを選んでください。');
+          return;
+        }
+        const base = file.name.replace(/\.[^.]+$/, '');
+        const inferred = schemaFromUploadedHeader(dataset);
+        // 確認・編集できるドラフトとして開く(保存時に custom として永続化)
+        setDraft({ ...inferred, origin: 'custom', name: base });
       }
     } catch {
-      alert('JSONの読み込みに失敗しました。エクスポートしたファイルを選んでください。');
+      alert(
+        'ファイルの読み込みに失敗しました。テンプレートJSON、またはヘッダー行のあるCSV/Excelを選んでください。',
+      );
     }
   };
 
@@ -99,11 +119,13 @@ export function SchemaAdmin() {
         <button onClick={handleExport} disabled={customSchemas.length === 0}>
           エクスポート
         </button>
-        <button onClick={() => importRef.current?.click()}>インポート</button>
+        <button onClick={() => importRef.current?.click()}>
+          インポート（JSON / CSV / Excel）
+        </button>
         <input
           ref={importRef}
           type="file"
-          accept="application/json,.json"
+          accept="application/json,.json,.csv,.tsv,.txt,.xlsx,.xls"
           style={{ display: 'none' }}
           onChange={(e) => {
             const f = e.target.files?.[0];
@@ -116,11 +138,12 @@ export function SchemaAdmin() {
         </button>
       </div>
       <p className="subtitle" style={{ marginTop: 8 }}>
-        整形後（インポート先）のフォーマットをここで管理します。
+        整形後（インポート先）のフォーマットをここで管理します。エクスポートしたJSONに加え、
+        <b>CSV / Excel のヘッダー行からもテンプレートを作成</b>できます（読み込むと型を推定した
+        編集画面が開くので、確認・調整してから保存します）。
         {storageMode === 'api'
           ? 'テンプレートはSQLiteサーバーに保存され、他の端末やチームでも共有できます。'
           : 'テンプレートはこのブラウザに保存されます（サーバーを起動すると自動でSQLite保存に切り替わります）。'}
-        整形フローの「インポート先選択」で選べます。
       </p>
 
       <h3>あなたのテンプレート</h3>

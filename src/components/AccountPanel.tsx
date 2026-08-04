@@ -9,6 +9,8 @@
 import { useState } from 'react';
 import { useStore } from '../state/store';
 import { isValidEmail } from '../core/auth';
+import { getApiBase, setApiBase } from '../core/apiBase';
+import { resetStorageModeCache } from '../core/schemaRepository';
 
 type Mode = 'login' | 'signup';
 
@@ -29,6 +31,7 @@ export function AccountPanel() {
     return (
       <div className="panel">
         <h2>アカウント</h2>
+        <ConnectionField />
         <p className="subtitle">
           ログイン中はテンプレートとレシピが<b>サーバー(DB)に保存</b>され、複数端末で共有できます。
         </p>
@@ -72,6 +75,7 @@ export function AccountPanel() {
   return (
     <div className="panel">
       <h2>アカウント</h2>
+      <ConnectionField />
       <p className="subtitle">
         ログインは任意です。<b>ログインしなくても利用でき</b>、テンプレート/レシピはこのブラウザ
         (localStorage)に保存されます。ログインすると<b>サーバー(DB)に保存</b>され、複数端末で
@@ -142,6 +146,50 @@ export function AccountPanel() {
         バックエンド(<code>npm run server</code>)が起動していない場合、ログインは利用できません
         （その場合も localStorage 保存でそのまま使えます）。
       </div>
+    </div>
+  );
+}
+
+/**
+ * APIサーバーの接続先URL設定。
+ * Vite開発サーバー(5173)や同一オリジン配信なら空欄でOK(相対パスで届く)。
+ * Live Server(例: 5502)など別オリジンで開く場合は、APIサーバーのURL
+ * (例: http://localhost:8787)を入れると、そこへ直接アクセスする。
+ */
+function ConnectionField() {
+  const [base, setBase] = useState(getApiBase());
+  const [saved, setSaved] = useState(false);
+
+  const commit = (value: string) => {
+    setApiBase(value);
+    resetStorageModeCache(); // 疎通判定キャッシュを作り直す
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  };
+
+  return (
+    <div className="conn-field">
+      <label className="field-label" style={{ maxWidth: 520 }}>
+        APIサーバーURL（別オリジンで開いている場合に設定）
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input
+            type="text"
+            style={{ flex: 1 }}
+            value={base}
+            placeholder="空欄=同一オリジン/開発サーバー（例: http://localhost:8787）"
+            onChange={(e) => setBase(e.target.value)}
+            onBlur={(e) => commit(e.target.value)}
+          />
+          <button type="button" onClick={() => commit(base)}>
+            {saved ? '✓ 保存' : '保存'}
+          </button>
+        </div>
+      </label>
+      <p className="subtitle" style={{ margin: '6px 0 12px' }}>
+        Vite開発サーバー(<code>http://localhost:5173</code>)や同一オリジン配信では空欄のままでOKです。
+        Live Server(例 <code>:5502</code>)など<b>別オリジン</b>で開く場合のみ、APIサーバーのURL
+        （例 <code>http://localhost:8787</code>）を入れてください。設定後にログインし直すと反映されます。
+      </p>
     </div>
   );
 }

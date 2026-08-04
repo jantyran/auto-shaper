@@ -15,6 +15,7 @@ import type {
   Transform,
 } from '../../types';
 import type { LlmSettings } from '../settings';
+import { apiUrl } from '../apiBase';
 
 const VALID_KINDS = new Set([
   'direct',
@@ -41,7 +42,7 @@ export const llmSuggester = {
   label: 'LLM 推論',
 
   async suggest(ctx: SuggestContext, llm: LlmSettings): Promise<MappingConfig> {
-    const res = await fetch('/api/suggest', {
+    const res = await fetch(apiUrl('/api/suggest'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       // 送るのはマスキング済みコンテキストと、接続情報のみ

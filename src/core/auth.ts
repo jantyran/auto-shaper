@@ -8,6 +8,8 @@
  * ログインしていない場合、テンプレート/レシピは localStorage に保存される
  * (リポジトリ層が自動的に切り替える)。ログインすると DB(サーバー)に保存される。
  */
+import { apiUrl } from './apiBase';
+
 export interface AuthUser {
   id: string;
   email: string;
@@ -59,18 +61,33 @@ async function postAuth(
   path: string,
   body: Record<string, unknown>,
 ): Promise<{ token: string; user: AuthUser }> {
-  const res = await fetch(path, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  const url = apiUrl(path);
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    // ネットワーク到達不可(サーバー未起動 / 別オリジンで中継されていない 等)
+    throw new Error(
+      `APIサーバーに接続できませんでした（${url}）。` +
+        '`npm run server` の起動、または「APIサーバーURL」の設定を確認してください。',
+    );
+  }
   const data = (await res.json().catch(() => ({}))) as {
     token?: string;
     user?: AuthUser;
     error?: string;
   };
   if (!res.ok || !data.token || !data.user) {
-    throw new Error(data.error || `認証に失敗しました (${res.status})`);
+    if (data.error) throw new Error(data.error);
+    // JSONエラーが無い = 静的サーバーの404やプロキシ未設定などが濃厚
+    throw new Error(
+      `認証に失敗しました (${res.status})。APIサーバーに届いていない可能性があります` +
+        `（送信先: ${url}）。サーバー起動と「APIサーバーURL」設定をご確認ください。`,
+    );
   }
   setToken(data.token);
   return { token: data.token, user: data.user };
@@ -91,7 +108,10 @@ export async function signIn(email: string, password: string): Promise<AuthUser>
 /** ログアウト(サーバーのセッションも破棄) */
 export async function signOut(): Promise<void> {
   try {
-    await fetch('/api/auth/logout', { method: 'POST', headers: authHeaders() });
+    await fetch(apiUrl('/api/auth/logout'), {
+      method: 'POST',
+      headers: authHeaders(),
+    });
   } catch {
     /* サーバー不通でもローカルのトークンは消す */
   }
@@ -102,7 +122,7 @@ export async function signOut(): Promise<void> {
 export async function fetchMe(): Promise<AuthUser | null> {
   if (!getToken()) return null;
   try {
-    const res = await fetch('/api/auth/me', { headers: authHeaders() });
+    const res = await fetch(apiUrl('/api/auth/me'), { headers: authHeaders() });
     if (res.ok) {
       const data = (await res.json()) as { user: AuthUser };
       return data.user;

@@ -129,6 +129,21 @@ localStorage に保存）。ログインすると、テンプレートとマッ�
   サーバーに送られず、ブラウザ内から出ません(アプリの中核方針を維持)。
 - 管理ページから全テンプレートを **JSON でエクスポート/インポート**できます。
 
+### 別オリジン(Live Server 等)で使う場合
+
+フロントを Vite 開発サーバー(`http://localhost:5173`)や、API と同一オリジンで配信する場合は
+設定不要です（`/api` が相対パスで届きます）。一方、**Live Server(例 `http://localhost:5502`)など
+別オリジン**でフロントを開くと `/api` が中継されず、ログイン等が「認証に失敗しました」になります。
+その場合は以下のどちらかで、フロントから API サーバーへ直接届くようにします。
+
+- **アプリ内で設定（推奨・再ビルド不要）**: 「設定 → アカウント」の**「APIサーバーURL」**に
+  `http://localhost:8787` を入力（`src/core/apiBase.ts` が localStorage に保存）。
+- **ビルド時に指定**: 環境変数 `VITE_API_BASE=http://localhost:8787` を設定してビルド。
+
+API サーバー側は **CORS を許可済み**（`server/index.mjs`）です。既定は全オリジン許可（ローカル
+個人利用向け）で、`CORS_ORIGIN` 環境変数で特定オリジンに限定できます。認証は Cookie ではなく
+`Authorization: Bearer` ヘッダで行うため、資格情報付き CORS は使いません。
+
 ## アーキテクチャ
 
 | レイヤ | ファイル | 役割 |
@@ -163,6 +178,7 @@ localStorage に保存）。ログインすると、テンプレートとマッ�
 | LLM推論(Anthropic / OpenAI / Gemini) | `src/core/inference/llm.ts`, `server/suggest.mjs` |
 | ログイン・アカウント | `src/core/auth.ts`, `src/components/AccountPanel.tsx`, `src/components/AuthBadge.tsx`, `server/auth.mjs` |
 | DBドライバ(差し替え可能) | `server/storage/index.mjs`, `server/storage/sqlite.mjs` |
+| APIベースURL(別オリジン対応)・CORS | `src/core/apiBase.ts`, `server/index.mjs` (CORS) |
 | 固定値・選択肢・既定値 | `src/types.ts` (`TargetField`), `src/core/mappingDefaults.ts`, `src/components/MappingEditor.tsx` |
 | 学習辞書 | `src/core/learning.ts` |
 | レシピ(マッピングの記憶) | `src/core/recipes.ts`, `src/core/collectionRepository.ts` |

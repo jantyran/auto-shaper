@@ -5,6 +5,7 @@
  *  - それ以外 → localStorage
  * API モードではローカルへ複製しない(ゲストデータとの混在を避ける)。
  */
+import { apiUrl } from './apiBase';
 import { authHeaders } from './auth';
 import { detectStorageMode } from './schemaRepository';
 
@@ -46,7 +47,7 @@ export function makeCollectionRepo<T extends HasId>(name: string) {
     async list(): Promise<T[]> {
       if ((await detectStorageMode()) === 'api') {
         try {
-          const res = await fetch(base, { headers: authHeaders() });
+          const res = await fetch(apiUrl(base), { headers: authHeaders() });
           if (res.ok) return (await res.json()) as T[];
         } catch {
           /* fall through */
@@ -58,7 +59,7 @@ export function makeCollectionRepo<T extends HasId>(name: string) {
     async put(item: T): Promise<T[]> {
       if ((await detectStorageMode()) === 'api') {
         try {
-          const res = await fetch(`${base}/${encodeURIComponent(item.id)}`, {
+          const res = await fetch(apiUrl(`${base}/${encodeURIComponent(item.id)}`), {
             method: 'PUT',
             headers: jsonHeaders(),
             body: JSON.stringify(item),
@@ -79,7 +80,7 @@ export function makeCollectionRepo<T extends HasId>(name: string) {
     async remove(id: string): Promise<T[]> {
       if ((await detectStorageMode()) === 'api') {
         try {
-          const res = await fetch(`${base}/${encodeURIComponent(id)}`, {
+          const res = await fetch(apiUrl(`${base}/${encodeURIComponent(id)}`), {
             method: 'DELETE',
             headers: authHeaders(),
           });

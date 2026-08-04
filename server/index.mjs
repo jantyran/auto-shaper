@@ -63,50 +63,71 @@ app.get('/api/health', (_req, res) =>
 
 /** 新規登録。成功時はセッショントークンとユーザー情報を返す */
 app.post('/api/auth/signup', (req, res) => {
-  const { email, password } = req.body ?? {};
-  if (!isValidEmail(email)) {
-    return res.status(400).json({ error: 'メールアドレスの形式が正しくありません' });
+  try {
+    const { email, password } = req.body ?? {};
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: 'メールアドレスの形式が正しくありません' });
+    }
+    if (typeof password !== 'string' || password.length < 8) {
+      return res.status(400).json({ error: 'パスワードは8文字以上にしてください' });
+    }
+    if (store.getUserByEmail(email)) {
+      return res.status(409).json({ error: 'このメールアドレスは登録済みです' });
+    }
+    const { hash, salt } = hashPassword(password);
+    const user = store.createUser({
+      id: newUserId(),
+      email,
+      passwordHash: hash,
+      salt,
+    });
+    const token = issueSession(user.id);
+    res.json({ token, user });
+  } catch (e) {
+    // DB書き込み等で失敗したときは、原因が分かるようにメッセージを返す
+    console.error('signup failed:', e);
+    res.status(500).json({ error: `登録に失敗しました: ${e?.message ?? e}` });
   }
-  if (typeof password !== 'string' || password.length < 8) {
-    return res.status(400).json({ error: 'パスワードは8文字以上にしてください' });
-  }
-  if (store.getUserByEmail(email)) {
-    return res.status(409).json({ error: 'このメールアドレスは登録済みです' });
-  }
-  const { hash, salt } = hashPassword(password);
-  const user = store.createUser({
-    id: newUserId(),
-    email,
-    passwordHash: hash,
-    salt,
-  });
-  const token = issueSession(user.id);
-  res.json({ token, user });
 });
 
 /** ログイン */
 app.post('/api/auth/login', (req, res) => {
-  const { email, password } = req.body ?? {};
-  const user = isValidEmail(email) ? store.getUserByEmail(email) : undefined;
-  // ユーザー不在でも同じレスポンスにして存在有無を漏らさない
-  if (!user || !verifyPassword(password ?? '', user.salt, user.passwordHash)) {
-    return res.status(401).json({ error: 'メールアドレスまたはパスワードが違います' });
+  try {
+    const { email, password } = req.body ?? {};
+    const user = isValidEmail(email) ? store.getUserByEmail(email) : undefined;
+    // ユーザー不在でも同じレスポンスにして存在有無を漏らさない
+    if (!user || !verifyPassword(password ?? '', user.salt, user.passwordHash)) {
+      return res.status(401).json({ error: 'メールアドレスまたはパスワードが違います' });
+    }
+    const token = issueSession(user.id);
+    res.json({ token, user: { id: user.id, email: user.email } });
+  } catch (e) {
+    console.error('login failed:', e);
+    res.status(500).json({ error: `ログインに失敗しました: ${e?.message ?? e}` });
   }
-  const token = issueSession(user.id);
-  res.json({ token, user: { id: user.id, email: user.email } });
 });
 
 /** ログアウト(セッション破棄) */
 app.post('/api/auth/logout', requireAuth, (req, res) => {
-  store.deleteSession(req.sessionToken);
-  res.json({ ok: true });
+  try {
+    store.deleteSession(req.sessionToken);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('logout failed:', e);
+    res.status(500).json({ error: `ログアウトに失敗しました: ${e?.message ?? e}` });
+  }
 });
 
 /** 現在のユーザー情報(トークン検証) */
 app.get('/api/auth/me', requireAuth, (req, res) => {
-  const user = store.getUserById(req.userId);
-  if (!user) return res.status(401).json({ error: 'ユーザーが見つかりません' });
-  res.json({ user: { id: user.id, email: user.email } });
+  try {
+    const user = store.getUserById(req.userId);
+    if (!user) return res.status(401).json({ error: 'ユーザーが見つかりません' });
+    res.json({ user: { id: user.id, email: user.email } });
+  } catch (e) {
+    console.error('me failed:', e);
+    res.status(500).json({ error: `ユーザー情報の取得に失敗しました: ${e?.message ?? e}` });
+  }
 });
 
 function issueSession(userId) {

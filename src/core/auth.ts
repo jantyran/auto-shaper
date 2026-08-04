@@ -8,7 +8,7 @@
  * ログインしていない場合、テンプレート/レシピは localStorage に保存される
  * (リポジトリ層が自動的に切り替える)。ログインすると DB(サーバー)に保存される。
  */
-import { apiUrl } from './apiBase';
+import { apiUrl, getApiBase } from './apiBase';
 
 export interface AuthUser {
   id: string;
@@ -82,12 +82,14 @@ async function postAuth(
     error?: string;
   };
   if (!res.ok || !data.token || !data.user) {
+    // サーバーがJSONで理由を返していれば、それをそのまま見せる(原因が分かる)
     if (data.error) throw new Error(data.error);
-    // JSONエラーが無い = 静的サーバーの404やプロキシ未設定などが濃厚
-    throw new Error(
-      `認証に失敗しました (${res.status})。APIサーバーに届いていない可能性があります` +
-        `（送信先: ${url}）。サーバー起動と「APIサーバーURL」設定をご確認ください。`,
-    );
+    // JSONエラーが無い = APIサーバーに届いていない(未起動 / 静的配信の404 / プロキシがECONNREFUSEDで500 など)
+    const hint = getApiBase()
+      ? `送信先: ${url}。APIサーバーが起動しているか確認してください（npm run server）。`
+      : `送信先: ${url}（相対パス）。開発サーバー(5173)経由の場合は別ターミナルで npm run server を起動してください。` +
+        `別オリジン(例 5502)で開いている場合は「設定 → アカウント → APIサーバーURL」に http://localhost:8787 を設定してください。`;
+    throw new Error(`認証に失敗しました (${res.status})。${hint}`);
   }
   setToken(data.token);
   return { token: data.token, user: data.user };

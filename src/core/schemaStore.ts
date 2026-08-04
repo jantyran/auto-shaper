@@ -124,6 +124,10 @@ function sanitizeSchema(s: TargetSchema): TargetSchema {
           type: VALID_TYPES.includes(f.type) ? f.type : 'string',
           aliases: Array.isArray(f.aliases) ? f.aliases.map(String) : [],
           options: Array.isArray(f.options) ? f.options.map(String) : undefined,
+          defaultValue:
+            f.defaultValue != null && f.defaultValue !== ''
+              ? String(f.defaultValue)
+              : undefined,
         }))
       : [],
   };

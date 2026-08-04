@@ -88,6 +88,31 @@ async function extractWithOpenAI({ apiKey, model, text, target }) {
   return extractJson(out);
 }
 
+async function extractWithGemini({ apiKey, model, text, target }) {
+  const m = model || 'gemini-2.5-flash';
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(apiKey)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        contents: [{ role: 'user', parts: [{ text: buildUserContent({ text, target }) }] }],
+        generationConfig: { responseMimeType: 'application/json' },
+      }),
+    },
+  );
+  if (!res.ok) {
+    const t = await res.text().catch(() => '');
+    throw new Error(`Gemini API エラー ${res.status}: ${t.slice(0, 200)}`);
+  }
+  const json = await res.json();
+  const out = (json.candidates?.[0]?.content?.parts ?? [])
+    .map((p) => p.text ?? '')
+    .join('');
+  return extractJson(out);
+}
+
 /** プロバイダを振り分けて抽出結果（{ fields }）を返す */
 export async function runExtract({ provider, model, apiKey, text, target }) {
   if (!apiKey || !target?.fields || typeof text !== 'string') {
@@ -95,9 +120,9 @@ export async function runExtract({ provider, model, apiKey, text, target }) {
     err.status = 400;
     throw err;
   }
-  const result =
-    provider === 'openai'
-      ? await extractWithOpenAI({ apiKey, model, text, target })
-      : await extractWithAnthropic({ apiKey, model, text, target });
+  let result;
+  if (provider === 'openai') result = await extractWithOpenAI({ apiKey, model, text, target });
+  else if (provider === 'gemini') result = await extractWithGemini({ apiKey, model, text, target });
+  else result = await extractWithAnthropic({ apiKey, model, text, target });
   return { fields: result.fields ?? result ?? {} };
 }

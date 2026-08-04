@@ -113,6 +113,31 @@ async function suggestWithOpenAI({ apiKey, model, context }) {
   return extractJson(text);
 }
 
+async function suggestWithGemini({ apiKey, model, context }) {
+  const m = model || 'gemini-2.5-flash';
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(apiKey)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        contents: [{ role: 'user', parts: [{ text: buildUserContent(context) }] }],
+        generationConfig: { responseMimeType: 'application/json' },
+      }),
+    },
+  );
+  if (!res.ok) {
+    const t = await res.text().catch(() => '');
+    throw new Error(`Gemini API エラー ${res.status}: ${t.slice(0, 200)}`);
+  }
+  const json = await res.json();
+  const text = (json.candidates?.[0]?.content?.parts ?? [])
+    .map((p) => p.text ?? '')
+    .join('');
+  return extractJson(text);
+}
+
 /** プロバイダを振り分けてマッピング案(MappingConfig相当)を返す */
 export async function runSuggest({ provider, model, apiKey, context }) {
   if (!apiKey || !context?.target) {
@@ -120,9 +145,9 @@ export async function runSuggest({ provider, model, apiKey, context }) {
     err.status = 400;
     throw err;
   }
-  const config =
-    provider === 'openai'
-      ? await suggestWithOpenAI({ apiKey, model, context })
-      : await suggestWithAnthropic({ apiKey, model, context });
+  let config;
+  if (provider === 'openai') config = await suggestWithOpenAI({ apiKey, model, context });
+  else if (provider === 'gemini') config = await suggestWithGemini({ apiKey, model, context });
+  else config = await suggestWithAnthropic({ apiKey, model, context });
   return { targetSchemaId: context.target.id, fields: config.fields ?? [] };
 }

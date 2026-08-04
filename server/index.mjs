@@ -17,6 +17,7 @@ import {
   deleteCollectionItem,
 } from './db.mjs';
 import { runSuggest } from './suggest.mjs';
+import { runExtract } from './extract.mjs';
 
 const app = express();
 app.use(express.json({ limit: '4mb' }));
@@ -36,6 +37,21 @@ app.post('/api/suggest', async (req, res) => {
   } catch (e) {
     const status = e.status ?? 502;
     res.status(status).json({ error: e.message ?? 'LLM推論に失敗しました' });
+  }
+});
+
+/**
+ * フリーテキスト → テンプレート抽出。受け取るのは（マスク済みの）本文・テンプレ定義・接続情報のみ。
+ * APIキーはこのリクエストで受け取り、プロバイダ呼び出しに使うだけで保存しない。
+ */
+app.post('/api/extract', async (req, res) => {
+  try {
+    const { provider, model, apiKey, text, target } = req.body ?? {};
+    const result = await runExtract({ provider, model, apiKey, text, target });
+    res.json(result);
+  } catch (e) {
+    const status = e.status ?? 502;
+    res.status(status).json({ error: e.message ?? 'テキスト抽出に失敗しました' });
   }
 });
 

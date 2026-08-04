@@ -10,6 +10,23 @@
  */
 import type { FieldMapping, MappingConfig, TargetSchema } from '../types';
 
+/**
+ * 抽出済みレコード(key→値)に、テンプレートの既定値を適用する。
+ * 値が空の項目にだけ defaultValue を入れる(テキスト整形の結果に使う)。
+ */
+export function applyRecordDefaults(
+  record: Record<string, string>,
+  target: TargetSchema,
+): Record<string, string> {
+  const out = { ...record };
+  for (const f of target.fields) {
+    if ((out[f.key] ?? '') === '' && f.defaultValue != null && f.defaultValue !== '') {
+      out[f.key] = f.defaultValue;
+    }
+  }
+  return out;
+}
+
 export function applyFieldDefaults(
   mapping: MappingConfig,
   target: TargetSchema,

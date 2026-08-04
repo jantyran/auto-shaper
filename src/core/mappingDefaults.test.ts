@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyFieldDefaults } from './mappingDefaults';
+import { applyFieldDefaults, applyRecordDefaults } from './mappingDefaults';
 import type { MappingConfig, TargetSchema } from '../types';
 
 const target: TargetSchema = {
@@ -50,5 +50,19 @@ describe('applyFieldDefaults', () => {
     expect(out.fields.map((f) => f.targetKey)).toEqual(['Company', 'LeadSource', 'Note']);
     const lead = out.fields.find((f) => f.targetKey === 'LeadSource')!;
     expect(lead.transform).toEqual({ kind: 'constant', value: '外部リスト' });
+  });
+});
+
+describe('applyRecordDefaults', () => {
+  it('空の項目にだけ既定値を入れ、値がある項目は保持する', () => {
+    const out = applyRecordDefaults({ Company: 'A社' }, target);
+    expect(out.Company).toBe('A社'); // 既存値は維持
+    expect(out.LeadSource).toBe('外部リスト'); // 既定値で補完
+    expect('Note' in out).toBe(false); // 既定値の無い空項目は入れない
+  });
+
+  it('既に値がある既定値項目は上書きしない', () => {
+    const out = applyRecordDefaults({ LeadSource: 'Web' }, target);
+    expect(out.LeadSource).toBe('Web');
   });
 });

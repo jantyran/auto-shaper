@@ -6,6 +6,7 @@ import { MappingEditor } from './components/MappingEditor';
 import { ResultView } from './components/ResultView';
 import { SchemaAdmin } from './components/SchemaAdmin';
 import { SettingsPage } from './components/Settings';
+import { TextShaper } from './components/TextShaper';
 
 const STEPS: { id: Step; label: string }[] = [
   { id: 'source', label: 'ソース投入' },
@@ -40,7 +41,13 @@ export function App() {
             className={view === 'app' ? 'navbtn active' : 'navbtn'}
             onClick={() => setView('app')}
           >
-            整形
+            表の整形
+          </button>
+          <button
+            className={view === 'text' ? 'navbtn active' : 'navbtn'}
+            onClick={() => setView('text')}
+          >
+            テキスト整形
           </button>
           <button
             className={view === 'admin' ? 'navbtn active' : 'navbtn'}
@@ -59,14 +66,18 @@ export function App() {
       <p className="subtitle">
         {view === 'app'
           ? '雑多なExcel/CSVを、AIがカラムを読み取ってインポート用フォーマットへ自動整形します。'
-          : view === 'admin'
-            ? 'インポート先（整形後）のフォーマットを自由に追加・編集できます。'
-            : '機能のON/OFF、AI(LLM)接続、マスキングをここで管理します。'}
+          : view === 'text'
+            ? '問合せメールなどの雑多なテキストを貼り付けると、AIがテンプレート形式へ整理します（渡す前にマスキング可）。'
+            : view === 'admin'
+              ? 'インポート先（整形後）のフォーマットを自由に追加・編集できます。'
+              : '機能のON/OFF、AI(LLM)接続、マスキングをここで管理します。'}
       </p>
 
       {error && <div className="alert error">{error}</div>}
 
-      {view === 'admin' ? (
+      {view === 'text' ? (
+        <TextShaper />
+      ) : view === 'admin' ? (
         <SchemaAdmin />
       ) : view === 'settings' ? (
         <SettingsPage />

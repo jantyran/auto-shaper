@@ -14,6 +14,7 @@
  */
 import type { TargetField, TargetSchema } from '../types';
 import type { LlmSettings } from './settings';
+import { apiUrl } from './apiBase';
 
 /** 抽出結果（key = テンプレ項目キー, value = 値。まだマスクトークンを含みうる） */
 export type ExtractedRecord = Record<string, string>;
@@ -141,7 +142,7 @@ export async function llmTextExtract(
   target: TargetSchema,
   llm: LlmSettings,
 ): Promise<ExtractedRecord> {
-  const res = await fetch('/api/extract', {
+  const res = await fetch(apiUrl('/api/extract'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

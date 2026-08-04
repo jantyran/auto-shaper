@@ -25,6 +25,29 @@ import { runSuggest } from './suggest.mjs';
 import { runExtract } from './extract.mjs';
 
 const app = express();
+
+/**
+ * CORS。フロントを別オリジン(例: Live Server の http://localhost:5502)で配信する場合に
+ * 必要。認証は Cookie ではなく Authorization ヘッダ(Bearer)なので、資格情報付きCORSは使わない。
+ * 既定は全オリジン許可(ローカル個人利用向け)。`CORS_ORIGIN` で特定オリジンに限定可能。
+ */
+const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader(
+      'Access-Control-Allow-Origin',
+      CORS_ORIGIN === '*' ? origin : CORS_ORIGIN,
+    );
+    res.setHeader('Vary', 'Origin');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
 app.use(express.json({ limit: '4mb' }));
 
 const requireAuth = makeRequireAuth(store);

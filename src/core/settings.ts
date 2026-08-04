@@ -19,13 +19,25 @@ export interface FeatureFlags {
   masking: boolean;
 }
 
-export type LlmProvider = 'anthropic' | 'openai';
+export type LlmProvider = 'anthropic' | 'openai' | 'gemini';
 
 export interface LlmSettings {
   provider: LlmProvider;
   /** APIキー(このブラウザにのみ保存) */
   apiKey: string;
   model: string;
+}
+
+/** プロバイダごとの既定モデル(プロバイダ切替時の初期値・プレースホルダに使う) */
+export function defaultModelFor(provider: LlmProvider): string {
+  switch (provider) {
+    case 'openai':
+      return 'gpt-4o';
+    case 'gemini':
+      return 'gemini-2.5-flash';
+    default:
+      return 'claude-sonnet-5';
+  }
 }
 
 export interface MaskingSettings {

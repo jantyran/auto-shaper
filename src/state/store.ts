@@ -12,6 +12,7 @@ import type {
 } from '../types';
 import { parseWorkbook } from '../core/parse';
 import { buildSuggestContext } from '../core/anonymize';
+import { applyFieldDefaults } from '../core/mappingDefaults';
 import { heuristicSuggester } from '../core/inference/heuristic';
 import { schemaFromUploadedHeader } from '../core/targetSchemas';
 import { getAllSchemas, loadCustomSchemas } from '../core/schemaStore';
@@ -23,6 +24,13 @@ import {
   type StorageMode,
 } from '../core/schemaRepository';
 import { loadSettings, saveSettings, type Settings } from '../core/settings';
+import {
+  fetchMe,
+  signIn as authSignIn,
+  signUp as authSignUp,
+  signOut as authSignOut,
+  type AuthUser,
+} from '../core/auth';
 import { llmSuggester } from '../core/inference/llm';
 import {
   clearLearned,
@@ -55,6 +63,10 @@ interface AppState {
   customSchemas: TargetSchema[];
   /** テンプレートの保存先(SQLite API / ブラウザのlocalStorage) */
   storageMode: StorageMode | 'unknown';
+  /** ログイン中のユーザー(未ログインは undefined) */
+  user?: AuthUser;
+  /** 起動時の認証状態確認が完了したか */
+  authReady: boolean;
   /** ユーザー設定(機能ON/OFF・AI・マスキング) */
   settings: Settings;
   /** 保存済みマッピングレシピ */
@@ -72,6 +84,16 @@ interface AppState {
 
   /** 起動時: 保存先を判定してテンプレート一覧を読み込む */
   refreshSchemas: () => Promise<void>;
+
+  // 認証
+  /** 起動時にトークンから現在のユーザーを復元 */
+  refreshAuth: () => Promise<void>;
+  /** ログイン(成功後に保存先をDBへ切り替えて再読込) */
+  signIn: (email: string, password: string) => Promise<void>;
+  /** 新規登録(成功後に保存先をDBへ切り替えて再読込) */
+  signUp: (email: string, password: string) => Promise<void>;
+  /** ログアウト(保存先をlocalStorageへ戻して再読込) */
+  signOut: () => Promise<void>;
 
   // formatting process
   loadSource: (fileName: string, data: ArrayBuffer) => void;
@@ -111,6 +133,7 @@ export const useStore = create<AppState>((set, get) => ({
   // まず localStorage から即時に読み込み(初回描画を待たせない)、後で refreshSchemas で同期
   customSchemas: loadCustomSchemas(),
   storageMode: 'unknown',
+  authReady: false,
   settings: loadSettings(),
   recipes: [],
   learnedEntries: [],
@@ -127,6 +150,33 @@ export const useStore = create<AppState>((set, get) => ({
       listSchemas(),
     ]);
     set({ storageMode: mode, customSchemas });
+  },
+
+  refreshAuth: async () => {
+    try {
+      const user = await fetchMe();
+      set({ user: user ?? undefined, authReady: true });
+    } catch {
+      set({ authReady: true });
+    }
+  },
+
+  signIn: async (email, password) => {
+    const user = await authSignIn(email, password);
+    set({ user });
+    await Promise.all([get().refreshSchemas(), get().refreshRecipes()]);
+  },
+
+  signUp: async (email, password) => {
+    const user = await authSignUp(email, password);
+    set({ user });
+    await Promise.all([get().refreshSchemas(), get().refreshRecipes()]);
+  },
+
+  signOut: async () => {
+    await authSignOut();
+    set({ user: undefined });
+    await Promise.all([get().refreshSchemas(), get().refreshRecipes()]);
   },
 
   loadSource: async (fileName, data) => {
@@ -320,6 +370,8 @@ async function runSuggestion(
     } else {
       mapping = await heuristicSuggester.suggest(ctx, learned);
     }
+    // 未割当の項目にテンプレートの既定値を自動で入れる
+    mapping = applyFieldDefaults(mapping, target);
     set({ mapping, step: 'mapping', isSuggesting: false, error: warning });
   } catch (e) {
     set({

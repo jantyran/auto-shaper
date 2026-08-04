@@ -279,59 +279,98 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
       </div>
 
       {draft.fields.map((f, i) => (
-        <div key={i} className="admin-row">
-          <input
-            type="text"
-            placeholder="Company"
-            value={f.key}
-            onChange={(e) => setField(i, { key: e.target.value })}
-          />
-          <input
-            type="text"
-            placeholder="会社名"
-            value={f.label}
-            onChange={(e) => setField(i, { label: e.target.value })}
-          />
-          <select
-            value={f.type}
-            onChange={(e) => setField(i, { type: e.target.value as DataType })}
-          >
-            {EDITABLE_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {TYPE_LABELS[t]}
-              </option>
-            ))}
-          </select>
-          <input
-            type="text"
-            placeholder="会社名, 企業名, company"
-            value={f.aliases.join(', ')}
-            onChange={(e) =>
-              setField(i, {
-                aliases: e.target.value
-                  .split(',')
-                  .map((a) => a.trim())
-                  .filter((a) => a !== ''),
-              })
-            }
-          />
-          <label style={{ display: 'flex', justifyContent: 'center' }}>
+        <div key={i} className="admin-field">
+          <div className="admin-row">
             <input
-              type="checkbox"
-              checked={f.required}
-              onChange={(e) => setField(i, { required: e.target.checked })}
+              type="text"
+              placeholder="Company"
+              value={f.key}
+              onChange={(e) => setField(i, { key: e.target.value })}
             />
-          </label>
-          <div className="admin-actions">
-            <button className="icon" title="上へ" onClick={() => moveField(i, -1)}>
-              ↑
-            </button>
-            <button className="icon" title="下へ" onClick={() => moveField(i, 1)}>
-              ↓
-            </button>
-            <button className="icon" title="削除" onClick={() => removeField(i)}>
-              ×
-            </button>
+            <input
+              type="text"
+              placeholder="会社名"
+              value={f.label}
+              onChange={(e) => setField(i, { label: e.target.value })}
+            />
+            <select
+              value={f.type}
+              onChange={(e) => setField(i, { type: e.target.value as DataType })}
+            >
+              {EDITABLE_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {TYPE_LABELS[t]}
+                </option>
+              ))}
+            </select>
+            <input
+              type="text"
+              placeholder="会社名, 企業名, company"
+              value={f.aliases.join(', ')}
+              onChange={(e) =>
+                setField(i, {
+                  aliases: e.target.value
+                    .split(',')
+                    .map((a) => a.trim())
+                    .filter((a) => a !== ''),
+                })
+              }
+            />
+            <label style={{ display: 'flex', justifyContent: 'center' }}>
+              <input
+                type="checkbox"
+                checked={f.required}
+                onChange={(e) => setField(i, { required: e.target.checked })}
+              />
+            </label>
+            <div className="admin-actions">
+              <button className="icon" title="上へ" onClick={() => moveField(i, -1)}>
+                ↑
+              </button>
+              <button className="icon" title="下へ" onClick={() => moveField(i, 1)}>
+                ↓
+              </button>
+              <button className="icon" title="削除" onClick={() => removeField(i)}>
+                ×
+              </button>
+            </div>
+          </div>
+
+          <div className="admin-extra">
+            <label className="field-label">
+              選択肢（カンマ区切り・固定値の候補）
+              <input
+                type="text"
+                placeholder="例: Web, 展示会, 紹介"
+                value={(f.options ?? []).join(', ')}
+                onChange={(e) => {
+                  const options = e.target.value
+                    .split(',')
+                    .map((o) => o.trim())
+                    .filter((o) => o !== '');
+                  setField(i, { options: options.length ? options : undefined });
+                }}
+              />
+            </label>
+            <label className="field-label">
+              既定値（対応列が無いとき自動で入る）
+              <input
+                type="text"
+                list={f.options && f.options.length ? `opts-${i}` : undefined}
+                placeholder={f.options?.[0] ? `例: ${f.options[0]}` : '例: 外部リスト'}
+                value={f.defaultValue ?? ''}
+                onChange={(e) =>
+                  setField(i, { defaultValue: e.target.value || undefined })
+                }
+              />
+              {f.options && f.options.length > 0 && (
+                <datalist id={`opts-${i}`}>
+                  {f.options.map((o) => (
+                    <option key={o} value={o} />
+                  ))}
+                </datalist>
+              )}
+            </label>
           </div>
         </div>
       ))}

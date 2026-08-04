@@ -1,5 +1,11 @@
 import { useStore } from '../state/store';
-import type { FeatureFlags, LlmProvider, Settings } from '../core/settings';
+import {
+  defaultModelFor,
+  type FeatureFlags,
+  type LlmProvider,
+  type Settings,
+} from '../core/settings';
+import { AccountPanel } from './AccountPanel';
 
 const FEATURE_LABELS: Record<keyof FeatureFlags, { title: string; desc: string }> = {
   masking: {
@@ -47,6 +53,8 @@ export function SettingsPage() {
 
   return (
     <>
+      <AccountPanel />
+
       <div className="panel">
         <h2>機能のON/OFF</h2>
         <p className="subtitle">使う機能だけを有効化できます。</p>
@@ -73,10 +81,15 @@ export function SettingsPage() {
             プロバイダ
             <select
               value={settings.llm.provider}
-              onChange={(e) => setLlm({ provider: e.target.value as LlmProvider })}
+              onChange={(e) => {
+                const provider = e.target.value as LlmProvider;
+                // プロバイダを変えたらモデルも既定値へ切り替える
+                setLlm({ provider, model: defaultModelFor(provider) });
+              }}
             >
               <option value="anthropic">Anthropic (Claude)</option>
               <option value="openai">OpenAI</option>
+              <option value="gemini">Google (Gemini)</option>
             </select>
           </label>
           <label className="field-label">
@@ -84,9 +97,7 @@ export function SettingsPage() {
             <input
               type="text"
               value={settings.llm.model}
-              placeholder={
-                settings.llm.provider === 'anthropic' ? 'claude-opus-4-8' : 'gpt-4o'
-              }
+              placeholder={defaultModelFor(settings.llm.provider)}
               onChange={(e) => setLlm({ model: e.target.value })}
             />
           </label>
@@ -95,7 +106,13 @@ export function SettingsPage() {
             <input
               type="password"
               value={settings.llm.apiKey}
-              placeholder="sk-..."
+              placeholder={
+                settings.llm.provider === 'gemini'
+                  ? 'AIza...'
+                  : settings.llm.provider === 'openai'
+                    ? 'sk-...'
+                    : 'sk-ant-...'
+              }
               autoComplete="off"
               onChange={(e) => setLlm({ apiKey: e.target.value })}
             />

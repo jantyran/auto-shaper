@@ -26,8 +26,12 @@ CRM(Salesforce / HubSpot 等)への取り込み前に発生する、代理店リ
 
 - **マスキング**: AIに渡す前に、氏名・会社名・メール・電話・住所など**個人情報の列を自動判定して伏字化**。
   追加でマスクしたい列も指定できます。「サンプル値を一切送らず列名だけ」の最強モードも選べます。
-- **LLM推論**: 設定でAPIキー(Anthropic / OpenAI)を入れると、ローカル推論の代わりにLLMでマッピングを推論。
+- **LLM推論**: 設定でAPIキー(**Anthropic / OpenAI / Google Gemini**)を入れると、ローカル推論の代わりにLLMでマッピングを推論。
   送るのは**マスキング済みのカラム名とサンプルのみ**で、自前バックエンド経由。失敗時はローカル推論に自動フォールバック。
+- **固定値・選択肢・既定値**: テンプレートの各項目に「選択可能な固定値の候補」と「既定値」を設定できます。
+  元データに対応列が無い項目は**既定値が自動で入り**、マッピング画面でプルダウン選択や自由入力で上書きできます。
+- **ログイン(任意)とDB保存**: ログインしなくても使えます。ログインすると、テンプレートとマッピング(レシピ)が
+  **サーバー(DB)にユーザー単位で保存**され、複数端末で共有できます（未ログイン時はブラウザの localStorage）。
 - **学習辞書**: あなたがマッピングを直した履歴(列名→項目)を蓄積し、次回以降のサジェスト精度を上げます。
 - **マッピングの記憶(レシピ)**: 確定したマッピングを保存し、同じ列構成のファイルが来たら**ワンクリックで再適用**。
   毎月届く同じ代理店フォーマットの取り込みを一撃で終わらせます。
@@ -74,12 +78,13 @@ cd auto-shaper
 npm install
 
 npm run dev          # フロント開発サーバー(Vite)  → http://localhost:5173
-npm run server       # テンプレート保存用 SQLite API (任意・別ターミナル)
+npm run server       # 認証 + テンプレート/レシピ保存用 API (任意・別ターミナル)
 ```
 
-`npm run server` を起動しておくと、テンプレート/レシピは SQLite に保存され複数端末・
-チームで共有できます。起動しない場合はフロントが自動的に localStorage 保存へ
-フォールバックするため、`npm run dev` だけでもそのまま使えます。
+`npm run server` を起動し、設定ページの「アカウント」からログインすると、テンプレート/レシピは
+DB(既定は SQLite)に**ユーザー単位で保存**され複数端末で共有できます。ログインしない/サーバーを
+起動しない場合はフロントが自動的に localStorage 保存へフォールバックするため、`npm run dev`
+だけでもそのまま使えます。DBを差し替える場合は `DB_DRIVER` 環境変数と `server/storage/` を参照。
 
 ### スクリプト
 
@@ -97,22 +102,30 @@ typecheck・lint・test・build を自動実行します。
 ## OSS として使う
 
 MIT ライセンスの個人利用向け OSS です。各自が自分の環境で clone して動かす
-想定で、認証やマルチテナントは持ちません（＝自分専用ツールとして使う）。
-LLM を使う場合の API キーは各自がブラウザの設定画面で入力し、そのブラウザ内
-にのみ保存されます。改善提案・PR 歓迎です。
+想定です。**ログインは任意**で、しなくてもそのまま使えます（データはブラウザの
+localStorage に保存）。ログインすると、テンプレートとマッピングを**サーバー(DB)に
+ユーザー単位で保存**して複数端末で共有できます。LLM を使う場合の API キーは各自が
+ブラウザの設定画面で入力し、そのブラウザ内にのみ保存されます。改善提案・PR 歓迎です。
 
-## テンプレートの保存(SQLite / localStorage)
+## ログインとデータ保存(DB / localStorage)
 
-インポート先テンプレートは「ローカルファースト + サーバー同期」で永続化します。
+テンプレートとマッピング(レシピ)の保存先は、ログイン状態で切り替わります。
 
 | 状態 | 保存先 | 用途 |
 | --- | --- | --- |
-| `npm run server` 起動あり | **SQLite**(`server/data/auto-shaper.db`) | 複数端末・チーム共有、キャッシュ削除に強い |
-| サーバーなし | ブラウザの **localStorage** | ゼロ設定・オフラインで即利用 |
+| **ログイン済み**（+ `npm run server` 起動） | **DB**（既定は SQLite / `server/data/auto-shaper.db`、ユーザー単位） | 複数端末で共有 |
+| 未ログイン / サーバーなし | ブラウザの **localStorage** | ゼロ設定・オフラインで即利用 |
 
-- API: `GET /api/health`・`GET /api/schemas`・`PUT /api/schemas/:id`・`DELETE /api/schemas/:id`
-- フロントは `src/core/schemaRepository.ts` で両者を抽象化し、起動時に保存先を自動判定します。
-- 保存されるのは**テンプレート定義(列名・型・別名)のみ**。顧客の実データは
+- **認証**: メール + パスワードの自前バックエンド認証。パスワードは `scrypt` でハッシュ化して
+  保存し（平文は保持しない）、ログイン時にセッショントークンを発行して DB に保存します
+  （`server/auth.mjs`）。外部サービスや追加依存は使いません。
+- **DBの差し替え**: DBアクセスは `server/storage/` のドライバ層に集約しています。既定は
+  SQLite（`server/storage/sqlite.mjs`）で、環境変数 `DB_DRIVER` で選択します。本番で別のDBを
+  使う場合は、同じ「ストア契約」を満たすドライバを追加して `server/storage/index.mjs` の分岐へ
+  接続するだけで差し替えられます。
+- **API**: 認証 `POST /api/auth/{signup,login,logout}`・`GET /api/auth/me`、保存系
+  `GET/PUT/DELETE /api/schemas`・`/api/collections/:name`（保存系は要ログイン）。
+- 保存されるのは**テンプレート定義とマッピングのみ**。顧客の実データは
   サーバーに送られず、ブラウザ内から出ません(アプリの中核方針を維持)。
 - 管理ページから全テンプレートを **JSON でエクスポート/インポート**できます。
 
@@ -128,15 +141,18 @@ LLM を使う場合の API キーは各自がブラウザの設定画面で入�
 | 変換(全件) | `src/worker/transform.worker.ts` | Web Worker で数万行を UI を止めずに処理 |
 | 検証 | `src/core/validate.ts` | 必須欠落・メール/電話の形式不正をインポート前に検出 |
 | 出力 | `src/core/exportCsv.ts` | UTF-8 BOM 付き CSV / Excel(.xlsx) をブラウザから直接ダウンロード |
-| テンプレート保存 | `src/core/schemaRepository.ts`, `server/` | SQLite API + localStorage フォールバック |
+| 既定値の自動適用 | `src/core/mappingDefaults.ts` | 未割当の項目にテンプレの既定値を固定値で自動設定 |
+| テンプレート/レシピ保存 | `src/core/schemaRepository.ts`, `src/core/collectionRepository.ts` | ログイン時はDB(API)、未ログイン時はlocalStorage |
+| 認証・DBドライバ | `src/core/auth.ts`, `server/auth.mjs`, `server/storage/` | メール+パスワード認証、差し替え可能なDB層 |
 
 ### LLM への差し替え
 
 推論器は `MappingSuggester` インターフェース(`src/types.ts`)に統一されています。
-既定では `HeuristicSuggester`(ローカル推論)を使用します。設定でLLMをONにしてAPIキーを
-入れると、`src/core/inference/llm.ts` がバックエンド `/api/suggest`(`server/suggest.mjs`)経由で
-プロバイダを呼びます。送るのはマスキング済みの `SuggestContext` のみで、実データは送信しません。
-LLM応答は必ず `MappingConfig` にサニタイズしてから使い、失敗時はローカル推論へ自動フォールバックします。
+既定では `HeuristicSuggester`(ローカル推論)を使用します。設定でLLMをONにしてAPIキー
+(**Anthropic / OpenAI / Google Gemini**)を入れると、`src/core/inference/llm.ts` がバックエンド
+`/api/suggest`(`server/suggest.mjs`)経由でプロバイダを呼びます。送るのはマスキング済みの
+`SuggestContext` のみで、実データは送信しません。LLM応答は必ず `MappingConfig` にサニタイズ
+してから使い、失敗時はローカル推論へ自動フォールバックします。
 
 ## 機能別のモジュール
 
@@ -144,7 +160,10 @@ LLM応答は必ず `MappingConfig` にサニタイズしてから使い、失敗
 | --- | --- |
 | 設定(機能ON/OFF・AI・マスキング) | `src/core/settings.ts`, `src/components/Settings.tsx` |
 | マスキング(個人情報の自動判定) | `src/core/anonymize.ts` (`isPersonalColumn`) |
-| LLM推論 | `src/core/inference/llm.ts`, `server/suggest.mjs` |
+| LLM推論(Anthropic / OpenAI / Gemini) | `src/core/inference/llm.ts`, `server/suggest.mjs` |
+| ログイン・アカウント | `src/core/auth.ts`, `src/components/AccountPanel.tsx`, `src/components/AuthBadge.tsx`, `server/auth.mjs` |
+| DBドライバ(差し替え可能) | `server/storage/index.mjs`, `server/storage/sqlite.mjs` |
+| 固定値・選択肢・既定値 | `src/types.ts` (`TargetField`), `src/core/mappingDefaults.ts`, `src/components/MappingEditor.tsx` |
 | 学習辞書 | `src/core/learning.ts` |
 | レシピ(マッピングの記憶) | `src/core/recipes.ts`, `src/core/collectionRepository.ts` |
 | 重複検出・名寄せ | `src/core/dedupe.ts` |

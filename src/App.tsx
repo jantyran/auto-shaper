@@ -7,6 +7,7 @@ import { ResultView } from './components/ResultView';
 import { SchemaAdmin } from './components/SchemaAdmin';
 import { SettingsPage } from './components/Settings';
 import { TextShaper } from './components/TextShaper';
+import { AuthBadge } from './components/AuthBadge';
 
 const STEPS: { id: Step; label: string }[] = [
   { id: 'source', label: 'ソース投入' },
@@ -23,13 +24,17 @@ export function App() {
   const refreshSchemas = useStore((s) => s.refreshSchemas);
   const refreshRecipes = useStore((s) => s.refreshRecipes);
   const refreshLearning = useStore((s) => s.refreshLearning);
+  const refreshAuth = useStore((s) => s.refreshAuth);
 
-  // 起動時に保存先を判定してテンプレート/レシピ/学習辞書を同期
+  // 起動時: 先に認証状態を復元してから、保存先を判定してテンプレート/レシピ/学習辞書を同期
   useEffect(() => {
-    void refreshSchemas();
-    void refreshRecipes();
-    refreshLearning();
-  }, [refreshSchemas, refreshRecipes, refreshLearning]);
+    void (async () => {
+      await refreshAuth();
+      await refreshSchemas();
+      await refreshRecipes();
+      refreshLearning();
+    })();
+  }, [refreshAuth, refreshSchemas, refreshRecipes, refreshLearning]);
 
   return (
     <div className="app">
@@ -62,6 +67,7 @@ export function App() {
             設定
           </button>
         </nav>
+        <AuthBadge />
       </div>
       <p className="subtitle">
         {view === 'app'

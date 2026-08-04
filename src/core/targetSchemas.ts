@@ -93,6 +93,7 @@ const SALESFORCE_LEAD: TargetSchema = {
       required: false,
       type: 'string',
       aliases: ['リードソース', '流入元', '獲得経路', 'source', 'leadsource', '経路'],
+      options: ['Web', '電話問い合わせ', '展示会', '紹介', '外部リスト', 'パートナー', 'その他'],
     },
     {
       key: 'Industry',
@@ -100,6 +101,7 @@ const SALESFORCE_LEAD: TargetSchema = {
       required: false,
       type: 'string',
       aliases: ['業種', '業界', 'industry'],
+      options: ['製造', '情報通信', '建設', '金融', '小売', '医療', '教育', '公共', 'その他'],
     },
   ],
 };
@@ -165,6 +167,7 @@ const HUBSPOT_CONTACT: TargetSchema = {
       required: false,
       type: 'string',
       aliases: ['ステータス', 'status', 'lead status', '状態'],
+      options: ['NEW', 'OPEN', 'IN_PROGRESS', 'OPEN_DEAL', 'UNQUALIFIED', 'CONNECTED'],
     },
   ],
 };

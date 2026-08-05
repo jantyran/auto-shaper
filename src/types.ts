@@ -33,6 +33,14 @@ export type DataType =
 
 export type FieldInputKind = 'text' | 'textarea' | 'select';
 
+/** インポート/整形の実行ごとにユーザーが補足する一時値 */
+export interface ImportContextEntry {
+  id: string;
+  key: string;
+  label: string;
+  value: string;
+}
+
 export interface AutoFillCase {
   /** 条件判定に使う出力フィールドのキー */
   sourceFieldKey: string;

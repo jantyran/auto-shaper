@@ -11,6 +11,7 @@ type Row = Record<string, string>;
 export interface TransformRequest {
   rows: Row[];
   config: MappingConfig;
+  context?: Row;
 }
 
 export interface TransformProgress {
@@ -27,13 +28,13 @@ export interface TransformDone {
 export type TransformResponse = TransformProgress | TransformDone;
 
 self.onmessage = (e: MessageEvent<TransformRequest>) => {
-  const { rows, config } = e.data;
+  const { rows, config, context = {} } = e.data;
   const total = rows.length;
   const out: Row[] = new Array(total);
   const chunk = 2000;
 
   for (let i = 0; i < total; i++) {
-    out[i] = transformRow(rows[i], config);
+    out[i] = transformRow(rows[i], config, context);
     if (i % chunk === 0) {
       const msg: TransformProgress = { type: 'progress', done: i, total };
       self.postMessage(msg);

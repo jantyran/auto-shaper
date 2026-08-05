@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../state/store';
 import { transformAll } from '../core/transformEngine';
+import { importContextToRow } from '../core/importContext';
 import { toCsv, downloadCsv, downloadXlsx } from '../core/exportCsv';
 import { validateRows, ISSUE_LABELS } from '../core/validate';
 import { findDuplicates } from '../core/dedupe';
@@ -17,6 +18,11 @@ export function ResultView() {
   const target = useStore((s) => s.target);
   const mapping = useStore((s) => s.mapping);
   const transformedRows = useStore((s) => s.transformedRows);
+  const importContext = useStore((s) => s.importContext);
+  const contextRow = useMemo(
+    () => importContextToRow(importContext),
+    [importContext],
+  );
   const isTransforming = useStore((s) => s.isTransforming);
   const progress = useStore((s) => s.transformProgress);
   const setTransformState = useStore((s) => s.setTransformState);
@@ -55,7 +61,7 @@ export function ResultView() {
       };
       worker.onerror = () => {
         // フォールバック: メインスレッドで同期実行
-        const rows = transformAll(source.rows, mapping);
+        const rows = transformAll(source.rows, mapping, contextRow);
         setTransformState({
           transformedRows: rows,
           isTransforming: false,
@@ -63,10 +69,14 @@ export function ResultView() {
         });
         worker?.terminate();
       };
-      const req: TransformRequest = { rows: source.rows, config: mapping };
+      const req: TransformRequest = {
+        rows: source.rows,
+        config: mapping,
+        context: contextRow,
+      };
       worker.postMessage(req);
     } catch {
-      const rows = transformAll(source.rows, mapping);
+      const rows = transformAll(source.rows, mapping, contextRow);
       setTransformState({
         transformedRows: rows,
         isTransforming: false,
@@ -78,7 +88,7 @@ export function ResultView() {
       worker?.terminate();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source, mapping]);
+  }, [source, mapping, contextRow]);
 
   const dedupeEnabled = useStore((s) => s.settings.features.duplicateDetection);
 

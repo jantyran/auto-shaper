@@ -1332,6 +1332,77 @@ td.rownum {
   opacity: 1;
 }
 
+/* Import context: per-run formula variables */
+.import-context-panel {
+  margin: 14px 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+}
+
+.import-context-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.import-context-head h3 {
+  margin: 0 0 2px;
+}
+
+.context-empty {
+  color: var(--muted);
+  font-size: 12px;
+  padding: 8px 0 2px;
+}
+
+.context-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.context-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.8fr) minmax(120px, 0.8fr) minmax(
+      180px,
+      1fr
+    ) 34px;
+  gap: 8px;
+  align-items: center;
+}
+
+.context-row input[type='text'] {
+  width: 100%;
+}
+
+.context-row-head {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.context-ref {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (max-width: 680px) {
+  .context-row {
+    grid-template-columns: 1fr;
+  }
+
+  .context-row-head {
+    display: none;
+  }
+
+  .context-row .icon {
+    justify-self: start;
+  }
+}
+
 /* 整形結果のフィールド一覧 */
 .fill-grid {
   display: grid;
@@ -1448,4 +1519,12 @@ td.rownum {
     grid-template-columns: 1fr;
     gap: 4px;
   }
+}
+
+.form-error {
+  display: block;
+  margin-top: 5px;
+  color: var(--red);
+  font-size: 12px;
+  line-height: 1.45;
 }

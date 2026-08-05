@@ -22,7 +22,10 @@ import {
   sortCustomSchemas,
 } from '../core/schemaStore';
 import { fieldDisplayName, fieldInputKind } from '../core/fieldMeta';
-import { expressionHelpText } from '../core/autoFillExpression';
+import {
+  expressionHelpText,
+  validateAutoFillExpression,
+} from '../core/autoFillExpression';
 
 const TYPE_LABELS: Record<DataType, string> = {
   string: '文字列',
@@ -356,6 +359,15 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
   if (emptyKey) problems.push('すべての項目にキー（出力列名）が必要です');
   if (dupKeys.length > 0)
     problems.push(`キーが重複しています: ${[...new Set(dupKeys)].join(', ')}`);
+  for (const field of draft.fields) {
+    const message = validateAutoFillExpression(
+      field.autoFill?.expression,
+      draft.fields,
+    );
+    if (message) {
+      problems.push(`${fieldDisplayName(field)} の自動記入式: ${message}`);
+    }
+  }
 
   return (
     <div className="panel">
@@ -713,6 +725,7 @@ function AutoFillRuleEditor({
 }) {
   const active: FieldAutoFillRule = rule ?? { template: '', cases: [] };
   const selectableFields = fields.filter((f) => f.key.trim() !== '');
+  const expressionError = validateAutoFillExpression(active.expression, fields);
   const expressionRef = useRef<HTMLTextAreaElement>(null);
 
   const commit = (next: FieldAutoFillRule) => {
@@ -783,6 +796,9 @@ function AutoFillRuleEditor({
             if (snippet) insertExpressionText(snippet);
           }}
         />
+        {expressionError && (
+          <span className="form-error">{expressionError}</span>
+        )}
       </label>
 
       <div className="auto-fill-tools">

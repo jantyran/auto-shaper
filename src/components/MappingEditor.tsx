@@ -2,12 +2,13 @@ import { useMemo } from 'react';
 import { useStore } from '../state/store';
 import type {
   FieldMapping,
+  ImportContextEntry,
   Normalizer,
   TargetField,
   Transform,
 } from '../types';
-import { evalTransform } from '../core/transformEngine';
-import { applyNormalizers } from '../core/normalize';
+import { transformRow } from '../core/transformEngine';
+import { importContextToRow } from '../core/importContext';
 import { fieldDisplayName, fieldOptionItems } from '../core/fieldMeta';
 
 const NORMALIZER_LABELS: Record<Normalizer, string> = {
@@ -35,7 +36,9 @@ export function MappingEditor() {
   const source = useStore((s) => s.source);
   const target = useStore((s) => s.target);
   const mapping = useStore((s) => s.mapping);
+  const importContext = useStore((s) => s.importContext);
   const update = useStore((s) => s.updateFieldMapping);
+  const updateImportContext = useStore((s) => s.updateImportContext);
 
   if (!source || !target || !mapping) return null;
 
@@ -58,6 +61,11 @@ export function MappingEditor() {
         {source.rows.length.toLocaleString()}
         行）はこのブラウザから出ていません。
       </div>
+
+      <ImportContextPanel
+        entries={importContext}
+        onChange={updateImportContext}
+      />
 
       {missingRequired.length > 0 && (
         <div className="alert error">
@@ -88,6 +96,111 @@ export function MappingEditor() {
 
       <PreviewTable />
     </div>
+  );
+}
+
+function makeContextEntry(): ImportContextEntry {
+  const id =
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : 'ctx-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+  return { id, key: 'EventName', label: 'イベント名', value: '' };
+}
+
+function ImportContextPanel({
+  entries,
+  onChange,
+}: {
+  entries: ImportContextEntry[];
+  onChange: (entries: ImportContextEntry[]) => void;
+}) {
+  const setEntry = (
+    id: string,
+    patch: Partial<Omit<ImportContextEntry, 'id'>>,
+  ) => {
+    onChange(
+      entries.map((entry) =>
+        entry.id === id ? { ...entry, ...patch } : entry,
+      ),
+    );
+  };
+  const removeEntry = (id: string) => {
+    onChange(entries.filter((entry) => entry.id !== id));
+  };
+  const addEntry = () => {
+    onChange([...entries, makeContextEntry()]);
+  };
+
+  return (
+    <section className="import-context-panel">
+      <div className="import-context-head">
+        <div>
+          <h3>今回の追加情報</h3>
+          <p className="subtitle">
+            元ファイルに無いイベント名やキャンペーン名を、この実行だけ式に渡せます。
+          </p>
+        </div>
+        <button type="button" className="ghost" onClick={addEntry}>
+          + 追加
+        </button>
+      </div>
+
+      {entries.length === 0 ? (
+        <div className="context-empty">
+          例: キー EventName、値 FOOMA 2026 を追加すると、式で{' '}
+          {'{Import.EventName}'} を使えます。
+        </div>
+      ) : (
+        <div className="context-list">
+          <div className="context-row context-row-head">
+            <span>キー</span>
+            <span>画面表示</span>
+            <span>値</span>
+            <span />
+          </div>
+          {entries.map((entry) => {
+            const ref = entry.key.trim()
+              ? '{Import.' + entry.key.trim() + '}'
+              : '';
+            return (
+              <div className="context-row" key={entry.id}>
+                <input
+                  type="text"
+                  value={entry.key}
+                  placeholder="EventName"
+                  onChange={(e) => setEntry(entry.id, { key: e.target.value })}
+                />
+                <input
+                  type="text"
+                  value={entry.label}
+                  placeholder="イベント名"
+                  onChange={(e) =>
+                    setEntry(entry.id, { label: e.target.value })
+                  }
+                />
+                <input
+                  type="text"
+                  value={entry.value}
+                  placeholder="今回だけ使う値"
+                  onChange={(e) =>
+                    setEntry(entry.id, { value: e.target.value })
+                  }
+                />
+                <button
+                  type="button"
+                  className="icon"
+                  title="削除"
+                  onClick={() => removeEntry(entry.id)}
+                >
+                  ×
+                </button>
+                {ref && <code className="context-ref">{ref}</code>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -616,13 +729,18 @@ function PreviewTable() {
   const source = useStore((s) => s.source);
   const target = useStore((s) => s.target);
   const mapping = useStore((s) => s.mapping);
+  const importContext = useStore((s) => s.importContext);
+  const contextRow = useMemo(
+    () => importContextToRow(importContext),
+    [importContext],
+  );
 
   const preview = useMemo(() => {
     if (!source || !mapping) return [];
-    return source.rows.slice(0, 8).map((row) =>
-      mapping.fields.map((m) => {
-        const raw = evalTransform(row, m.transform);
-        const out = applyNormalizers(raw, m.normalizers);
+    return source.rows.slice(0, 8).map((row) => {
+      const outRow = transformRow(row, mapping, contextRow);
+      return mapping.fields.map((m) => {
+        const out = outRow[m.targetKey] ?? '';
         // 「変換された」= 単純な1列コピー以外、または正規化で値が変化
         const primarySource =
           m.transform.kind === 'direct'
@@ -631,9 +749,9 @@ function PreviewTable() {
         const changed =
           m.transform.kind !== 'direct' || out !== (primarySource ?? '');
         return { out, changed, empty: out === '' };
-      }),
-    );
-  }, [source, mapping]);
+      });
+    });
+  }, [source, mapping, contextRow]);
 
   if (!source || !target || !mapping) return null;
 

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { applyFieldDefaults, applyRecordDefaults } from './mappingDefaults';
+import { applyAutoFillRules } from './autoFillRules';
 import type { MappingConfig, TargetSchema } from '../types';
 
 const target: TargetSchema = {
@@ -146,11 +147,57 @@ describe('applyRecordDefaults', () => {
     expect(out.LeadSource).toBe('Web');
   });
 
+  it('force 指定で既存の自動記入値を再計算し、skipKeys は守る', () => {
+    const first = applyRecordDefaults(
+      { Company: '', LeadSource: 'Web' },
+      target,
+    );
+    expect(first.Topic).toBe('Webリード: ');
+
+    const refreshed = applyAutoFillRules({ ...first, Company: 'A社' }, target, {
+      force: true,
+      skipKeys: new Set(['Company']),
+    });
+    expect(refreshed.Topic).toBe('Webリード: A社');
+
+    const protectedTopic = applyAutoFillRules(
+      { ...refreshed, Company: 'B社', Topic: '手入力Topic' },
+      target,
+      { force: true, skipKeys: new Set(['Company', 'Topic']) },
+    );
+    expect(protectedTopic.Topic).toBe('手入力Topic');
+  });
+
   it('条件付き自動記入ルールを適用し、表示名プレースホルダーを解決する', () => {
     const out = applyRecordDefaults(
       { Company: 'A社', LeadSource: 'Web' },
       target,
     );
     expect(out.Topic).toBe('Webリード: A社');
+  });
+
+  it('今回の追加情報を自動記入式で参照する', () => {
+    const withExpression = {
+      ...target,
+      fields: target.fields.map((f) =>
+        f.key === 'Topic'
+          ? {
+              ...f,
+              autoFill: {
+                template: '',
+                expression:
+                  'case({LeadSource} = "展示会", "EV(" & {Import.EventName} & "): " & {Company}, "Other: " & {Company})',
+              },
+            }
+          : f,
+      ),
+    };
+    const out = applyRecordDefaults(
+      { Company: 'A社', LeadSource: '展示会' },
+      withExpression,
+      { 'Import.EventName': 'FOOMA 2026' },
+    );
+    expect(out.Topic).toBe('EV(FOOMA 2026): A社');
+    expect(out['Import.EventName']).toBeUndefined();
   });
 });

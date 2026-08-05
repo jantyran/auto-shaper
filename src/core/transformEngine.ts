@@ -46,7 +46,12 @@ function evalCondition(value: string, c: ConditionalCase): boolean {
 }
 
 /** 1フィールド分の Transform を評価して生の値を取り出す(正規化前) */
-export function evalTransform(row: Row, transform: Transform): string {
+export function evalTransform(
+  row: Row,
+  transform: Transform,
+  context: Row = {},
+): string {
+  const rowWithContext = { ...context, ...row };
   switch (transform.kind) {
     case 'direct':
       return get(row, transform.source);
@@ -99,9 +104,13 @@ export function evalTransform(row: Row, transform: Transform): string {
         aliases: [],
       }));
       if (transform.expression?.trim()) {
-        return evaluateAutoFillExpression(transform.expression, row, fields);
+        return evaluateAutoFillExpression(
+          transform.expression,
+          rowWithContext,
+          fields,
+        );
       }
-      return renderAutoFillTemplate(transform.template, row, fields);
+      return renderAutoFillTemplate(transform.template, rowWithContext, fields);
     }
 
     case 'empty':
@@ -113,8 +122,12 @@ export function evalTransform(row: Row, transform: Transform): string {
 }
 
 /** 1フィールド分のマッピングを適用(Transform → 正規化) */
-export function applyFieldMapping(row: Row, mapping: FieldMapping): string {
-  const raw = evalTransform(row, mapping.transform);
+export function applyFieldMapping(
+  row: Row,
+  mapping: FieldMapping,
+  context: Row = {},
+): string {
+  const raw = evalTransform(row, mapping.transform, context);
   return applyNormalizers(raw, mapping.normalizers);
 }
 
@@ -138,29 +151,39 @@ function evalTemplateMapping(
   out: Row,
   mapping: FieldMapping,
   fields: TargetField[],
+  context: Row = {},
 ): string {
+  const outWithContext = { ...context, ...out };
   const transform = mapping.transform;
   if (transform.kind !== 'template') return '';
   if (transform.expression?.trim()) {
-    return evaluateAutoFillExpression(transform.expression, out, fields);
+    return evaluateAutoFillExpression(
+      transform.expression,
+      outWithContext,
+      fields,
+    );
   }
   const cases = transform.cases ?? [];
   for (const c of cases) {
     if (
-      evalCondition(get(out, c.sourceFieldKey), {
+      evalCondition(get(outWithContext, c.sourceFieldKey), {
         op: c.op,
         value: c.value,
         then: c.template,
       })
     ) {
-      return renderAutoFillTemplate(c.template, out, fields);
+      return renderAutoFillTemplate(c.template, outWithContext, fields);
     }
   }
-  return renderAutoFillTemplate(transform.template, out, fields);
+  return renderAutoFillTemplate(transform.template, outWithContext, fields);
 }
 
 /** 1行を変換してターゲット行を作る */
-export function transformRow(row: Row, config: MappingConfig): Row {
+export function transformRow(
+  row: Row,
+  config: MappingConfig,
+  context: Row = {},
+): Row {
   const out: Row = {};
   const templateMappings: FieldMapping[] = [];
   for (const mapping of config.fields) {
@@ -168,7 +191,7 @@ export function transformRow(row: Row, config: MappingConfig): Row {
       templateMappings.push(mapping);
       continue;
     }
-    out[mapping.targetKey] = applyFieldMapping(row, mapping);
+    out[mapping.targetKey] = applyFieldMapping(row, mapping, context);
   }
 
   const fields = fieldLabelsFromTemplateMappings(config);
@@ -179,7 +202,7 @@ export function transformRow(row: Row, config: MappingConfig): Row {
       continue;
     }
     out[mapping.targetKey] = applyNormalizers(
-      evalTemplateMapping(out, mapping, fields),
+      evalTemplateMapping(out, mapping, fields, context),
       mapping.normalizers,
     );
   }
@@ -187,6 +210,10 @@ export function transformRow(row: Row, config: MappingConfig): Row {
 }
 
 /** 全行を変換 */
-export function transformAll(rows: Row[], config: MappingConfig): Row[] {
-  return rows.map((r) => transformRow(r, config));
+export function transformAll(
+  rows: Row[],
+  config: MappingConfig,
+  context: Row = {},
+): Row[] {
+  return rows.map((r) => transformRow(r, config, context));
 }

@@ -33,6 +33,11 @@ const EXAMPLES = [
     note: '完全一致ではなく、文字列を含むかで判定します。',
   },
   {
+    title: '今回の追加情報を使う',
+    code: 'case({LeadSource} = "展示会", "EV(" & {Import.EventName} & "): " & {Company Name}, "Other: " & {Company Name})',
+    note: '表の整形画面で今回の追加情報に EventName を入れると、ファイルに無いイベント名をTOPICへ差し込めます。',
+  },
+  {
     title: '最初の非空値を使う',
     code: 'coalesce({Phone}, {MobilePhone}, "連絡先なし")',
     note: '左から見て、最初に空ではない値を使います。',
@@ -52,6 +57,10 @@ const REFS = [
     '項目の表示名を差し込みます。{Field.labal} も typo 互換で使えます。',
   ],
   ['{Field.key}', '出力列名としてのキーを差し込みます。'],
+  [
+    '{Import.EventName}',
+    '表の整形で入力した「今回の追加情報」を差し込みます。EventName の部分は任意のキーにできます。',
+  ],
   ['"文字列"', '固定テキストです。シングルクォートも使えます。'],
   ['&', '文字列を連結します。'],
   ['= / == / !=', '一致・不一致を判定します。'],

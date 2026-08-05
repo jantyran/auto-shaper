@@ -176,6 +176,45 @@ describe('transformEngine', () => {
     expect(transformRow(row, config).Topic).toBe('Webリード: 株式会社テスト');
   });
 
+  it('transformRow: 今回の追加情報をテンプレート式で参照する', () => {
+    const config: MappingConfig = {
+      targetSchemaId: 't',
+      fields: [
+        {
+          targetKey: 'Company',
+          transform: { kind: 'direct', source: '会社' },
+          normalizers: ['normalizeCompany'],
+          confidence: 1,
+        },
+        {
+          targetKey: 'LeadSource',
+          transform: { kind: 'constant', value: '展示会' },
+          normalizers: [],
+          confidence: 1,
+        },
+        {
+          targetKey: 'Topic',
+          transform: {
+            kind: 'template',
+            expression:
+              'case({LeadSource} = "展示会", "EV(" & {Import.EventName} & "): " & {Company}, "Other: " & {Company})',
+            template: '',
+            fieldLabels: {
+              Company: '会社名',
+              LeadSource: 'リードソース',
+              Topic: 'TOPIC名',
+            },
+          },
+          normalizers: [],
+          confidence: 1,
+        },
+      ],
+    };
+    expect(
+      transformRow(row, config, { 'Import.EventName': 'FOOMA 2026' }).Topic,
+    ).toBe('EV(FOOMA 2026): 株式会社テスト');
+  });
+
   it('transformRow: 設定に従って行全体を変換する', () => {
     const config: MappingConfig = {
       targetSchemaId: 't',

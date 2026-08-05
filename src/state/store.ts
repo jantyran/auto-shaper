@@ -6,6 +6,7 @@
 import { create } from 'zustand';
 import type {
   FieldMapping,
+  ImportContextEntry,
   MappingConfig,
   SourceDataset,
   TargetSchema,
@@ -63,6 +64,8 @@ interface AppState {
   target?: TargetSchema;
   mapping?: MappingConfig;
   transformedRows?: Record<string, string>[];
+  /** 今回の表整形だけで式から参照できる補足情報 */
+  importContext: ImportContextEntry[];
   /** ユーザーが管理ページで作成したテンプレート */
   customSchemas: TargetSchema[];
   /** テンプレートの保存先(SQLite API / ブラウザのlocalStorage) */
@@ -105,6 +108,7 @@ interface AppState {
   selectSchema: (id: string) => Promise<void>;
   loadUploadedTarget: (fileName: string, data: ArrayBuffer) => Promise<void>;
   updateFieldMapping: (targetKey: string, mapping: FieldMapping) => void;
+  updateImportContext: (entries: ImportContextEntry[]) => void;
   setTransformState: (
     partial: Partial<
       Pick<
@@ -147,6 +151,7 @@ export const useStore = create<AppState>((set, get) => ({
   isSuggesting: false,
   isTransforming: false,
   transformProgress: 0,
+  importContext: [],
 
   setView: (view) => set({ view, error: undefined }),
   goTo: (step) => set({ step }),
@@ -202,6 +207,10 @@ export const useStore = create<AppState>((set, get) => ({
       set({
         source,
         sourceRaw: { fileName, data },
+        target: undefined,
+        mapping: undefined,
+        transformedRows: undefined,
+        importContext: [],
         step: 'target',
         error: undefined,
       });
@@ -224,6 +233,7 @@ export const useStore = create<AppState>((set, get) => ({
         target: undefined,
         mapping: undefined,
         transformedRows: undefined,
+        importContext: [],
         step: 'target',
         error: undefined,
       });
@@ -291,6 +301,14 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 
+  updateImportContext: (entries) => {
+    set({
+      importContext: entries,
+      transformedRows: undefined,
+      transformProgress: 0,
+    });
+  },
+
   setTransformState: (partial) => set(partial),
 
   reset: () =>
@@ -301,6 +319,7 @@ export const useStore = create<AppState>((set, get) => ({
       mapping: undefined,
       transformedRows: undefined,
       transformProgress: 0,
+      importContext: [],
       isTransforming: false,
       isSuggesting: false,
       error: undefined,

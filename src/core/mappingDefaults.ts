@@ -18,6 +18,7 @@ import { applyAutoFillRules } from './autoFillRules';
 export function applyRecordDefaults(
   record: Record<string, string>,
   target: TargetSchema,
+  context: Record<string, string> = {},
 ): Record<string, string> {
   const out = { ...record };
   for (const f of target.fields) {
@@ -29,7 +30,7 @@ export function applyRecordDefaults(
       out[f.key] = f.defaultValue;
     }
   }
-  return applyAutoFillRules(out, target);
+  return applyAutoFillRules(out, target, { context });
 }
 
 function fieldLabels(target: TargetSchema): Record<string, string> {

@@ -27,6 +27,7 @@ import {
   type ExtractedRecord,
 } from '../core/textExtract';
 import { applyRecordDefaults } from '../core/mappingDefaults';
+import { applyAutoFillRules } from '../core/autoFillRules';
 import { toCsv, downloadCsv, downloadXlsx } from '../core/exportCsv';
 import type { TargetField } from '../types';
 import {
@@ -74,6 +75,9 @@ export function TextShaper() {
   const [text, setText] = useState('');
   const [dict, setDict] = useState<MaskDictionary>(new Map());
   const [record, setRecord] = useState<ExtractedRecord | null>(null);
+  const [manualRecordFields, setManualRecordFields] = useState<Set<string>>(
+    new Set(),
+  );
   const [method, setMethod] = useState<'llm' | 'local' | null>(null);
   const [isExtracting, setExtracting] = useState(false);
   const [error, setError] = useState<string | undefined>();
@@ -141,6 +145,7 @@ export function TextShaper() {
     setError(undefined);
     setExtracting(true);
     setRecord(null);
+    setManualRecordFields(new Set());
     setMethod(null);
 
     try {
@@ -189,7 +194,19 @@ export function TextShaper() {
   };
 
   const updateField = (key: string, value: string) => {
-    setRecord((prev) => ({ ...(prev ?? {}), [key]: value }));
+    if (!target) {
+      setRecord((prev) => ({ ...(prev ?? {}), [key]: value }));
+      return;
+    }
+    const protectedKeys = new Set(manualRecordFields);
+    protectedKeys.add(key);
+    setManualRecordFields(protectedKeys);
+    setRecord((prev) =>
+      applyAutoFillRules({ ...(prev ?? {}), [key]: value }, target, {
+        force: true,
+        skipKeys: protectedKeys,
+      }),
+    );
   };
 
   const flashCopied = (id: string) => {

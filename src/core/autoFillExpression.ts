@@ -26,6 +26,10 @@ function fieldLookup(fields: TargetField[]): Map<string, TargetField> {
     const display = fieldDisplayName(field);
     if (display) lookup.set(display, field);
     if (field.label.trim()) lookup.set(field.label.trim(), field);
+    for (const alias of field.aliases ?? []) {
+      const normalized = String(alias).trim();
+      if (normalized) lookup.set(normalized, field);
+    }
   }
   return lookup;
 }
@@ -49,9 +53,16 @@ function renderTemplate(
   row: Row,
   fields: TargetField[],
 ): string {
-  return template.replace(/\{([^{}]+)\}/g, (_, rawName: string) => {
-    return resolveFieldRef(rawName, row, fields);
-  });
+  return template.replace(
+    /\{([^{}]+)\}(?:\.(value|label|labal|key))?/g,
+    (_, rawName: string, attr: string | undefined) => {
+      return resolveFieldRef(
+        attr ? rawName + '.' + attr : rawName,
+        row,
+        fields,
+      );
+    },
+  );
 }
 
 type Token =
@@ -59,7 +70,7 @@ type Token =
   | { type: 'field'; value: string }
   | { type: 'ident'; value: string }
   | { type: 'op'; value: string }
-  | { type: 'punct'; value: '(' | ')' | ',' }
+  | { type: 'punct'; value: '(' | ')' | ',' | '.' }
   | { type: 'eof'; value: '' };
 
 class Parser {
@@ -102,8 +113,8 @@ class Parser {
     }
     this.pos++;
     const right = this.primary();
-    const l = stringify(left);
-    const r = stringify(right);
+    const l = stringify(left).trim();
+    const r = stringify(right).trim();
     switch (op.value) {
       case '=':
       case '==':
@@ -129,7 +140,11 @@ class Parser {
     }
     if (token.type === 'field') {
       this.pos++;
-      return renderTemplate('{' + token.value + '}', this.row, this.fields);
+      let ref = token.value;
+      if (this.matchPunct('.')) {
+        ref += '.' + this.expect('ident').value;
+      }
+      return renderTemplate('{' + ref + '}', this.row, this.fields);
     }
     if (token.type === 'ident') return this.callOrIdentifier();
     if (token.type === 'punct' && token.value === '(') {
@@ -176,7 +191,7 @@ class Parser {
     return false;
   }
 
-  private matchPunct(value: '(' | ')' | ','): boolean {
+  private matchPunct(value: '(' | ')' | ',' | '.'): boolean {
     const token = this.peek();
     if (token.type === 'punct' && token.value === value) {
       this.pos++;
@@ -280,7 +295,7 @@ function tokenize(input: string): Token[] {
       i = end + 1;
       continue;
     }
-    if (ch === '(' || ch === ')' || ch === ',') {
+    if (ch === '(' || ch === ')' || ch === ',' || ch === '.') {
       tokens.push({ type: 'punct', value: ch });
       i++;
       continue;
@@ -324,11 +339,27 @@ export function evaluateAutoFillExpression(
   return new Parser(tokenize(trimmed), row, fields).parse();
 }
 
+export function validateAutoFillExpression(
+  expression: string | undefined,
+  fields: TargetField[],
+): string | undefined {
+  const trimmed = expression?.trim() ?? '';
+  if (!trimmed) return undefined;
+  const sampleRow = Object.fromEntries(fields.map((f) => [f.key, '']));
+  try {
+    evaluateAutoFillExpression(trimmed, sampleRow, fields);
+    return undefined;
+  } catch (e) {
+    return e instanceof Error ? e.message : '式の構文を確認してください。';
+  }
+}
+
 export function expressionHelpText(): string {
   return [
     '例: if({LeadSource} = "Web", "Webリード: {Company}", "会社名: {Company}")',
     '複数分岐: case({LeadSource} = "Web", "Web", {LeadSource} = "展示会", "Event", "Other")',
     'フィールド参照: {Company}, {Company.value}, {Company.label}, {Company.key}',
+    '今回の追加情報: {Import.EventName}（表の整形画面で入力した値）',
     '比較: =, ==, !=, contains, startsWith, endsWith',
     '関数: if(条件, 真, 偽), case(条件1, 値1, ..., 既定値), coalesce(a,b), empty(a), trim(a)',
     '結合: "固定テキスト" & {Company}',

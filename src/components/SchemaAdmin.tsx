@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../state/store';
 import type { DataType, TargetField, TargetSchema } from '../types';
 import { PRESET_SCHEMAS, schemaFromUploadedHeader } from '../core/targetSchemas';
@@ -303,18 +303,10 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
                 </option>
               ))}
             </select>
-            <input
-              type="text"
+            <CommaListInput
               placeholder="会社名, 企業名, company"
-              value={f.aliases.join(', ')}
-              onChange={(e) =>
-                setField(i, {
-                  aliases: e.target.value
-                    .split(',')
-                    .map((a) => a.trim())
-                    .filter((a) => a !== ''),
-                })
-              }
+              value={f.aliases}
+              onChange={(aliases) => setField(i, { aliases })}
             />
             <label style={{ display: 'flex', justifyContent: 'center' }}>
               <input
@@ -339,17 +331,12 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
           <div className="admin-extra">
             <label className="field-label">
               選択肢（カンマ区切り・固定値の候補）
-              <input
-                type="text"
+              <CommaListInput
                 placeholder="例: Web, 展示会, 紹介"
-                value={(f.options ?? []).join(', ')}
-                onChange={(e) => {
-                  const options = e.target.value
-                    .split(',')
-                    .map((o) => o.trim())
-                    .filter((o) => o !== '');
-                  setField(i, { options: options.length ? options : undefined });
-                }}
+                value={f.options ?? []}
+                onChange={(options) =>
+                  setField(i, { options: options.length ? options : undefined })
+                }
               />
             </label>
             <label className="field-label">
@@ -397,5 +384,49 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * カンマ区切りで文字列配列を編集するテキスト入力。
+ *
+ * 表示は「編集中の生テキスト」を保持し、配列⇔文字列の往復で毎打鍵ごとに
+ * トリム/空要素除去して join し直す実装だと、カンマや末尾スペースが即座に
+ * 消えて入力できない問題があったため、ローカルの text state を持つ。
+ * 親には常に整形済み配列(トリム・空除去)を渡す。
+ */
+function CommaListInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string[];
+  onChange: (v: string[]) => void;
+  placeholder?: string;
+}) {
+  const [text, setText] = useState(value.join(', '));
+
+  // 並べ替え/削除など、外部から value が変わったときだけ表示を同期する。
+  // 入力中は onChange で親に反映済み(= parse(text) と一致)なので同期は起きない。
+  useEffect(() => {
+    const parsed = text.split(',').map((s) => s.trim()).filter(Boolean);
+    if (parsed.join(' ') !== value.join(' ')) {
+      // 制御入力のローカルバッファを prop に意図的に追従させる同期
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setText(value.join(', '));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  return (
+    <input
+      type="text"
+      placeholder={placeholder}
+      value={text}
+      onChange={(e) => {
+        setText(e.target.value);
+        onChange(e.target.value.split(',').map((s) => s.trim()).filter(Boolean));
+      }}
+    />
   );
 }

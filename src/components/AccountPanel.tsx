@@ -167,10 +167,17 @@ function ConnectionField() {
     setTimeout(() => setSaved(false), 1500);
   };
 
+  // いま開いているホストの :8787 を自動入力(リモートIPやLive Server対策)
+  const guessFromHost = `${window.location.protocol}//${window.location.hostname}:8787`;
+  const useThisHost = () => {
+    setBase(guessFromHost);
+    commit(guessFromHost);
+  };
+
   return (
     <div className="conn-field">
-      <label className="field-label" style={{ maxWidth: 520 }}>
-        APIサーバーURL（別オリジンで開いている場合に設定）
+      <label className="field-label" style={{ maxWidth: 560 }}>
+        APIサーバーURL（別オリジン/別ホストで開いている場合に設定）
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <input
             type="text"
@@ -185,10 +192,19 @@ function ConnectionField() {
           </button>
         </div>
       </label>
-      <p className="subtitle" style={{ margin: '6px 0 12px' }}>
-        Vite開発サーバー(<code>http://localhost:5173</code>)や同一オリジン配信では空欄のままでOKです。
-        Live Server(例 <code>:5502</code>)など<b>別オリジン</b>で開く場合のみ、APIサーバーのURL
-        （例 <code>http://localhost:8787</code>）を入れてください。設定後にログインし直すと反映されます。
+      <div style={{ margin: '6px 0 8px' }}>
+        <button type="button" className="ghost" onClick={useThisHost}>
+          このホストの :8787 を使う（{guessFromHost}）
+        </button>
+      </div>
+      <p className="subtitle" style={{ margin: '0 0 12px' }}>
+        <b>APIサーバー</b>は <code>npm run server</code> で動く Node サーバー(既定ポート8787)で、SQLite を読み書きします。
+        ブラウザは SQLite に直接ではなく、この API サーバー経由で保存します。<br />
+        Vite開発サーバー(<code>localhost:5173</code>)や同一オリジン配信なら<b>空欄でOK</b>です。
+        Live Server(<code>:5502</code>)や<b>リモートIP</b>(例 <code>http://133.18.123.87:5502</code>)で開く場合は、
+        同じホストの <code>:8787</code>(<code>http://&lt;このホスト&gt;:8787</code>) を指定してください
+        （上のボタンで自動入力できます）。そのホストで <code>npm run server</code> を起動し、
+        ポート8787が到達可能である必要があります。設定後にログインし直すと反映されます。
       </p>
     </div>
   );

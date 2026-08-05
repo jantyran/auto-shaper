@@ -26,7 +26,9 @@ import {
   llmTextExtract,
   type ExtractedRecord,
 } from '../core/textExtract';
+import { applyRecordDefaults } from '../core/mappingDefaults';
 import { toCsv, downloadCsv, downloadXlsx } from '../core/exportCsv';
+import type { TargetField } from '../types';
 
 /** 手動マスクで選べるカテゴリ（自動検出する NUMBER/CARD は手動ボタンから除外） */
 const MANUAL_CATEGORIES: MaskCategory[] = [
@@ -155,8 +157,8 @@ export function TextShaper() {
         used = 'local';
       }
 
-      // マスクした値を元に戻してから表示・出力する
-      setRecord(unmaskRecord(raw, workingDict));
+      // マスクを元に戻し、対応が無い項目にはテンプレートの既定値を入れてから表示・出力する
+      setRecord(applyRecordDefaults(unmaskRecord(raw, workingDict), target));
       setMethod(used);
     } catch (e) {
       setError(e instanceof Error ? e.message : '整形に失敗しました。');
@@ -373,8 +375,7 @@ export function TextShaper() {
             {target.fields.map((f) => (
               <FillRow
                 key={f.key}
-                label={f.label}
-                required={f.required}
+                field={f}
                 value={record[f.key] ?? ''}
                 onChange={(v) => updateField(f.key, v)}
               />
@@ -401,28 +402,54 @@ export function TextShaper() {
 }
 
 function FillRow({
-  label,
-  required,
+  field,
   value,
   onChange,
 }: {
-  label: string;
-  required: boolean;
+  field: TargetField;
   value: string;
   onChange: (v: string) => void;
 }) {
+  const opts = field.options ?? [];
+
   return (
     <>
       <div className="fill-label">
-        {label}
-        {required && <span className="required-badge"> ※必須</span>}
+        {field.label}
+        {field.required && <span className="required-badge"> ※必須</span>}
       </div>
-      <input
-        type="text"
-        value={value}
-        placeholder="—"
-        onChange={(e) => onChange(e.target.value)}
-      />
+      {opts.length === 0 ? (
+        <input
+          type="text"
+          value={value}
+          placeholder="—"
+          onChange={(e) => onChange(e.target.value)}
+        />
+      ) : (
+        // 選択肢はクイック選択。テキスト欄は常に編集可能で自由な上書きもできる
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <select
+            value={opts.includes(value) ? value : ''}
+            onChange={(e) => {
+              if (e.target.value) onChange(e.target.value);
+            }}
+          >
+            <option value="">選択…</option>
+            {opts.map((o) => (
+              <option key={o} value={o}>
+                {o}
+              </option>
+            ))}
+          </select>
+          <input
+            type="text"
+            style={{ flex: 1 }}
+            value={value}
+            placeholder="—（自由入力も可）"
+            onChange={(e) => onChange(e.target.value)}
+          />
+        </div>
+      )}
     </>
   );
 }

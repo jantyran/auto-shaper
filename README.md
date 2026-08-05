@@ -77,14 +77,21 @@ git clone https://github.com/jantyran/auto-shaper.git
 cd auto-shaper
 npm install
 
-npm run dev          # フロント開発サーバー(Vite)  → http://localhost:5173
-npm run server       # 認証 + テンプレート/レシピ保存用 API (任意・別ターミナル)
+npm run dev          # 開発サーバー(Vite) + API を同梱 → http://localhost:5173
+npm run build        # 本番ビルド
+npm run preview      # ビルド成果物 + API を同梱 → http://localhost:4173
+npm run server       # API を単体で起動(別オリジン配信/本番用・任意) → :8787
 ```
 
-`npm run server` を起動し、設定ページの「アカウント」からログインすると、テンプレート/レシピは
-DB(既定は SQLite)に**ユーザー単位で保存**され複数端末で共有できます。ログインしない/サーバーを
-起動しない場合はフロントが自動的に localStorage 保存へフォールバックするため、`npm run dev`
-だけでもそのまま使えます。DBを差し替える場合は `DB_DRIVER` 環境変数と `server/storage/` を参照。
+**`npm run dev` / `npm run preview` は API を同一オリジンに同梱**しています（Vite に in-process で
+マウント。`vite.config.ts` の `auto-shaper-inprocess-api` プラグイン）。そのため**これ単体で
+ログインまで動きます** — 別プロセスや proxy、CORS 設定は不要です。設定ページの「アカウント」から
+ログインすると、テンプレート/レシピが DB(既定は SQLite)に**ユーザー単位で保存**され複数端末で
+共有できます。ログインしなければ localStorage 保存でそのまま使えます。
+
+`npm run server` は、フロントを**別オリジン(Live Server 等)や別ホスト/本番**で配信する場合に、
+API を単体で(:8787)立てるためのものです（この場合はアプリの「APIサーバーURL」設定が必要 →
+下記）。DBを差し替える場合は `DB_DRIVER` 環境変数と `server/storage/` を参照。
 
 ### スクリプト
 

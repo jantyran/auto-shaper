@@ -27,9 +27,9 @@ describe('normalize', () => {
   });
 
   it('正規化子を順番に適用する', () => {
-    expect(applyNormalizers('  ＡＢＣ ', ['trim', 'toHalfWidth', 'lowerCase'])).toBe(
-      'abc',
-    );
+    expect(
+      applyNormalizers('  ＡＢＣ ', ['trim', 'toHalfWidth', 'lowerCase']),
+    ).toBe('abc');
   });
 });
 
@@ -42,56 +42,80 @@ describe('transformEngine', () => {
 
   it('concat: 複数列を結合する', () => {
     expect(
-      evalTransform(row, { kind: 'concat', sources: ['姓', '名'], separator: '' }),
+      evalTransform(row, {
+        kind: 'concat',
+        sources: ['姓', '名'],
+        separator: '',
+      }),
     ).toBe('山田太郎');
   });
 
   it('concat: 改行区切りで結合する', () => {
     expect(
-      evalTransform({ 役職: '部長', 経路: '展示会' }, {
-        kind: 'concat',
-        sources: ['役職', '経路'],
-        separator: '\n',
-      }),
+      evalTransform(
+        { 役職: '部長', 経路: '展示会' },
+        {
+          kind: 'concat',
+          sources: ['役職', '経路'],
+          separator: '\n',
+        },
+      ),
     ).toBe('部長\n展示会');
   });
 
   it('concat: 「項目名: 値」のラベル付き結合(空はスキップ)', () => {
     expect(
-      evalTransform({ 役職: '部長', 経路: '', 予算: '100万' }, {
-        kind: 'concat',
-        sources: ['役職', '経路', '予算'],
-        separator: '\n',
-        withLabels: true,
-        labelSeparator: ': ',
-      }),
+      evalTransform(
+        { 役職: '部長', 経路: '', 予算: '100万' },
+        {
+          kind: 'concat',
+          sources: ['役職', '経路', '予算'],
+          separator: '\n',
+          withLabels: true,
+          labelSeparator: ': ',
+        },
+      ),
     ).toBe('役職: 部長\n予算: 100万');
   });
 
   it('concat: ラベルを別名に上書きできる', () => {
     expect(
-      evalTransform({ 経路: '展示会' }, {
-        kind: 'concat',
-        sources: ['経路'],
-        separator: '\n',
-        withLabels: true,
-        labels: { 経路: '獲得経路' },
-      }),
+      evalTransform(
+        { 経路: '展示会' },
+        {
+          kind: 'concat',
+          sources: ['経路'],
+          separator: '\n',
+          withLabels: true,
+          labels: { 経路: '獲得経路' },
+        },
+      ),
     ).toBe('獲得経路: 展示会');
   });
 
   it('split: 1列を分割して取り出す', () => {
     expect(
-      evalTransform(row, { kind: 'split', source: '氏名', delimiter: ' ', index: 1 }),
+      evalTransform(row, {
+        kind: 'split',
+        source: '氏名',
+        delimiter: ' ',
+        index: 1,
+      }),
     ).toBe('花子');
   });
 
   it('split: 空白区切りは半角/全角スペース混在に対応する', () => {
     expect(
-      evalTransform({ 氏名: '佐藤　花子' }, { kind: 'split', source: '氏名', delimiter: ' ', index: 0 }),
+      evalTransform(
+        { 氏名: '佐藤　花子' },
+        { kind: 'split', source: '氏名', delimiter: ' ', index: 0 },
+      ),
     ).toBe('佐藤');
     expect(
-      evalTransform({ 氏名: '佐藤　花子' }, { kind: 'split', source: '氏名', delimiter: ' ', index: 1 }),
+      evalTransform(
+        { 氏名: '佐藤　花子' },
+        { kind: 'split', source: '氏名', delimiter: ' ', index: 1 },
+      ),
     ).toBe('花子');
   });
 
@@ -107,6 +131,49 @@ describe('transformEngine', () => {
         },
       ),
     ).toBe('マネージャー');
+  });
+
+  it('template: 出力済み項目を参照して値を組み立てる', () => {
+    const config: MappingConfig = {
+      targetSchemaId: 't',
+      fields: [
+        {
+          targetKey: 'Company',
+          transform: { kind: 'direct', source: '会社' },
+          normalizers: ['normalizeCompany'],
+          confidence: 1,
+        },
+        {
+          targetKey: 'LeadSource',
+          transform: { kind: 'constant', value: 'Web' },
+          normalizers: [],
+          confidence: 1,
+        },
+        {
+          targetKey: 'Topic',
+          transform: {
+            kind: 'template',
+            template: '会社名: {Company}',
+            cases: [
+              {
+                sourceFieldKey: 'LeadSource',
+                op: 'equals',
+                value: 'Web',
+                template: 'Webリード: {会社名}',
+              },
+            ],
+            fieldLabels: {
+              Company: '会社名',
+              LeadSource: 'リードソース',
+              Topic: 'TOPIC名',
+            },
+          },
+          normalizers: [],
+          confidence: 1,
+        },
+      ],
+    };
+    expect(transformRow(row, config).Topic).toBe('Webリード: 株式会社テスト');
   });
 
   it('transformRow: 設定に従って行全体を変換する', () => {
@@ -144,18 +211,51 @@ describe('anonymize', () => {
 describe('heuristicSuggester', () => {
   it('カラム名からマッピングを提案する', async () => {
     const columns: SourceColumn[] = [
-      { name: '会社名', inferredType: 'string', sampleValues: ['(株)A'], fillRate: 1 },
-      { name: 'メールアドレス', inferredType: 'email', sampleValues: ['a@b.com'], fillRate: 1 },
-      { name: '電話', inferredType: 'phone', sampleValues: ['03-1111-2222'], fillRate: 1 },
+      {
+        name: '会社名',
+        inferredType: 'string',
+        sampleValues: ['(株)A'],
+        fillRate: 1,
+      },
+      {
+        name: 'メールアドレス',
+        inferredType: 'email',
+        sampleValues: ['a@b.com'],
+        fillRate: 1,
+      },
+      {
+        name: '電話',
+        inferredType: 'phone',
+        sampleValues: ['03-1111-2222'],
+        fillRate: 1,
+      },
     ];
     const target: TargetSchema = {
       id: 'sf',
       name: 'SF',
       origin: 'preset',
       fields: [
-        { key: 'Company', label: '会社名', required: true, type: 'string', aliases: ['会社名', '企業名'] },
-        { key: 'Email', label: 'メール', required: false, type: 'email', aliases: ['メール', 'メールアドレス', 'email'] },
-        { key: 'Phone', label: '電話番号', required: false, type: 'phone', aliases: ['電話', '電話番号', 'tel'] },
+        {
+          key: 'Company',
+          label: '会社名',
+          required: true,
+          type: 'string',
+          aliases: ['会社名', '企業名'],
+        },
+        {
+          key: 'Email',
+          label: 'メール',
+          required: false,
+          type: 'email',
+          aliases: ['メール', 'メールアドレス', 'email'],
+        },
+        {
+          key: 'Phone',
+          label: '電話番号',
+          required: false,
+          type: 'phone',
+          aliases: ['電話', '電話番号', 'tel'],
+        },
       ],
     };
     const ctx = buildSuggestContext(columns, target);
@@ -165,22 +265,52 @@ describe('heuristicSuggester', () => {
     expect(company?.transform).toEqual({ kind: 'direct', source: '会社名' });
 
     const email = mapping.fields.find((f) => f.targetKey === 'Email');
-    expect(email?.transform).toEqual({ kind: 'direct', source: 'メールアドレス' });
+    expect(email?.transform).toEqual({
+      kind: 'direct',
+      source: 'メールアドレス',
+    });
   });
 
   it('備考フィールドに未割り当ての列を「項目名:値」で集約する', async () => {
     const columns: SourceColumn[] = [
-      { name: '会社名', inferredType: 'string', sampleValues: ['A社'], fillRate: 1 },
-      { name: '予算感', inferredType: 'string', sampleValues: ['100万'], fillRate: 1 },
-      { name: '検討時期', inferredType: 'string', sampleValues: ['Q3'], fillRate: 1 },
+      {
+        name: '会社名',
+        inferredType: 'string',
+        sampleValues: ['A社'],
+        fillRate: 1,
+      },
+      {
+        name: '予算感',
+        inferredType: 'string',
+        sampleValues: ['100万'],
+        fillRate: 1,
+      },
+      {
+        name: '検討時期',
+        inferredType: 'string',
+        sampleValues: ['Q3'],
+        fillRate: 1,
+      },
     ];
     const target: TargetSchema = {
       id: 'crm',
       name: 'CRM',
       origin: 'preset',
       fields: [
-        { key: 'Company', label: '会社名', required: true, type: 'string', aliases: ['会社名'] },
-        { key: 'Notes', label: '備考', required: false, type: 'string', aliases: ['備考', 'notes'] },
+        {
+          key: 'Company',
+          label: '会社名',
+          required: true,
+          type: 'string',
+          aliases: ['会社名'],
+        },
+        {
+          key: 'Notes',
+          label: '備考',
+          required: false,
+          type: 'string',
+          aliases: ['備考', 'notes'],
+        },
       ],
     };
     const ctx = buildSuggestContext(columns, target);
@@ -195,15 +325,32 @@ describe('heuristicSuggester', () => {
 
   it('氏名の結合列しか無いとき姓/名へ分割を提案する', async () => {
     const columns: SourceColumn[] = [
-      { name: '氏名', inferredType: 'string', sampleValues: ['山田 太郎'], fillRate: 1 },
+      {
+        name: '氏名',
+        inferredType: 'string',
+        sampleValues: ['山田 太郎'],
+        fillRate: 1,
+      },
     ];
     const target: TargetSchema = {
       id: 'sf',
       name: 'SF',
       origin: 'preset',
       fields: [
-        { key: 'LastName', label: '姓', required: true, type: 'string', aliases: ['姓', '苗字'] },
-        { key: 'FirstName', label: '名', required: false, type: 'string', aliases: ['名'] },
+        {
+          key: 'LastName',
+          label: '姓',
+          required: true,
+          type: 'string',
+          aliases: ['姓', '苗字'],
+        },
+        {
+          key: 'FirstName',
+          label: '名',
+          required: false,
+          type: 'string',
+          aliases: ['名'],
+        },
       ],
     };
     const ctx = buildSuggestContext(columns, target);

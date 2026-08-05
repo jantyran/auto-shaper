@@ -9,6 +9,7 @@
  * ユーザーはこの後、マッピング画面で選択変更・自由入力での上書きができる。
  */
 import type { FieldMapping, MappingConfig, TargetSchema } from '../types';
+import { applyAutoFillRules } from './autoFillRules';
 
 /**
  * 抽出済みレコード(key→値)に、テンプレートの既定値を適用する。
@@ -20,11 +21,21 @@ export function applyRecordDefaults(
 ): Record<string, string> {
   const out = { ...record };
   for (const f of target.fields) {
-    if ((out[f.key] ?? '') === '' && f.defaultValue != null && f.defaultValue !== '') {
+    if (
+      (out[f.key] ?? '') === '' &&
+      f.defaultValue != null &&
+      f.defaultValue !== ''
+    ) {
       out[f.key] = f.defaultValue;
     }
   }
-  return out;
+  return applyAutoFillRules(out, target);
+}
+
+function fieldLabels(target: TargetSchema): Record<string, string> {
+  return Object.fromEntries(
+    target.fields.map((f) => [f.key, f.label || f.key]),
+  );
 }
 
 export function applyFieldDefaults(
@@ -34,16 +45,35 @@ export function applyFieldDefaults(
   const byKey = new Map(mapping.fields.map((m) => [m.targetKey, m]));
 
   const fields: FieldMapping[] = target.fields.map((f) => {
-    const current: FieldMapping =
-      byKey.get(f.key) ?? {
-        targetKey: f.key,
-        transform: { kind: 'empty' },
-        normalizers: [],
-        confidence: 0,
-      };
+    const current: FieldMapping = byKey.get(f.key) ?? {
+      targetKey: f.key,
+      transform: { kind: 'empty' },
+      normalizers: [],
+      confidence: 0,
+    };
 
     // 割当済みならそのまま
     if (current.transform.kind !== 'empty') return current;
+
+    if (
+      f.autoFill &&
+      (f.autoFill.template || (f.autoFill.cases ?? []).length > 0)
+    ) {
+      return {
+        ...current,
+        transform: {
+          kind: 'template',
+          expression: f.autoFill.expression,
+          template: f.autoFill.template,
+          cases: f.autoFill.cases,
+          overwrite: f.autoFill.overwrite,
+          fieldLabels: fieldLabels(target),
+        },
+        confidence: Math.max(current.confidence, 0.75),
+        rationale: 'テンプレートの自動記入ルールを適用',
+      };
+    }
+
     // 既定値が無ければ空のまま
     if (f.defaultValue == null || f.defaultValue === '') return current;
 

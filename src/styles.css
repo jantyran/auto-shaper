@@ -438,7 +438,10 @@ a {
 
 .admin-detail-grid input[type='text'],
 .admin-detail-grid select,
-.option-input input[type='text'] {
+.option-input input[type='text'],
+.auto-fill-editor input[type='text'],
+.auto-fill-editor select,
+.auto-fill-editor textarea {
   width: 100%;
 }
 
@@ -489,6 +492,79 @@ a {
 .option-order-actions {
   display: flex;
   gap: 3px;
+}
+
+.auto-fill-editor {
+  display: grid;
+  gap: 8px;
+}
+
+.auto-fill-editor textarea {
+  min-height: 64px;
+  resize: vertical;
+}
+
+.auto-fill-tools {
+  display: grid;
+  gap: 6px;
+}
+
+.field-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.field-chip {
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  border-color: #334155;
+  background: #182235;
+  color: var(--text);
+  cursor: grab;
+}
+
+.field-chip:active {
+  cursor: grabbing;
+}
+
+.mini-doc {
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 8px 10px;
+  background: #0f1724;
+}
+
+.mini-doc summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.mini-doc pre {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.auto-fill-case-row,
+.auto-fill-case-head {
+  display: grid;
+  grid-template-columns:
+    minmax(120px, 0.85fr) 112px minmax(100px, 0.75fr)
+    minmax(0, 1.35fr) 34px;
+  gap: 8px;
+  align-items: center;
+}
+
+.auto-fill-case-head {
+  color: var(--muted);
+  font-size: 11px;
+  padding: 2px 2px 0;
 }
 
 .option-tags {
@@ -586,7 +662,9 @@ button.icon:disabled {
   .admin-detail-grid.basic,
   .admin-detail-grid.compact,
   .option-pair-row,
-  .option-pair-head {
+  .option-pair-head,
+  .auto-fill-case-row,
+  .auto-fill-case-head {
     grid-template-columns: 1fr;
   }
 
@@ -1159,11 +1237,16 @@ td.rownum {
    完全に同じ寸法・書式で重ねる。ズレるとキャレット位置が合わなくなる。 */
 .mask-editor {
   position: relative;
+  width: 100%;
+  min-width: min(320px, 100%);
+  max-width: 100%;
   height: 260px;
+  min-height: 180px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--panel-2);
   overflow: hidden;
+  resize: both;
 }
 
 .mask-layer {
@@ -1269,8 +1352,10 @@ td.rownum {
 }
 
 .fill-grid textarea {
+  min-width: min(220px, 100%);
+  max-width: 100%;
   min-height: 84px;
-  resize: vertical;
+  resize: both;
 }
 
 @media (max-width: 560px) {
@@ -1280,5 +1365,87 @@ td.rownum {
   }
   .fill-label {
     margin-top: 8px;
+  }
+}
+
+.formula-reference h3 {
+  margin-top: 22px;
+}
+
+.formula-example-list {
+  display: grid;
+  gap: 12px;
+}
+
+.formula-example {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  background: #111722;
+}
+
+.formula-example h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.formula-example pre,
+.formula-ref-row code {
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Consolas, 'Noto Sans JP', monospace;
+}
+
+.formula-example pre {
+  margin: 0;
+  white-space: pre-wrap;
+  background: #0f1724;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.formula-example p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.formula-ref-table {
+  display: grid;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.formula-ref-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.65fr) minmax(0, 1fr);
+  gap: 12px;
+  padding: 10px 12px;
+  background: #111722;
+  border-bottom: 1px solid var(--border);
+}
+
+.formula-ref-row:last-child {
+  border-bottom: 0;
+}
+
+.formula-ref-row code {
+  color: var(--accent);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.formula-ref-row span {
+  color: var(--text);
+  font-size: 13px;
+}
+
+@media (max-width: 680px) {
+  .formula-ref-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 }

@@ -6,7 +6,9 @@
  * プリセット(PRESET_SCHEMAS)は読み取り専用で、ここでは編集しない。
  */
 import type {
+  AutoFillCase,
   DataType,
+  FieldAutoFillRule,
   FieldInputKind,
   TargetField,
   TargetSchema,
@@ -146,6 +148,15 @@ export function duplicateSchema(src: TargetSchema): TargetSchema {
       aliases: [...f.aliases],
       options: f.options ? [...f.options] : undefined,
       optionLabels: f.optionLabels ? { ...f.optionLabels } : undefined,
+      autoFill: f.autoFill
+        ? {
+            ...f.autoFill,
+            expression: f.autoFill.expression,
+            cases: f.autoFill.cases
+              ? f.autoFill.cases.map((c) => ({ ...c }))
+              : undefined,
+          }
+        : undefined,
     })),
   };
 }
@@ -191,6 +202,47 @@ function sanitizeOptionLabels(
     }
   }
   return Object.keys(out).length > 0 ? out : undefined;
+}
+
+const VALID_CONDITION_OPS = [
+  'contains',
+  'equals',
+  'startsWith',
+  'endsWith',
+  'isEmpty',
+  'notEmpty',
+] as const;
+
+function sanitizeAutoFill(raw: unknown): FieldAutoFillRule | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const src = raw as Partial<FieldAutoFillRule>;
+  const expression = String(src.expression ?? '').trim();
+  const template = String(src.template ?? '').trim();
+  const cases: AutoFillCase[] = Array.isArray(src.cases)
+    ? src.cases
+        .map((c) => {
+          const item = c as Partial<AutoFillCase>;
+          const op = VALID_CONDITION_OPS.includes(
+            item.op as (typeof VALID_CONDITION_OPS)[number],
+          )
+            ? item.op
+            : 'equals';
+          return {
+            sourceFieldKey: String(item.sourceFieldKey ?? '').trim(),
+            op,
+            value: String(item.value ?? ''),
+            template: String(item.template ?? '').trim(),
+          } as AutoFillCase;
+        })
+        .filter((c) => c.sourceFieldKey && c.template)
+    : [];
+  if (!expression && !template && cases.length === 0) return undefined;
+  return {
+    expression: expression || undefined,
+    template,
+    cases: cases.length > 0 ? cases : undefined,
+    overwrite: Boolean(src.overwrite),
+  };
 }
 
 function nextSortOrder(list: TargetSchema[]): number {
@@ -249,6 +301,7 @@ function sanitizeSchema(s: TargetSchema): TargetSchema {
               f.defaultValue != null && f.defaultValue !== ''
                 ? String(f.defaultValue)
                 : undefined,
+            autoFill: sanitizeAutoFill(f.autoFill),
           };
         })
       : [],

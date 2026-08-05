@@ -11,9 +11,12 @@ import type {
   ConditionalCase,
   FieldMapping,
   MappingConfig,
+  TargetField,
   Transform,
 } from '../types';
 import { applyNormalizers } from './normalize';
+import { renderAutoFillTemplate } from './autoFillRules';
+import { evaluateAutoFillExpression } from './autoFillExpression';
 
 type Row = Record<string, string>;
 
@@ -85,6 +88,22 @@ export function evalTransform(row: Row, transform: Transform): string {
       return transform.fallback ?? src;
     }
 
+    case 'template': {
+      const fields: TargetField[] = Object.entries(
+        transform.fieldLabels ?? {},
+      ).map(([key, label]) => ({
+        key,
+        label,
+        required: false,
+        type: 'string',
+        aliases: [],
+      }));
+      if (transform.expression?.trim()) {
+        return evaluateAutoFillExpression(transform.expression, row, fields);
+      }
+      return renderAutoFillTemplate(transform.template, row, fields);
+    }
+
     case 'empty':
       return '';
 
@@ -99,11 +118,70 @@ export function applyFieldMapping(row: Row, mapping: FieldMapping): string {
   return applyNormalizers(raw, mapping.normalizers);
 }
 
+function fieldLabelsFromTemplateMappings(config: MappingConfig): TargetField[] {
+  const labels: Record<string, string> = {};
+  for (const mapping of config.fields) {
+    if (mapping.transform.kind === 'template') {
+      Object.assign(labels, mapping.transform.fieldLabels ?? {});
+    }
+  }
+  return Object.entries(labels).map(([key, label]) => ({
+    key,
+    label,
+    required: false,
+    type: 'string',
+    aliases: [],
+  }));
+}
+
+function evalTemplateMapping(
+  out: Row,
+  mapping: FieldMapping,
+  fields: TargetField[],
+): string {
+  const transform = mapping.transform;
+  if (transform.kind !== 'template') return '';
+  if (transform.expression?.trim()) {
+    return evaluateAutoFillExpression(transform.expression, out, fields);
+  }
+  const cases = transform.cases ?? [];
+  for (const c of cases) {
+    if (
+      evalCondition(get(out, c.sourceFieldKey), {
+        op: c.op,
+        value: c.value,
+        then: c.template,
+      })
+    ) {
+      return renderAutoFillTemplate(c.template, out, fields);
+    }
+  }
+  return renderAutoFillTemplate(transform.template, out, fields);
+}
+
 /** 1行を変換してターゲット行を作る */
 export function transformRow(row: Row, config: MappingConfig): Row {
   const out: Row = {};
+  const templateMappings: FieldMapping[] = [];
   for (const mapping of config.fields) {
+    if (mapping.transform.kind === 'template') {
+      templateMappings.push(mapping);
+      continue;
+    }
     out[mapping.targetKey] = applyFieldMapping(row, mapping);
+  }
+
+  const fields = fieldLabelsFromTemplateMappings(config);
+  for (const mapping of templateMappings) {
+    const transform = mapping.transform;
+    if (transform.kind !== 'template') continue;
+    if (!transform.overwrite && get(out, mapping.targetKey).trim() !== '') {
+      continue;
+    }
+    out[mapping.targetKey] = applyNormalizers(
+      evalTemplateMapping(out, mapping, fields),
+      mapping.normalizers,
+    );
   }
   return out;
 }

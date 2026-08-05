@@ -33,6 +33,26 @@ export type DataType =
 
 export type FieldInputKind = 'text' | 'textarea' | 'select';
 
+export interface AutoFillCase {
+  /** 条件判定に使う出力フィールドのキー */
+  sourceFieldKey: string;
+  op: ConditionOp;
+  value: string;
+  /** 条件に合致したときに入れるテンプレート文字列 */
+  template: string;
+}
+
+export interface FieldAutoFillRule {
+  /** if(...), contains(...) などを使う安全なミニ式。指定時は template/cases より優先する。 */
+  expression?: string;
+  /** 条件に合わない時、または条件が無い時に入れるテンプレート文字列 */
+  template: string;
+  /** 条件付きの自動記入。上から順に最初に合ったものを使う。 */
+  cases?: AutoFillCase[];
+  /** すでに値が入っている時も上書きするか */
+  overwrite?: boolean;
+}
+
 /** パース済みのソースデータ全体 */
 export interface SourceDataset {
   fileName: string;
@@ -71,6 +91,8 @@ export interface TargetField {
    * 自動で入る。ユーザーはマッピング画面で選択変更・上書きできる。
    */
   defaultValue?: string;
+  /** 他の出力項目を参照して自動記入するルール。 */
+  autoFill?: FieldAutoFillRule;
 }
 
 /** インポート先スキーマ(プリセット or アップロード) */
@@ -124,6 +146,15 @@ export type Transform =
       cases: ConditionalCase[];
       /** どのケースにも当てはまらないときの値(省略時は元の値) */
       fallback?: string;
+    }
+  /** 変換済みの出力行を参照してテンプレート文字列を組み立てる */
+  | {
+      kind: 'template';
+      expression?: string;
+      template: string;
+      cases?: AutoFillCase[];
+      overwrite?: boolean;
+      fieldLabels?: Record<string, string>;
     }
   /** どのソースにも紐付けない(空欄のまま) */
   | { kind: 'empty' };

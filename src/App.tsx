@@ -8,6 +8,7 @@ import { SchemaAdmin } from './components/SchemaAdmin';
 import { SettingsPage } from './components/Settings';
 import { TextShaper } from './components/TextShaper';
 import { AuthBadge } from './components/AuthBadge';
+import { FormulaReference } from './components/FormulaReference';
 
 const STEPS: { id: Step; label: string }[] = [
   { id: 'source', label: 'ソース投入' },
@@ -61,6 +62,12 @@ export function App() {
             テンプレート管理
           </button>
           <button
+            className={view === 'formula' ? 'navbtn active' : 'navbtn'}
+            onClick={() => setView('formula')}
+          >
+            式リファレンス
+          </button>
+          <button
             className={view === 'settings' ? 'navbtn active' : 'navbtn'}
             onClick={() => setView('settings')}
           >
@@ -76,7 +83,9 @@ export function App() {
             ? '問合せメールなどの雑多なテキストを貼り付けると、AIがテンプレート形式へ整理します（渡す前にマスキング可）。'
             : view === 'admin'
               ? 'インポート先（整形後）のフォーマットを自由に追加・編集できます。'
-              : '機能のON/OFF、AI(LLM)接続、マスキングをここで管理します。'}
+              : view === 'formula'
+                ? '自動記入ルールで使える式、分岐、フィールド参照の書き方を確認できます。'
+                : '機能のON/OFF、AI(LLM)接続、マスキングをここで管理します。'}
       </p>
 
       {error && <div className="alert error">{error}</div>}
@@ -85,6 +94,8 @@ export function App() {
         <TextShaper />
       ) : view === 'admin' ? (
         <SchemaAdmin />
+      ) : view === 'formula' ? (
+        <FormulaReference />
       ) : view === 'settings' ? (
         <SettingsPage />
       ) : (

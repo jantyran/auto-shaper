@@ -52,7 +52,7 @@ import {
 import { findSchemaById } from '../core/schemaStore';
 
 export type Step = 'source' | 'target' | 'mapping' | 'result';
-export type View = 'app' | 'text' | 'admin' | 'settings';
+export type View = 'app' | 'text' | 'admin' | 'formula' | 'settings';
 
 interface AppState {
   view: View;

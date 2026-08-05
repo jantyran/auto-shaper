@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../state/store';
 import type {
+  AutoFillCase,
+  ConditionOp,
   DataType,
+  FieldAutoFillRule,
   FieldInputKind,
   TargetField,
   TargetSchema,
@@ -19,6 +22,7 @@ import {
   sortCustomSchemas,
 } from '../core/schemaStore';
 import { fieldDisplayName, fieldInputKind } from '../core/fieldMeta';
+import { expressionHelpText } from '../core/autoFillExpression';
 
 const TYPE_LABELS: Record<DataType, string> = {
   string: '文字列',
@@ -47,6 +51,24 @@ const INPUT_KIND_LABELS: Record<FieldInputKind, string> = {
 };
 
 const INPUT_KINDS: FieldInputKind[] = ['text', 'textarea', 'select'];
+
+const CONDITION_LABELS: Record<ConditionOp, string> = {
+  contains: '含む',
+  equals: '一致',
+  startsWith: 'で始まる',
+  endsWith: 'で終わる',
+  isEmpty: '空欄',
+  notEmpty: '空欄ではない',
+};
+
+const CONDITION_OPS: ConditionOp[] = [
+  'contains',
+  'equals',
+  'startsWith',
+  'endsWith',
+  'isEmpty',
+  'notEmpty',
+];
 
 /**
  * テンプレート管理ページ。整形プロセスとは独立して、インポート先フォーマット
@@ -563,6 +585,16 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
                   </div>
                 )}
 
+                <div className="detail-section">
+                  <div className="detail-section-title">自動記入ルール</div>
+                  <AutoFillRuleEditor
+                    rule={f.autoFill}
+                    fields={draft.fields}
+                    currentFieldKey={f.key}
+                    onChange={(autoFill) => setField(i, { autoFill })}
+                  />
+                </div>
+
                 <div className="detail-section-title">既定値</div>
                 <div className="admin-detail-grid compact">
                   <label className="field-label detail-wide">
@@ -626,6 +658,323 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
           onClick={onSave}
         >
           保存
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function emptyAutoFillCase(
+  fields: TargetField[],
+  currentFieldKey: string,
+): AutoFillCase {
+  const source =
+    fields.find((f) => f.key && f.key !== currentFieldKey) ?? fields[0];
+  return {
+    sourceFieldKey: source?.key ?? '',
+    op: 'equals',
+    value: '',
+    template: '',
+  };
+}
+
+function normalizeAutoFillRule(
+  rule: FieldAutoFillRule,
+): FieldAutoFillRule | undefined {
+  const expression = rule.expression?.trim() ?? '';
+  const template = rule.template.trim();
+  const cases = (rule.cases ?? [])
+    .map((c) => ({
+      ...c,
+      sourceFieldKey: c.sourceFieldKey.trim(),
+      value: c.value,
+      template: c.template.trim(),
+    }))
+    .filter((c) => c.sourceFieldKey && c.template);
+  if (!expression && !template && cases.length === 0) return undefined;
+  return {
+    expression: expression || undefined,
+    template,
+    cases: cases.length ? cases : undefined,
+    overwrite: rule.overwrite || undefined,
+  };
+}
+
+function AutoFillRuleEditor({
+  rule,
+  fields,
+  currentFieldKey,
+  onChange,
+}: {
+  rule?: FieldAutoFillRule;
+  fields: TargetField[];
+  currentFieldKey: string;
+  onChange: (rule?: FieldAutoFillRule) => void;
+}) {
+  const active: FieldAutoFillRule = rule ?? { template: '', cases: [] };
+  const selectableFields = fields.filter((f) => f.key.trim() !== '');
+  const expressionRef = useRef<HTMLTextAreaElement>(null);
+
+  const commit = (next: FieldAutoFillRule) => {
+    onChange(normalizeAutoFillRule(next));
+  };
+
+  const insertExpressionText = (snippet: string) => {
+    const el = expressionRef.current;
+    const current = active.expression ?? '';
+    if (!el) {
+      commit({ ...active, expression: current + snippet });
+      return;
+    }
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const next = current.slice(0, start) + snippet + current.slice(end);
+    commit({ ...active, expression: next });
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = start + snippet.length;
+      el.setSelectionRange(pos, pos);
+    });
+  };
+
+  const patchCase = (index: number, patch: Partial<AutoFillCase>) => {
+    const cases = active.cases ?? [];
+    commit({
+      ...active,
+      cases: cases.map((c, i) => (i === index ? { ...c, ...patch } : c)),
+    });
+  };
+
+  const removeCase = (index: number) => {
+    commit({
+      ...active,
+      cases: (active.cases ?? []).filter((_, i) => i !== index),
+    });
+  };
+
+  if (!rule) {
+    return (
+      <button
+        type="button"
+        className="ghost"
+        onClick={() => onChange({ template: '', cases: [] })}
+      >
+        + 自動記入ルールを追加
+      </button>
+    );
+  }
+
+  return (
+    <div className="auto-fill-editor">
+      <label className="field-label">
+        ミニ式
+        <textarea
+          ref={expressionRef}
+          value={active.expression ?? ''}
+          rows={3}
+          placeholder={
+            '例: if({LeadSource} == "Web", "Webリード: {Company}", "会社名: {Company}")'
+          }
+          onChange={(e) => commit({ ...active, expression: e.target.value })}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            const snippet = e.dataTransfer.getData('text/plain');
+            if (snippet) insertExpressionText(snippet);
+          }}
+        />
+      </label>
+
+      <div className="auto-fill-tools">
+        <div className="field-chip-row">
+          {selectableFields.map((f) => {
+            const snippet = `{${f.key}}`;
+            return (
+              <button
+                key={f.key}
+                type="button"
+                className="field-chip"
+                draggable
+                title={`式へ挿入: ${snippet}`}
+                onClick={() => insertExpressionText(snippet)}
+                onDragStart={(e) =>
+                  e.dataTransfer.setData('text/plain', snippet)
+                }
+              >
+                {fieldDisplayName(f)}
+              </button>
+            );
+          })}
+        </div>
+        <div className="field-chip-row">
+          <button
+            type="button"
+            className="field-chip"
+            onClick={() => insertExpressionText('if(条件, "", "")')}
+          >
+            if
+          </button>
+          <button
+            type="button"
+            className="field-chip"
+            onClick={() =>
+              insertExpressionText('case(条件1, "", 条件2, "", "")')
+            }
+          >
+            case
+          </button>
+          <button
+            type="button"
+            className="field-chip"
+            onClick={() => insertExpressionText('contains({Field}, "")')}
+          >
+            contains
+          </button>
+          <button
+            type="button"
+            className="field-chip"
+            onClick={() => insertExpressionText('empty({Field})')}
+          >
+            empty
+          </button>
+          <button
+            type="button"
+            className="field-chip"
+            onClick={() =>
+              insertExpressionText('coalesce({Field1}, {Field2}, "")')
+            }
+          >
+            coalesce
+          </button>
+          <button
+            type="button"
+            className="field-chip"
+            onClick={() => insertExpressionText('.value')}
+          >
+            .value
+          </button>
+          <button
+            type="button"
+            className="field-chip"
+            onClick={() => insertExpressionText('.label')}
+          >
+            .label
+          </button>
+          <button
+            type="button"
+            className="field-chip"
+            onClick={() => insertExpressionText(' & ')}
+          >
+            &
+          </button>
+        </div>
+      </div>
+
+      <details className="mini-doc">
+        <summary>式の書き方</summary>
+        <pre>{expressionHelpText()}</pre>
+      </details>
+
+      <label className="field-label">
+        基本テンプレート（式を使わない場合）
+        <textarea
+          value={active.template}
+          rows={2}
+          placeholder="例: 会社名: {Company} / {会社名}"
+          onChange={(e) => commit({ ...active, template: e.target.value })}
+        />
+      </label>
+      <label className="field-label check-row inline-check">
+        <input
+          type="checkbox"
+          checked={Boolean(active.overwrite)}
+          onChange={(e) => commit({ ...active, overwrite: e.target.checked })}
+        />
+        値が入っている時も上書きする
+      </label>
+
+      {(active.cases ?? []).length > 0 && (
+        <>
+          <div className="auto-fill-case-head">
+            <span>条件項目</span>
+            <span>条件</span>
+            <span>比較値</span>
+            <span>入れるテンプレート</span>
+            <span></span>
+          </div>
+          {(active.cases ?? []).map((c, index) => (
+            <div className="auto-fill-case-row" key={index}>
+              <select
+                value={c.sourceFieldKey}
+                onChange={(e) =>
+                  patchCase(index, { sourceFieldKey: e.target.value })
+                }
+              >
+                {selectableFields.map((f) => (
+                  <option key={f.key} value={f.key}>
+                    {fieldDisplayName(f)} ({f.key})
+                  </option>
+                ))}
+              </select>
+              <select
+                value={c.op}
+                onChange={(e) =>
+                  patchCase(index, { op: e.target.value as ConditionOp })
+                }
+              >
+                {CONDITION_OPS.map((op) => (
+                  <option key={op} value={op}>
+                    {CONDITION_LABELS[op]}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="text"
+                value={c.value}
+                disabled={c.op === 'isEmpty' || c.op === 'notEmpty'}
+                onChange={(e) => patchCase(index, { value: e.target.value })}
+              />
+              <input
+                type="text"
+                value={c.template}
+                placeholder="例: Webリード - {Company}"
+                onChange={(e) => patchCase(index, { template: e.target.value })}
+              />
+              <button
+                type="button"
+                className="icon"
+                onClick={() => removeCase(index)}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </>
+      )}
+
+      <div className="btn-row" style={{ marginTop: 0 }}>
+        <button
+          type="button"
+          onClick={() =>
+            commit({
+              ...active,
+              cases: [
+                ...(active.cases ?? []),
+                emptyAutoFillCase(fields, currentFieldKey),
+              ],
+            })
+          }
+          disabled={selectableFields.length === 0}
+        >
+          + 条件を追加
+        </button>
+        <div className="spacer" />
+        <button
+          type="button"
+          className="ghost"
+          onClick={() => onChange(undefined)}
+        >
+          ルールを削除
         </button>
       </div>
     </div>

@@ -463,6 +463,12 @@ a {
   padding-bottom: 5px;
 }
 
+.comma-list-input {
+  color: var(--text);
+  background: var(--panel);
+  user-select: text;
+}
+
 .option-input {
   display: grid;
   gap: 8px;

@@ -572,6 +572,7 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
                   <label className="field-label detail-wide">
                     別名（カンマ区切り）
                     <CommaListInput
+                      syncKey={`${draft.id}:${i}:${f.key}`}
                       placeholder={`${displayName}, ${f.key}, alias`}
                       value={f.aliases}
                       onChange={(aliases) => setField(i, { aliases })}
@@ -1191,46 +1192,47 @@ function OptionListEditor({
  * 消えて入力できない問題があったため、ローカルの text state を持つ。
  * 親には常に整形済み配列(トリム・空除去)を渡す。
  */
+function parseCommaList(text: string): string[] {
+  return text
+    .split(/[,、\n]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 function CommaListInput({
   value,
   onChange,
   placeholder,
+  syncKey,
 }: {
   value: string[];
   onChange: (v: string[]) => void;
   placeholder?: string;
+  syncKey: string;
 }) {
   const [text, setText] = useState(value.join(', '));
 
-  // 並べ替え/削除など、外部から value が変わったときだけ表示を同期する。
-  // 入力中は onChange で親に反映済み(= parse(text) と一致)なので同期は起きない。
+  // 別の項目/テンプレートを開いたときだけ、保存済みの別名を入力欄へ戻す。
+  // 入力中に毎回 join し直すと、末尾カンマや選択中テキストが壊れて追記しにくくなる。
   useEffect(() => {
-    const parsed = text
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (parsed.join('\u0000') !== value.join('\u0000')) {
-      // 制御入力のローカルバッファを prop に意図的に追従させる同期
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setText(value.join(', '));
-    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setText(value.join(', '));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
+  }, [syncKey]);
+
+  const commitText = (nextText: string) => {
+    setText(nextText);
+    onChange(parseCommaList(nextText));
+  };
 
   return (
     <input
       type="text"
+      className="comma-list-input"
       placeholder={placeholder}
       value={text}
-      onChange={(e) => {
-        setText(e.target.value);
-        onChange(
-          e.target.value
-            .split(',')
-            .map((s) => s.trim())
-            .filter(Boolean),
-        );
-      }}
+      onChange={(e) => commitText(e.target.value)}
+      onBlur={() => setText(parseCommaList(text).join(', '))}
     />
   );
 }

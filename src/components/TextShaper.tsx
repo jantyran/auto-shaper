@@ -2,7 +2,8 @@
  * テキスト整形モード。
  *
  * 問合せメールなどの雑多なテキストをコピペ → 必要なら機微情報をマスク（自動＋手動）
- * → テンプレートを選ぶ → AI（またはローカル）が各項目へ当てはめて 1 レコードに整理する。
+ * → テンプレートを選ぶ → AI（またはローカル）が各項目へ当てはめてレコードに整理する。
+ * 整形結果は複数件ためて、最後にまとめてコピー/CSV/Excel出力できる。
  *
  * 安全性の考え方（Maskify 由来）:
  *  - AI に送るのはマスク済みのテキストだけ。元の値はこのブラウザ内の辞書にのみ残る。
@@ -53,6 +54,34 @@ const PLACEHOLDER = `例）問合せフォームやメールの本文をその�
 連絡先: yamada@example.co.jp / 03-1234-5678
 ご担当者よりご連絡いただけますと幸いです。`;
 
+type TextRecordMethod = 'llm' | 'local';
+
+interface ShapedTextRecord {
+  id: string;
+  index: number;
+  method: TextRecordMethod;
+  record: ExtractedRecord;
+}
+
+function newRecordId(): string {
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : 'text-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+}
+
+function recordTitle(item: ShapedTextRecord, fields: TargetField[]): string {
+  const topic = fields.find((f) =>
+    /topic|TOPIC|トピック/i.test(f.key + f.label),
+  );
+  const company = fields.find((f) => /company|会社/i.test(f.key + f.label));
+  const primary =
+    (topic && item.record[topic.key]?.trim()) ||
+    (company && item.record[company.key]?.trim()) ||
+    fields.map((f) => item.record[f.key]?.trim()).find(Boolean) ||
+    '';
+  return primary ? `${item.index}. ${primary}` : `${item.index}. 整形結果`;
+}
+
 export function TextShaper() {
   const settings = useStore((s) => s.settings);
   const customSchemas = useStore((s) => s.customSchemas);
@@ -74,11 +103,11 @@ export function TextShaper() {
 
   const [text, setText] = useState('');
   const [dict, setDict] = useState<MaskDictionary>(new Map());
-  const [record, setRecord] = useState<ExtractedRecord | null>(null);
-  const [manualRecordFields, setManualRecordFields] = useState<Set<string>>(
-    new Set(),
-  );
-  const [method, setMethod] = useState<'llm' | 'local' | null>(null);
+  const [records, setRecords] = useState<ShapedTextRecord[]>([]);
+  const [openRecordIds, setOpenRecordIds] = useState<Set<string>>(new Set());
+  const [manualRecordFields, setManualRecordFields] = useState<
+    Record<string, Set<string>>
+  >({});
   const [isExtracting, setExtracting] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [copied, setCopied] = useState<string | null>(null);
@@ -133,6 +162,19 @@ export function TextShaper() {
     setDict(new Map());
   };
 
+  const handleSchemaChange = (nextSchemaId: string) => {
+    if (records.length > 0) {
+      const ok = confirm(
+        'テンプレートを変更すると、現在ためている整形結果はクリアされます。変更しますか？',
+      );
+      if (!ok) return;
+      setRecords([]);
+      setOpenRecordIds(new Set());
+      setManualRecordFields({});
+    }
+    setSchemaId(nextSchemaId);
+  };
+
   const handleExtract = async (forceLocal: boolean) => {
     if (!target) {
       setError('テンプレートを選択してください。');
@@ -144,9 +186,6 @@ export function TextShaper() {
     }
     setError(undefined);
     setExtracting(true);
-    setRecord(null);
-    setManualRecordFields(new Set());
-    setMethod(null);
 
     try {
       const useLlm = llmReady && !forceLocal;
@@ -163,7 +202,7 @@ export function TextShaper() {
       }
 
       let raw: ExtractedRecord;
-      let used: 'llm' | 'local';
+      let used: TextRecordMethod;
       if (useLlm) {
         try {
           raw = await llmTextExtract(workingText, target, settings.llm);
@@ -183,9 +222,15 @@ export function TextShaper() {
         used = 'local';
       }
 
-      // マスクを元に戻し、対応が無い項目にはテンプレートの既定値を入れてから表示・出力する
-      setRecord(applyRecordDefaults(unmaskRecord(raw, workingDict), target));
-      setMethod(used);
+      const item: ShapedTextRecord = {
+        id: newRecordId(),
+        index: records.length + 1,
+        method: used,
+        record: applyRecordDefaults(unmaskRecord(raw, workingDict), target),
+      };
+      setRecords((prev) => [...prev, item]);
+      setOpenRecordIds((prev) => new Set([...prev, item.id]));
+      setManualRecordFields((prev) => ({ ...prev, [item.id]: new Set() }));
     } catch (e) {
       setError(e instanceof Error ? e.message : '整形に失敗しました。');
     } finally {
@@ -193,20 +238,45 @@ export function TextShaper() {
     }
   };
 
-  const updateField = (key: string, value: string) => {
+  const updateField = (recordId: string, key: string, value: string) => {
     if (!target) {
-      setRecord((prev) => ({ ...(prev ?? {}), [key]: value }));
+      setRecords((prev) =>
+        prev.map((item) =>
+          item.id === recordId
+            ? { ...item, record: { ...item.record, [key]: value } }
+            : item,
+        ),
+      );
       return;
     }
-    const protectedKeys = new Set(manualRecordFields);
+    const protectedKeys = new Set(manualRecordFields[recordId] ?? []);
     protectedKeys.add(key);
-    setManualRecordFields(protectedKeys);
-    setRecord((prev) =>
-      applyAutoFillRules({ ...(prev ?? {}), [key]: value }, target, {
-        force: true,
-        skipKeys: protectedKeys,
-      }),
+    setManualRecordFields((prev) => ({ ...prev, [recordId]: protectedKeys }));
+    setRecords((prev) =>
+      prev.map((item) =>
+        item.id === recordId
+          ? {
+              ...item,
+              record: applyAutoFillRules(
+                { ...item.record, [key]: value },
+                target,
+                {
+                  force: true,
+                  skipKeys: protectedKeys,
+                },
+              ),
+            }
+          : item,
+      ),
     );
+  };
+
+  const startNextRecord = () => {
+    setText('');
+    setDict(new Map());
+    setOpenRecordIds(new Set());
+    setError(undefined);
+    window.setTimeout(() => inputRef.current?.focus(), 0);
   };
 
   const flashCopied = (id: string) => {
@@ -215,30 +285,47 @@ export function TextShaper() {
   };
 
   const copyAsText = () => {
-    if (!record || !target) return;
-    const body = target.fields
-      .map((f) => `${fieldDisplayName(f)}: ${record[f.key] ?? ''}`)
-      .join('\n');
+    if (records.length === 0 || !target) return;
+    const body = records
+      .map((item) =>
+        target.fields
+          .map((f) => `${fieldDisplayName(f)}: ${item.record[f.key] ?? ''}`)
+          .join('\n'),
+      )
+      .join('\n\n---\n\n');
     void navigator.clipboard.writeText(body).then(() => flashCopied('text'));
   };
 
   const copyAsJson = () => {
-    if (!record || !target) return;
-    const obj: Record<string, string> = {};
-    for (const f of target.fields) obj[f.key] = record[f.key] ?? '';
+    if (records.length === 0 || !target) return;
+    const rows = records.map((item) => {
+      const obj: Record<string, string> = {};
+      for (const f of target.fields) obj[f.key] = item.record[f.key] ?? '';
+      return obj;
+    });
     void navigator.clipboard
-      .writeText(JSON.stringify(obj, null, 2))
+      .writeText(JSON.stringify(rows, null, 2))
       .then(() => flashCopied('json'));
   };
 
   const exportCsv = () => {
-    if (!record || !target) return;
-    downloadCsv(toCsv([record], target.fields), 'inquiry_shaped.csv');
+    if (records.length === 0 || !target) return;
+    downloadCsv(
+      toCsv(
+        records.map((item) => item.record),
+        target.fields,
+      ),
+      'inquiry_shaped.csv',
+    );
   };
 
   const exportXlsx = () => {
-    if (!record || !target) return;
-    void downloadXlsx([record], target.fields, 'inquiry_shaped.xlsx');
+    if (records.length === 0 || !target) return;
+    void downloadXlsx(
+      records.map((item) => item.record),
+      target.fields,
+      'inquiry_shaped.xlsx',
+    );
   };
 
   const tokens = [...dict.values()];
@@ -259,7 +346,10 @@ export function TextShaper() {
       {/* テンプレート選択 */}
       <label className="field-label" style={{ maxWidth: 480, marginTop: 8 }}>
         当てはめ先テンプレート
-        <select value={schemaId} onChange={(e) => setSchemaId(e.target.value)}>
+        <select
+          value={schemaId}
+          onChange={(e) => handleSchemaChange(e.target.value)}
+        >
           {schemas.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
@@ -391,6 +481,11 @@ export function TextShaper() {
             AIを使わずローカル抽出
           </button>
         )}
+        {records.length > 0 && (
+          <span className="v-sub text-batch-count">
+            現在 {records.length} 件をまとめ中
+          </span>
+        )}
       </div>
 
       {!llmReady && (
@@ -414,32 +509,54 @@ export function TextShaper() {
       )}
 
       {/* 整形結果 */}
-      {record && target && (
-        <div style={{ marginTop: 20 }}>
+      {records.length > 0 && target && (
+        <div className="text-result-list">
           <div className="preview-bar">
-            <h3 style={{ margin: 0 }}>
-              整形結果（{method === 'llm' ? 'AI抽出' : 'ローカル抽出'}）
-            </h3>
+            <h3 style={{ margin: 0 }}>整形結果（{records.length}件）</h3>
             <span className="v-sub">
               各項目は編集できます。値はマスク解除済み（元の値）です。
             </span>
           </div>
 
-          <div className="fill-grid">
-            {target.fields.map((f) => (
-              <FillRow
-                key={f.key}
-                field={f}
-                value={record[f.key] ?? ''}
-                onChange={(v) => updateField(f.key, v)}
-              />
-            ))}
-          </div>
+          {records.map((item) => (
+            <details
+              key={item.id}
+              className="text-result-item"
+              open={openRecordIds.has(item.id)}
+              onToggle={(e) => {
+                const isOpen = e.currentTarget.open;
+                setOpenRecordIds((prev) => {
+                  const next = new Set(prev);
+                  if (isOpen) next.add(item.id);
+                  else next.delete(item.id);
+                  return next;
+                });
+              }}
+            >
+              <summary className="text-result-summary">
+                <span>{recordTitle(item, target.fields)}</span>
+                <span className="field-kind-badge">
+                  {item.method === 'llm' ? 'AI抽出' : 'ローカル抽出'}
+                </span>
+              </summary>
+              <div className="fill-grid">
+                {target.fields.map((f) => (
+                  <FillRow
+                    key={f.key}
+                    field={f}
+                    value={item.record[f.key] ?? ''}
+                    onChange={(v) => updateField(item.id, f.key, v)}
+                  />
+                ))}
+              </div>
+            </details>
+          ))}
 
           <div className="btn-row">
-            <button className="primary" onClick={exportCsv}>
-              CSVでダウンロード
+            <button className="primary" onClick={startNextRecord}>
+              + さらに追加
             </button>
+            <button onClick={exportCsv}>CSVでダウンロード</button>
             <button onClick={exportXlsx}>Excel(.xlsx)でダウンロード</button>
             <div className="spacer" />
             <button onClick={copyAsText}>

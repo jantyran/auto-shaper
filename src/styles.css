@@ -1366,10 +1366,9 @@ td.rownum {
 
 .context-row {
   display: grid;
-  grid-template-columns: minmax(120px, 0.8fr) minmax(120px, 0.8fr) minmax(
-      180px,
-      1fr
-    ) 34px;
+  grid-template-columns:
+    minmax(120px, 0.8fr) minmax(120px, 0.8fr) minmax(180px, 1fr)
+    34px;
   gap: 8px;
   align-items: center;
 }
@@ -1401,6 +1400,47 @@ td.rownum {
   .context-row .icon {
     justify-self: start;
   }
+}
+
+.text-batch-count {
+  align-self: center;
+}
+
+.text-result-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.text-result-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  overflow: hidden;
+}
+
+.text-result-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.text-result-summary span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.text-result-item .fill-grid {
+  margin: 0;
+  padding: 12px;
+  border-top: 1px solid var(--border);
 }
 
 /* 整形結果のフィールド一覧 */

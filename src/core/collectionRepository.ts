@@ -1,8 +1,12 @@
 /**
- * 汎用コレクションのリポジトリ(ローカルファースト + API同期)。
- * スキーマ以外の「任意のオブジェクト配列」(レシピ等)を、
- * schemaRepository と同じ方式で永続化する。
+ * 汎用コレクションのリポジトリ(レシピ等)。
+ * schemaRepository と同じ方式で、ログイン状態に応じて保存先を切り替える。
+ *  - ログイン済み + バックエンドあり → サーバー(DB, ユーザー単位)
+ *  - それ以外 → localStorage
+ * API モードではローカルへ複製しない(ゲストデータとの混在を避ける)。
  */
+import { apiUrl } from './apiBase';
+import { authHeaders } from './auth';
 import { detectStorageMode } from './schemaRepository';
 
 interface HasId {
@@ -32,6 +36,10 @@ function saveLocal<T>(name: string, items: T[]): void {
   }
 }
 
+function jsonHeaders(): Record<string, string> {
+  return { 'Content-Type': 'application/json', ...authHeaders() };
+}
+
 /** 名前付きコレクションの list/put/remove を提供するリポジトリを作る */
 export function makeCollectionRepo<T extends HasId>(name: string) {
   const base = `/api/collections/${name}`;
@@ -39,12 +47,8 @@ export function makeCollectionRepo<T extends HasId>(name: string) {
     async list(): Promise<T[]> {
       if ((await detectStorageMode()) === 'api') {
         try {
-          const res = await fetch(base);
-          if (res.ok) {
-            const items = (await res.json()) as T[];
-            saveLocal(name, items);
-            return items;
-          }
+          const res = await fetch(apiUrl(base), { headers: authHeaders() });
+          if (res.ok) return (await res.json()) as T[];
         } catch {
           /* fall through */
         }
@@ -55,16 +59,12 @@ export function makeCollectionRepo<T extends HasId>(name: string) {
     async put(item: T): Promise<T[]> {
       if ((await detectStorageMode()) === 'api') {
         try {
-          const res = await fetch(`${base}/${encodeURIComponent(item.id)}`, {
+          const res = await fetch(apiUrl(`${base}/${encodeURIComponent(item.id)}`), {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: jsonHeaders(),
             body: JSON.stringify(item),
           });
-          if (res.ok) {
-            const items = (await res.json()) as T[];
-            saveLocal(name, items);
-            return items;
-          }
+          if (res.ok) return (await res.json()) as T[];
         } catch {
           /* fall through */
         }
@@ -80,14 +80,11 @@ export function makeCollectionRepo<T extends HasId>(name: string) {
     async remove(id: string): Promise<T[]> {
       if ((await detectStorageMode()) === 'api') {
         try {
-          const res = await fetch(`${base}/${encodeURIComponent(id)}`, {
+          const res = await fetch(apiUrl(`${base}/${encodeURIComponent(id)}`), {
             method: 'DELETE',
+            headers: authHeaders(),
           });
-          if (res.ok) {
-            const items = (await res.json()) as T[];
-            saveLocal(name, items);
-            return items;
-          }
+          if (res.ok) return (await res.json()) as T[];
         } catch {
           /* fall through */
         }

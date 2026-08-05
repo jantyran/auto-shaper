@@ -10,6 +10,7 @@ export function TargetSelector() {
   const loadUploadedTarget = useStore((s) => s.loadUploadedTarget);
   const isSuggesting = useStore((s) => s.isSuggesting);
   const source = useStore((s) => s.source);
+  const selectSheet = useStore((s) => s.selectSheet);
   const customSchemas = useStore((s) => s.customSchemas);
   const setView = useStore((s) => s.setView);
   const recipes = useStore((s) => s.recipes);
@@ -33,6 +34,22 @@ export function TargetSelector() {
           読み込み済みソース: <b>{source.fileName}</b>（{source.columns.length}列 /{' '}
           {source.rows.length.toLocaleString()}行）
         </div>
+      )}
+
+      {source && source.sheetNames && source.sheetNames.length > 1 && (
+        <label className="field-label" style={{ marginBottom: 12 }}>
+          シートを選択（このExcelには複数シートがあります）
+          <select
+            value={source.activeSheet}
+            onChange={(e) => selectSheet(e.target.value)}
+          >
+            {source.sheetNames.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </label>
       )}
 
       {matchingRecipes.length > 0 && (

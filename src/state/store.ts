@@ -12,6 +12,7 @@ import type {
 } from '../types';
 import { parseWorkbook } from '../core/parse';
 import { buildSuggestContext } from '../core/anonymize';
+import { applyFieldDefaults } from '../core/mappingDefaults';
 import { heuristicSuggester } from '../core/inference/heuristic';
 import { schemaFromUploadedHeader } from '../core/targetSchemas';
 import { getAllSchemas, loadCustomSchemas } from '../core/schemaStore';
@@ -23,8 +24,20 @@ import {
   type StorageMode,
 } from '../core/schemaRepository';
 import { loadSettings, saveSettings, type Settings } from '../core/settings';
+import {
+  fetchMe,
+  signIn as authSignIn,
+  signUp as authSignUp,
+  signOut as authSignOut,
+  type AuthUser,
+} from '../core/auth';
 import { llmSuggester } from '../core/inference/llm';
-import { loadLearned, recordAssociation } from '../core/learning';
+import {
+  clearLearned,
+  loadLearned,
+  recordAssociation,
+  type LearnedEntry,
+} from '../core/learning';
 import {
   createRecipe,
   deleteRecipe,
@@ -35,12 +48,14 @@ import {
 import { findSchemaById } from '../core/schemaStore';
 
 export type Step = 'source' | 'target' | 'mapping' | 'result';
-export type View = 'app' | 'admin' | 'settings';
+export type View = 'app' | 'text' | 'admin' | 'settings';
 
 interface AppState {
   view: View;
   step: Step;
   source?: SourceDataset;
+  /** シート切替のためにアップロード生データを保持 */
+  sourceRaw?: { fileName: string; data: ArrayBuffer };
   target?: TargetSchema;
   mapping?: MappingConfig;
   transformedRows?: Record<string, string>[];
@@ -48,10 +63,16 @@ interface AppState {
   customSchemas: TargetSchema[];
   /** テンプレートの保存先(SQLite API / ブラウザのlocalStorage) */
   storageMode: StorageMode | 'unknown';
+  /** ログイン中のユーザー(未ログインは undefined) */
+  user?: AuthUser;
+  /** 起動時の認証状態確認が完了したか */
+  authReady: boolean;
   /** ユーザー設定(機能ON/OFF・AI・マスキング) */
   settings: Settings;
   /** 保存済みマッピングレシピ */
   recipes: Recipe[];
+  /** 学習辞書のエントリ(件数表示・管理用) */
+  learnedEntries: LearnedEntry[];
   isSuggesting: boolean;
   isTransforming: boolean;
   transformProgress: number; // 0-1
@@ -64,8 +85,19 @@ interface AppState {
   /** 起動時: 保存先を判定してテンプレート一覧を読み込む */
   refreshSchemas: () => Promise<void>;
 
+  // 認証
+  /** 起動時にトークンから現在のユーザーを復元 */
+  refreshAuth: () => Promise<void>;
+  /** ログイン(成功後に保存先をDBへ切り替えて再読込) */
+  signIn: (email: string, password: string) => Promise<void>;
+  /** 新規登録(成功後に保存先をDBへ切り替えて再読込) */
+  signUp: (email: string, password: string) => Promise<void>;
+  /** ログアウト(保存先をlocalStorageへ戻して再読込) */
+  signOut: () => Promise<void>;
+
   // formatting process
   loadSource: (fileName: string, data: ArrayBuffer) => void;
+  selectSheet: (sheetName: string) => void;
   selectSchema: (id: string) => Promise<void>;
   loadUploadedTarget: (fileName: string, data: ArrayBuffer) => Promise<void>;
   updateFieldMapping: (targetKey: string, mapping: FieldMapping) => void;
@@ -87,7 +119,12 @@ interface AppState {
   refreshRecipes: () => Promise<void>;
   saveCurrentAsRecipe: (name: string) => Promise<void>;
   removeRecipe: (id: string) => Promise<void>;
+  renameRecipe: (id: string, name: string) => Promise<void>;
   applyRecipe: (recipe: Recipe) => void;
+
+  // learning dictionary
+  refreshLearning: () => void;
+  clearLearning: () => void;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -96,8 +133,10 @@ export const useStore = create<AppState>((set, get) => ({
   // まず localStorage から即時に読み込み(初回描画を待たせない)、後で refreshSchemas で同期
   customSchemas: loadCustomSchemas(),
   storageMode: 'unknown',
+  authReady: false,
   settings: loadSettings(),
   recipes: [],
+  learnedEntries: [],
   isSuggesting: false,
   isTransforming: false,
   transformProgress: 0,
@@ -113,16 +152,62 @@ export const useStore = create<AppState>((set, get) => ({
     set({ storageMode: mode, customSchemas });
   },
 
-  loadSource: (fileName, data) => {
+  refreshAuth: async () => {
     try {
-      const source = parseWorkbook(fileName, data);
+      const user = await fetchMe();
+      set({ user: user ?? undefined, authReady: true });
+    } catch {
+      set({ authReady: true });
+    }
+  },
+
+  signIn: async (email, password) => {
+    const user = await authSignIn(email, password);
+    set({ user });
+    await Promise.all([get().refreshSchemas(), get().refreshRecipes()]);
+  },
+
+  signUp: async (email, password) => {
+    const user = await authSignUp(email, password);
+    set({ user });
+    await Promise.all([get().refreshSchemas(), get().refreshRecipes()]);
+  },
+
+  signOut: async () => {
+    await authSignOut();
+    set({ user: undefined });
+    await Promise.all([get().refreshSchemas(), get().refreshRecipes()]);
+  },
+
+  loadSource: async (fileName, data) => {
+    try {
+      const source = await parseWorkbook(fileName, data);
       if (source.columns.length === 0) {
         set({ error: 'カラムを検出できませんでした。ヘッダー行があるか確認してください。' });
         return;
       }
-      set({ source, step: 'target', error: undefined });
+      set({ source, sourceRaw: { fileName, data }, step: 'target', error: undefined });
     } catch (e) {
       set({ error: e instanceof Error ? e.message : 'ファイルの読み込みに失敗しました。' });
+    }
+  },
+
+  selectSheet: async (sheetName) => {
+    const raw = get().sourceRaw;
+    if (!raw) return;
+    try {
+      const source = await parseWorkbook(raw.fileName, raw.data, sheetName);
+      // シートが変わると列構成も変わるため、下流(ターゲット/マッピング/結果)をリセット
+      set({
+        source,
+        target: undefined,
+        mapping: undefined,
+        transformedRows: undefined,
+        step: 'target',
+        error: undefined,
+      });
+    } catch (e) {
+      set({ error: e instanceof Error ? e.message : 'シートの読み込みに失敗しました。' });
     }
   },
 
@@ -141,7 +226,7 @@ export const useStore = create<AppState>((set, get) => ({
 
   loadUploadedTarget: async (fileName, data) => {
     try {
-      const parsed = parseWorkbook(fileName, data);
+      const parsed = await parseWorkbook(fileName, data);
       const target = schemaFromUploadedHeader(parsed);
       await runSuggestion(set, get, target);
     } catch (e) {
@@ -160,7 +245,8 @@ export const useStore = create<AppState>((set, get) => ({
       settings.features.learningDictionary &&
       mapping.transform.kind === 'direct'
     ) {
-      recordAssociation(mapping.transform.source, targetKey);
+      const learnedEntries = recordAssociation(mapping.transform.source, targetKey);
+      set({ learnedEntries });
     }
     // マッピングを変えたら既存の変換結果は無効化し、再実行させる
     set({
@@ -200,6 +286,13 @@ export const useStore = create<AppState>((set, get) => ({
     set({ settings });
   },
 
+  refreshLearning: () => set({ learnedEntries: loadLearned() }),
+
+  clearLearning: () => {
+    clearLearned();
+    set({ learnedEntries: [] });
+  },
+
   refreshRecipes: async () => {
     if (!get().settings.features.recipes) {
       set({ recipes: [] });
@@ -217,6 +310,13 @@ export const useStore = create<AppState>((set, get) => ({
 
   removeRecipe: async (id) => {
     set({ recipes: await deleteRecipe(id) });
+  },
+
+  renameRecipe: async (id, name) => {
+    const recipe = get().recipes.find((r) => r.id === id);
+    if (!recipe) return;
+    const recipes = await persistRecipe({ ...recipe, name, updatedAt: Date.now() });
+    set({ recipes });
   },
 
   applyRecipe: (recipe) => {
@@ -270,6 +370,8 @@ async function runSuggestion(
     } else {
       mapping = await heuristicSuggester.suggest(ctx, learned);
     }
+    // 未割当の項目にテンプレートの既定値を自動で入れる
+    mapping = applyFieldDefaults(mapping, target);
     set({ mapping, step: 'mapping', isSuggesting: false, error: warning });
   } catch (e) {
     set({

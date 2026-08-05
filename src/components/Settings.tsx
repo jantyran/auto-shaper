@@ -1,5 +1,11 @@
 import { useStore } from '../state/store';
-import type { FeatureFlags, LlmProvider, Settings } from '../core/settings';
+import {
+  defaultModelFor,
+  type FeatureFlags,
+  type LlmProvider,
+  type Settings,
+} from '../core/settings';
+import { AccountPanel } from './AccountPanel';
 
 const FEATURE_LABELS: Record<keyof FeatureFlags, { title: string; desc: string }> = {
   masking: {
@@ -29,6 +35,11 @@ export function SettingsPage() {
   const settings = useStore((s) => s.settings);
   const update = useStore((s) => s.updateSettings);
   const refreshRecipes = useStore((s) => s.refreshRecipes);
+  const recipes = useStore((s) => s.recipes);
+  const renameRecipe = useStore((s) => s.renameRecipe);
+  const removeRecipe = useStore((s) => s.removeRecipe);
+  const learnedEntries = useStore((s) => s.learnedEntries);
+  const clearLearning = useStore((s) => s.clearLearning);
 
   const set = (patch: Partial<Settings>) => update({ ...settings, ...patch });
   const setFeature = (key: keyof FeatureFlags, value: boolean) => {
@@ -42,6 +53,8 @@ export function SettingsPage() {
 
   return (
     <>
+      <AccountPanel />
+
       <div className="panel">
         <h2>機能のON/OFF</h2>
         <p className="subtitle">使う機能だけを有効化できます。</p>
@@ -68,10 +81,15 @@ export function SettingsPage() {
             プロバイダ
             <select
               value={settings.llm.provider}
-              onChange={(e) => setLlm({ provider: e.target.value as LlmProvider })}
+              onChange={(e) => {
+                const provider = e.target.value as LlmProvider;
+                // プロバイダを変えたらモデルも既定値へ切り替える
+                setLlm({ provider, model: defaultModelFor(provider) });
+              }}
             >
               <option value="anthropic">Anthropic (Claude)</option>
               <option value="openai">OpenAI</option>
+              <option value="gemini">Google (Gemini)</option>
             </select>
           </label>
           <label className="field-label">
@@ -79,9 +97,7 @@ export function SettingsPage() {
             <input
               type="text"
               value={settings.llm.model}
-              placeholder={
-                settings.llm.provider === 'anthropic' ? 'claude-opus-4-8' : 'gpt-4o'
-              }
+              placeholder={defaultModelFor(settings.llm.provider)}
               onChange={(e) => setLlm({ model: e.target.value })}
             />
           </label>
@@ -90,7 +106,13 @@ export function SettingsPage() {
             <input
               type="password"
               value={settings.llm.apiKey}
-              placeholder="sk-..."
+              placeholder={
+                settings.llm.provider === 'gemini'
+                  ? 'AIza...'
+                  : settings.llm.provider === 'openai'
+                    ? 'sk-...'
+                    : 'sk-ant-...'
+              }
               autoComplete="off"
               onChange={(e) => setLlm({ apiKey: e.target.value })}
             />
@@ -159,6 +181,104 @@ export function SettingsPage() {
           }
         />
       </div>
+
+      {settings.features.recipes && (
+        <div className="panel">
+          <h2>保存済みレシピ</h2>
+          <p className="subtitle">
+            「このソース形式 → このCRM」の確定マッピングです。同じ列構成のファイルを
+            投入すると自動で候補に出ます。
+          </p>
+          {recipes.length === 0 ? (
+            <div className="alert info">
+              まだレシピがありません。マッピング画面の「🔁 レシピとして保存」で作成できます。
+            </div>
+          ) : (
+            recipes.map((r) => (
+              <div key={r.id} className="toggle-row">
+                <div>
+                  <div className="toggle-title">{r.name}</div>
+                  <div className="toggle-desc">
+                    {r.mapping.fields.length} 項目・{r.sourceColumns.length} 列
+                    {' / '}
+                    {new Date(r.updatedAt).toLocaleDateString()}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    onClick={() => {
+                      const name = prompt('レシピ名を変更', r.name);
+                      if (name && name.trim()) void renameRecipe(r.id, name.trim());
+                    }}
+                  >
+                    名前変更
+                  </button>
+                  <button
+                    className="ghost"
+                    onClick={() => {
+                      if (confirm(`「${r.name}」を削除しますか？`)) void removeRecipe(r.id);
+                    }}
+                  >
+                    削除
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {settings.features.learningDictionary && (
+        <div className="panel">
+          <h2>学習辞書</h2>
+          <p className="subtitle">
+            あなたがマッピングを直した「列名 → 項目」の履歴です。使うほどサジェスト精度が
+            上がります。
+          </p>
+          <div className="stat-row" style={{ marginBottom: 12 }}>
+            <div className="stat">
+              <span className="val">{learnedEntries.length}</span>
+              <span className="lbl">学習エントリ数</span>
+            </div>
+          </div>
+          {learnedEntries.length > 0 && (
+            <>
+              <div className="table-wrap" style={{ marginBottom: 12 }}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>ソース列（正規化）</th>
+                      <th>割り当て先</th>
+                      <th>回数</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {learnedEntries
+                      .slice()
+                      .sort((a, b) => b.count - a.count)
+                      .slice(0, 20)
+                      .map((e, i) => (
+                        <tr key={i}>
+                          <td>{e.header}</td>
+                          <td>{e.targetKey}</td>
+                          <td>{e.count}</td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+              <button
+                className="ghost"
+                onClick={() => {
+                  if (confirm('学習辞書をすべて消去しますか？')) clearLearning();
+                }}
+              >
+                学習辞書をクリア
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </>
   );
 }

@@ -1,9 +1,11 @@
 /**
  * ソースファイル(CSV/Excel)のパースとスキーマ抽出。
  * SheetJS(xlsx)を用いてブラウザ内で完結させる。実データは外部送信しない。
+ * xlsx は重いため動的 import で遅延読込し、初期バンドルを軽くする。
  */
-import * as XLSX from 'xlsx';
 import type { DataType, SourceColumn, SourceDataset } from '../types';
+type XLSXModule = typeof import('xlsx');
+type WorkSheet = import('xlsx').WorkSheet;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^[\d\-+()\s　０-９]{7,}$/;
@@ -65,19 +67,26 @@ function isTextFormat(fileName: string): boolean {
  * CSV/TSV は SheetJS のバイナリ読み込みだと UTF-8 の日本語が文字化けするため、
  * TextDecoder で明示的に UTF-8 デコードしてから文字列として読み込む。
  * Excel(.xlsx/.xls) は ZIP/バイナリなので array のまま読む。
+ *
+ * @param sheetName Excel 複数シート時に読むシート名(省略時は先頭シート)
  */
-export function parseWorkbook(
+export async function parseWorkbook(
   fileName: string,
   data: ArrayBuffer,
-): SourceDataset {
+  sheetName?: string,
+): Promise<SourceDataset> {
+  const XLSX: XLSXModule = await import('xlsx');
   const wb = isTextFormat(fileName)
     ? XLSX.read(stripBom(new TextDecoder('utf-8').decode(data)), { type: 'string' })
     : XLSX.read(data, { type: 'array' });
-  const firstSheetName = wb.SheetNames[0];
-  if (!firstSheetName) {
+
+  const sheetNames = wb.SheetNames;
+  if (sheetNames.length === 0) {
     throw new Error('シートが見つかりませんでした。');
   }
-  const sheet = wb.Sheets[firstSheetName];
+  const activeSheet =
+    sheetName && sheetNames.includes(sheetName) ? sheetName : sheetNames[0];
+  const sheet = wb.Sheets[activeSheet];
 
   // ヘッダー行をキーにしてオブジェクト配列化。defval で欠損セルを空文字に。
   const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
@@ -94,9 +103,7 @@ export function parseWorkbook(
   });
 
   const columnNames =
-    rows.length > 0
-      ? Object.keys(rows[0])
-      : extractHeaderOnly(sheet);
+    rows.length > 0 ? Object.keys(rows[0]) : extractHeaderOnly(XLSX, sheet);
 
   const columns: SourceColumn[] = columnNames.map((name) => {
     const allValues = rows.map((r) => r[name] ?? '');
@@ -109,11 +116,11 @@ export function parseWorkbook(
     };
   });
 
-  return { fileName, columns, rows };
+  return { fileName, columns, rows, sheetNames, activeSheet };
 }
 
 /** データ行が無い(ヘッダーのみ)の場合の見出し抽出 */
-function extractHeaderOnly(sheet: XLSX.WorkSheet): string[] {
+function extractHeaderOnly(XLSX: XLSXModule, sheet: WorkSheet): string[] {
   const rows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1 });
   const header = rows[0];
   return Array.isArray(header) ? header.map((h) => String(h)) : [];

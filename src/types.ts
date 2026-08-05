@@ -37,6 +37,10 @@ export interface SourceDataset {
   columns: SourceColumn[];
   /** 全行。key = カラム名, value = セルの文字列表現 */
   rows: Record<string, string>[];
+  /** Excel の全シート名(複数シート時のシート選択に使う) */
+  sheetNames?: string[];
+  /** 現在読み込んでいるシート名 */
+  activeSheet?: string;
 }
 
 /** インポート先(整形後)の1フィールド定義 */
@@ -51,8 +55,16 @@ export interface TargetField {
   type: DataType;
   /** このフィールドを説明する別名・キーワード(サジェスト用) */
   aliases: string[];
-  /** 選択肢(将来のバリデーション用。任意) */
+  /**
+   * 選択可能な固定値の候補。指定すると、マッピング画面の「固定値」で
+   * プルダウンから選べる(自由入力での上書きも可能)。
+   */
   options?: string[];
+  /**
+   * 既定の固定値。元データに対応する列が無い(未割当)場合、この値が
+   * 自動で入る。ユーザーはマッピング画面で選択変更・上書きできる。
+   */
+  defaultValue?: string;
 }
 
 /** インポート先スキーマ(プリセット or アップロード) */

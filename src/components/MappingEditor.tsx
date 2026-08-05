@@ -150,7 +150,10 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
                   });
                   break;
                 case 'constant':
-                  setTransform({ kind: 'constant', value: '' });
+                  setTransform({
+                    kind: 'constant',
+                    value: field.defaultValue ?? field.options?.[0] ?? '',
+                  });
                   break;
                 case 'conditional':
                   setTransform({
@@ -238,14 +241,11 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
         )}
 
         {t.kind === 'constant' && (
-          <label className="field-label">
-            固定値
-            <input
-              type="text"
-              value={t.value}
-              onChange={(e) => setTransform({ kind: 'constant', value: e.target.value })}
-            />
-          </label>
+          <ConstantEditor
+            value={t.value}
+            options={field.options}
+            onChange={(value) => setTransform({ kind: 'constant', value })}
+          />
         )}
 
         {t.kind === 'conditional' && (
@@ -260,17 +260,83 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
       {t.kind !== 'empty' && (
         <div className="norm-chips">
           {ALL_NORMALIZERS.map((n) => (
-            <span
+            <button
+              type="button"
               key={n}
               className={`chip${mapping.normalizers.includes(n) ? ' on' : ''}`}
+              aria-pressed={mapping.normalizers.includes(n)}
               onClick={() => toggleNormalizer(n)}
             >
               {NORMALIZER_LABELS[n]}
-            </span>
+            </button>
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * 固定値エディタ。
+ * テンプレートに選択肢(options)があればプルダウンで選べる。
+ * 「（自由入力）」を選ぶと任意の値を上書き入力できる。
+ */
+function ConstantEditor({
+  value,
+  options,
+  onChange,
+}: {
+  value: string;
+  options?: string[];
+  onChange: (value: string) => void;
+}) {
+  const opts = options ?? [];
+  const isCustom = opts.length === 0 || !opts.includes(value);
+
+  if (opts.length === 0) {
+    return (
+      <label className="field-label">
+        固定値
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      </label>
+    );
+  }
+
+  return (
+    <>
+      <label className="field-label">
+        固定値（選択）
+        <select
+          value={isCustom ? '__custom__' : value}
+          onChange={(e) => {
+            const v = e.target.value;
+            onChange(v === '__custom__' ? '' : v);
+          }}
+        >
+          {opts.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+          <option value="__custom__">（自由入力）</option>
+        </select>
+      </label>
+      {isCustom && (
+        <label className="field-label">
+          値（上書き）
+          <input
+            type="text"
+            value={value}
+            placeholder="任意の値を入力"
+            onChange={(e) => onChange(e.target.value)}
+          />
+        </label>
+      )}
+    </>
   );
 }
 
@@ -316,15 +382,17 @@ function ConcatEditor({
         まとめる列（クリックした順に結合）
         <div className="norm-chips">
           {columnNames.map((c) => (
-            <span
+            <button
+              type="button"
               key={c}
               className={`chip${transform.sources.includes(c) ? ' on' : ''}`}
+              aria-pressed={transform.sources.includes(c)}
               onClick={() => toggle(c)}
             >
               {transform.sources.includes(c)
                 ? `${transform.sources.indexOf(c) + 1}. ${c}`
                 : c}
-            </span>
+            </button>
           ))}
         </div>
       </div>
@@ -359,8 +427,10 @@ function ConcatEditor({
       )}
 
       <label className="field-label" style={{ justifyContent: 'flex-end' }}>
-        <span
+        <button
+          type="button"
           className={`chip${transform.withLabels ? ' on' : ''}`}
+          aria-pressed={!!transform.withLabels}
           onClick={() =>
             onChange({
               ...transform,
@@ -370,7 +440,7 @@ function ConcatEditor({
           }
         >
           項目名を付ける（例: 役職: 部長）
-        </span>
+        </button>
       </label>
 
       {transform.withLabels && (

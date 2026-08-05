@@ -102,7 +102,7 @@ export function ResultView() {
   };
   const handleExportXlsx = () => {
     if (!transformedRows) return;
-    downloadXlsx(transformedRows, target.fields, `${base}_shaped.xlsx`);
+    void downloadXlsx(transformedRows, target.fields, `${base}_shaped.xlsx`);
   };
 
   return (

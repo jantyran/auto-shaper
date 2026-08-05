@@ -1,54 +1,66 @@
 /**
  * テンプレート保存のリポジトリ層。
  *
- * 「ローカルファースト + API同期」方式:
- *  - SQLite バックエンド(/api)が使えればそれを正とし、localStorage にも複製しておく。
- *  - バックエンドが無い/落ちている場合は localStorage だけで動作する(オフライン可)。
- * これにより「サーバー無しでもすぐ試せる」利便性と「複数端末・チーム共有」の
- * 両立を図る。保存されるのはテンプレート定義のみで、実データは含まれない。
+ * 保存先はログイン状態で切り替わる:
+ *  - **ログイン済み** かつ バックエンド(/api)が使える → サーバー(DB)を正とする。
+ *  - それ以外(未ログイン / サーバー無し) → このブラウザの localStorage。
+ *
+ * ゲスト(localStorage)のデータとログインユーザー(DB)のデータが混ざらないよう、
+ * API モードのときは localStorage への複製は行わない(ログイン時にゲストの
+ * ローカルデータを上書きしない)。保存されるのはテンプレート定義のみ。
  */
 import type { TargetSchema } from '../types';
+import { apiUrl } from './apiBase';
+import { authHeaders, isAuthenticated } from './auth';
 import {
   deleteCustomSchema,
   loadCustomSchemas,
-  saveCustomSchemas,
   upsertCustomSchema,
 } from './schemaStore';
 
 export type StorageMode = 'api' | 'local';
 
-const API = '/api';
-let modePromise: Promise<StorageMode> | null = null;
+let healthPromise: Promise<boolean> | null = null;
+
+/** APIベースURLを変更したときに疎通判定のキャッシュを破棄する */
+export function resetStorageModeCache(): void {
+  healthPromise = null;
+}
 
 /** バックエンドの有無を一度だけ判定してキャッシュ */
-export function detectStorageMode(): Promise<StorageMode> {
-  if (!modePromise) {
-    modePromise = (async () => {
+function detectBackend(): Promise<boolean> {
+  if (!healthPromise) {
+    healthPromise = (async () => {
       try {
         const ctrl = new AbortController();
         const timer = setTimeout(() => ctrl.abort(), 1500);
-        const res = await fetch(`${API}/health`, { signal: ctrl.signal });
+        const res = await fetch(apiUrl('/api/health'), { signal: ctrl.signal });
         clearTimeout(timer);
-        return res.ok ? 'api' : 'local';
+        return res.ok;
       } catch {
-        return 'local';
+        return false;
       }
     })();
   }
-  return modePromise;
+  return healthPromise;
 }
 
-/** 一覧取得。API があれば取得して localStorage に複製、無ければローカルを返す */
+/** 実効的な保存先。API はログイン済み かつ バックエンドありのときだけ */
+export async function detectStorageMode(): Promise<StorageMode> {
+  if (!isAuthenticated()) return 'local';
+  return (await detectBackend()) ? 'api' : 'local';
+}
+
+function jsonHeaders(): Record<string, string> {
+  return { 'Content-Type': 'application/json', ...authHeaders() };
+}
+
+/** 一覧取得。API モードならサーバーから、そうでなければローカルから */
 export async function listSchemas(): Promise<TargetSchema[]> {
-  const mode = await detectStorageMode();
-  if (mode === 'api') {
+  if ((await detectStorageMode()) === 'api') {
     try {
-      const res = await fetch(`${API}/schemas`);
-      if (res.ok) {
-        const list = (await res.json()) as TargetSchema[];
-        saveCustomSchemas(list); // オフライン用に複製
-        return list;
-      }
+      const res = await fetch(apiUrl('/api/schemas'), { headers: authHeaders() });
+      if (res.ok) return (await res.json()) as TargetSchema[];
     } catch {
       /* fall through to local */
     }
@@ -59,19 +71,14 @@ export async function listSchemas(): Promise<TargetSchema[]> {
 /** 追加/更新。更新後の全一覧を返す */
 export async function persistSchema(schema: TargetSchema): Promise<TargetSchema[]> {
   const next: TargetSchema = { ...schema, origin: 'custom' };
-  const mode = await detectStorageMode();
-  if (mode === 'api') {
+  if ((await detectStorageMode()) === 'api') {
     try {
-      const res = await fetch(`${API}/schemas/${encodeURIComponent(next.id)}`, {
+      const res = await fetch(apiUrl(`/api/schemas/${encodeURIComponent(next.id)}`), {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: jsonHeaders(),
         body: JSON.stringify(next),
       });
-      if (res.ok) {
-        const list = (await res.json()) as TargetSchema[];
-        saveCustomSchemas(list);
-        return list;
-      }
+      if (res.ok) return (await res.json()) as TargetSchema[];
     } catch {
       /* fall through to local */
     }
@@ -81,17 +88,13 @@ export async function persistSchema(schema: TargetSchema): Promise<TargetSchema[
 
 /** 削除。削除後の全一覧を返す */
 export async function removeSchemaFromRepo(id: string): Promise<TargetSchema[]> {
-  const mode = await detectStorageMode();
-  if (mode === 'api') {
+  if ((await detectStorageMode()) === 'api') {
     try {
-      const res = await fetch(`${API}/schemas/${encodeURIComponent(id)}`, {
+      const res = await fetch(apiUrl(`/api/schemas/${encodeURIComponent(id)}`), {
         method: 'DELETE',
+        headers: authHeaders(),
       });
-      if (res.ok) {
-        const list = (await res.json()) as TargetSchema[];
-        saveCustomSchemas(list);
-        return list;
-      }
+      if (res.ok) return (await res.json()) as TargetSchema[];
     } catch {
       /* fall through to local */
     }

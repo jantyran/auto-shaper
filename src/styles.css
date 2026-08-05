@@ -11,8 +11,13 @@
   --amber: #f0b429;
   --red: #f26d6d;
   --radius: 10px;
-  font-family: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans',
-    'Noto Sans JP', sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    'Hiragino Sans',
+    'Noto Sans JP',
+    sans-serif;
 }
 
 * {
@@ -93,6 +98,82 @@ a {
   color: #fff;
 }
 
+/* Auth badge (header) */
+.auth-badge-btn {
+  margin-left: 8px;
+}
+
+.auth-badge {
+  margin-left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  max-width: 260px;
+}
+
+.auth-badge .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  flex-shrink: 0;
+}
+
+.auth-badge .mail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 150px;
+}
+
+.auth-badge .sync {
+  font-size: 10px;
+  color: var(--muted);
+  border-left: 1px solid var(--border);
+  padding-left: 8px;
+}
+
+/* Account panel (settings) */
+.account-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.auth-tabs {
+  display: inline-flex;
+  gap: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.conn-field {
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.conn-field summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  user-select: none;
+}
+
+.conn-field[open] summary {
+  color: var(--text);
+  margin-bottom: 10px;
+}
+
 /* Settings: toggles and grid */
 .toggle-row {
   display: flex;
@@ -127,7 +208,9 @@ a {
   background: var(--panel-2);
   padding: 2px;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .switch .knob {
@@ -136,7 +219,9 @@ a {
   height: 18px;
   border-radius: 50%;
   background: var(--muted);
-  transition: transform 0.15s, background 0.15s;
+  transition:
+    transform 0.15s,
+    background 0.15s;
 }
 
 .switch.on {
@@ -197,6 +282,30 @@ a {
 .admin-actions {
   display: flex;
   gap: 4px;
+}
+
+.admin-field {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding-bottom: 8px;
+  margin-bottom: 6px;
+}
+
+.admin-extra {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  padding: 6px 2px 2px;
+}
+
+.admin-extra input[type='text'] {
+  width: 100%;
+}
+
+@media (max-width: 720px) {
+  .admin-extra {
+    grid-template-columns: 1fr;
+  }
 }
 
 button.icon {
@@ -291,7 +400,9 @@ button.icon {
   padding: 44px 20px;
   text-align: center;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .dropzone:hover,
@@ -319,7 +430,9 @@ button {
   background: var(--panel-2);
   color: var(--text);
   padding: 8px 16px;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 button:hover:not(:disabled) {
@@ -474,12 +587,18 @@ label.field-label {
 
 .chip {
   font-size: 11px;
+  line-height: 1.5;
   padding: 3px 9px;
   border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--panel);
+  color: var(--muted);
   cursor: pointer;
   user-select: none;
+}
+
+.chip:hover {
+  border-color: var(--accent);
 }
 
 .chip.on {
@@ -733,4 +852,149 @@ td.rownum {
 .stat .lbl {
   font-size: 12px;
   color: var(--muted);
+}
+
+/* ─────────────────────────────────────────────
+   テキスト整形モード（マスキング・エディタ）
+   ───────────────────────────────────────────── */
+.mask-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 10px 0;
+}
+
+.mask-toolbar .mask-sep {
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: 6px;
+}
+
+.btn-mini {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 7px;
+}
+
+/* 背面ハイライト（.mask-backdrop）と透明テキストエリア（.mask-input）は
+   完全に同じ寸法・書式で重ねる。ズレるとキャレット位置が合わなくなる。 */
+.mask-editor {
+  position: relative;
+  height: 260px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  overflow: hidden;
+}
+
+.mask-layer {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 12px;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Consolas, 'Noto Sans JP', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  letter-spacing: 0;
+  tab-size: 2;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  border: 0;
+}
+
+.mask-backdrop {
+  z-index: 0;
+  color: var(--text);
+  pointer-events: none;
+  overflow: auto;
+}
+
+.mask-input {
+  z-index: 1;
+  color: transparent;
+  caret-color: var(--text);
+  background: transparent;
+  resize: none;
+  outline: none;
+  overflow: auto;
+}
+
+.mask-input::placeholder {
+  color: var(--muted);
+}
+
+.mask-token {
+  border-radius: 4px;
+  padding: 0 1px;
+  font-weight: 600;
+}
+
+.mask-tokens {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 4px;
+  align-items: center;
+}
+
+.mask-tokens .empty {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.token-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  padding: 3px 6px 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  font-variant-numeric: tabular-nums;
+}
+
+.token-pill button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  opacity: 0.75;
+  padding: 0 2px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.token-pill button:hover {
+  opacity: 1;
+}
+
+/* 整形結果のフィールド一覧 */
+.fill-grid {
+  display: grid;
+  grid-template-columns: minmax(120px, 200px) 1fr;
+  gap: 8px 14px;
+  align-items: center;
+  margin: 8px 0 4px;
+}
+
+.fill-label {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.fill-grid input[type='text'] {
+  width: 100%;
+}
+
+@media (max-width: 560px) {
+  .fill-grid {
+    grid-template-columns: 1fr;
+    gap: 4px 0;
+  }
+  .fill-label {
+    margin-top: 8px;
+  }
 }

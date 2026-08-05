@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../state/store';
 import type { DataType, TargetField, TargetSchema } from '../types';
-import { PRESET_SCHEMAS } from '../core/targetSchemas';
+import { PRESET_SCHEMAS, schemaFromUploadedHeader } from '../core/targetSchemas';
+import { parseWorkbook } from '../core/parse';
 import {
   createEmptyField,
   createEmptySchema,
@@ -58,14 +59,33 @@ export function SchemaAdmin() {
   };
 
   const handleImport = async (file: File) => {
+    // .json はエクスポートしたテンプレート定義として取り込む。
+    // それ以外(CSV/TSV/Excel)はヘッダー行から列を読み取り、型を推定して
+    // 「編集画面」を開く → ユーザーが確認・調整してから保存する。
+    const isJson = /\.json$/i.test(file.name);
     try {
-      const parsed = JSON.parse(await file.text());
-      const list = Array.isArray(parsed) ? parsed : [parsed];
-      for (const raw of list) {
-        await saveSchema(schemaFromImport(raw));
+      if (isJson) {
+        const parsed = JSON.parse(await file.text());
+        const list = Array.isArray(parsed) ? parsed : [parsed];
+        for (const raw of list) {
+          await saveSchema(schemaFromImport(raw));
+        }
+      } else {
+        const buf = await file.arrayBuffer();
+        const dataset = await parseWorkbook(file.name, buf);
+        if (dataset.columns.length === 0) {
+          alert('列が読み取れませんでした。1行目にヘッダーがあるCSV/Excelを選んでください。');
+          return;
+        }
+        const base = file.name.replace(/\.[^.]+$/, '');
+        const inferred = schemaFromUploadedHeader(dataset);
+        // 確認・編集できるドラフトとして開く(保存時に custom として永続化)
+        setDraft({ ...inferred, origin: 'custom', name: base });
       }
     } catch {
-      alert('JSONの読み込みに失敗しました。エクスポートしたファイルを選んでください。');
+      alert(
+        'ファイルの読み込みに失敗しました。テンプレートJSON、またはヘッダー行のあるCSV/Excelを選んでください。',
+      );
     }
   };
 
@@ -99,11 +119,13 @@ export function SchemaAdmin() {
         <button onClick={handleExport} disabled={customSchemas.length === 0}>
           エクスポート
         </button>
-        <button onClick={() => importRef.current?.click()}>インポート</button>
+        <button onClick={() => importRef.current?.click()}>
+          インポート（JSON / CSV / Excel）
+        </button>
         <input
           ref={importRef}
           type="file"
-          accept="application/json,.json"
+          accept="application/json,.json,.csv,.tsv,.txt,.xlsx,.xls"
           style={{ display: 'none' }}
           onChange={(e) => {
             const f = e.target.files?.[0];
@@ -116,11 +138,12 @@ export function SchemaAdmin() {
         </button>
       </div>
       <p className="subtitle" style={{ marginTop: 8 }}>
-        整形後（インポート先）のフォーマットをここで管理します。
+        整形後（インポート先）のフォーマットをここで管理します。エクスポートしたJSONに加え、
+        <b>CSV / Excel のヘッダー行からもテンプレートを作成</b>できます（読み込むと型を推定した
+        編集画面が開くので、確認・調整してから保存します）。
         {storageMode === 'api'
           ? 'テンプレートはSQLiteサーバーに保存され、他の端末やチームでも共有できます。'
           : 'テンプレートはこのブラウザに保存されます（サーバーを起動すると自動でSQLite保存に切り替わります）。'}
-        整形フローの「インポート先選択」で選べます。
       </p>
 
       <h3>あなたのテンプレート</h3>
@@ -256,59 +279,85 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
       </div>
 
       {draft.fields.map((f, i) => (
-        <div key={i} className="admin-row">
-          <input
-            type="text"
-            placeholder="Company"
-            value={f.key}
-            onChange={(e) => setField(i, { key: e.target.value })}
-          />
-          <input
-            type="text"
-            placeholder="会社名"
-            value={f.label}
-            onChange={(e) => setField(i, { label: e.target.value })}
-          />
-          <select
-            value={f.type}
-            onChange={(e) => setField(i, { type: e.target.value as DataType })}
-          >
-            {EDITABLE_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {TYPE_LABELS[t]}
-              </option>
-            ))}
-          </select>
-          <input
-            type="text"
-            placeholder="会社名, 企業名, company"
-            value={f.aliases.join(', ')}
-            onChange={(e) =>
-              setField(i, {
-                aliases: e.target.value
-                  .split(',')
-                  .map((a) => a.trim())
-                  .filter((a) => a !== ''),
-              })
-            }
-          />
-          <label style={{ display: 'flex', justifyContent: 'center' }}>
+        <div key={i} className="admin-field">
+          <div className="admin-row">
             <input
-              type="checkbox"
-              checked={f.required}
-              onChange={(e) => setField(i, { required: e.target.checked })}
+              type="text"
+              placeholder="Company"
+              value={f.key}
+              onChange={(e) => setField(i, { key: e.target.value })}
             />
-          </label>
-          <div className="admin-actions">
-            <button className="icon" title="上へ" onClick={() => moveField(i, -1)}>
-              ↑
-            </button>
-            <button className="icon" title="下へ" onClick={() => moveField(i, 1)}>
-              ↓
-            </button>
-            <button className="icon" title="削除" onClick={() => removeField(i)}>
-              ×
-            </button>
+            <input
+              type="text"
+              placeholder="会社名"
+              value={f.label}
+              onChange={(e) => setField(i, { label: e.target.value })}
+            />
+            <select
+              value={f.type}
+              onChange={(e) => setField(i, { type: e.target.value as DataType })}
+            >
+              {EDITABLE_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {TYPE_LABELS[t]}
+                </option>
+              ))}
+            </select>
+            <CommaListInput
+              placeholder="会社名, 企業名, company"
+              value={f.aliases}
+              onChange={(aliases) => setField(i, { aliases })}
+            />
+            <label style={{ display: 'flex', justifyContent: 'center' }}>
+              <input
+                type="checkbox"
+                checked={f.required}
+                onChange={(e) => setField(i, { required: e.target.checked })}
+              />
+            </label>
+            <div className="admin-actions">
+              <button className="icon" title="上へ" onClick={() => moveField(i, -1)}>
+                ↑
+              </button>
+              <button className="icon" title="下へ" onClick={() => moveField(i, 1)}>
+                ↓
+              </button>
+              <button className="icon" title="削除" onClick={() => removeField(i)}>
+                ×
+              </button>
+            </div>
+          </div>
+
+          <div className="admin-extra">
+            <label className="field-label">
+              選択肢（カンマ区切り・固定値の候補）
+              <CommaListInput
+                placeholder="例: Web, 展示会, 紹介"
+                value={f.options ?? []}
+                onChange={(options) =>
+                  setField(i, { options: options.length ? options : undefined })
+                }
+              />
+            </label>
+            <label className="field-label">
+              既定値（対応列が無いとき自動で入る）
+              <input
+                type="text"
+                list={f.options && f.options.length ? `opts-${i}` : undefined}
+                placeholder={f.options?.[0] ? `例: ${f.options[0]}` : '例: 外部リスト'}
+                value={f.defaultValue ?? ''}
+                onChange={(e) =>
+                  setField(i, { defaultValue: e.target.value || undefined })
+                }
+              />
+              {f.options && f.options.length > 0 && (
+                <datalist id={`opts-${i}`}>
+                  {f.options.map((o) => (
+                    <option key={o} value={o} />
+                  ))}
+                </datalist>
+              )}
+            </label>
           </div>
         </div>
       ))}
@@ -335,5 +384,49 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * カンマ区切りで文字列配列を編集するテキスト入力。
+ *
+ * 表示は「編集中の生テキスト」を保持し、配列⇔文字列の往復で毎打鍵ごとに
+ * トリム/空要素除去して join し直す実装だと、カンマや末尾スペースが即座に
+ * 消えて入力できない問題があったため、ローカルの text state を持つ。
+ * 親には常に整形済み配列(トリム・空除去)を渡す。
+ */
+function CommaListInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string[];
+  onChange: (v: string[]) => void;
+  placeholder?: string;
+}) {
+  const [text, setText] = useState(value.join(', '));
+
+  // 並べ替え/削除など、外部から value が変わったときだけ表示を同期する。
+  // 入力中は onChange で親に反映済み(= parse(text) と一致)なので同期は起きない。
+  useEffect(() => {
+    const parsed = text.split(',').map((s) => s.trim()).filter(Boolean);
+    if (parsed.join(' ') !== value.join(' ')) {
+      // 制御入力のローカルバッファを prop に意図的に追従させる同期
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setText(value.join(', '));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  return (
+    <input
+      type="text"
+      placeholder={placeholder}
+      value={text}
+      onChange={(e) => {
+        setText(e.target.value);
+        onChange(e.target.value.split(',').map((s) => s.trim()).filter(Boolean));
+      }}
+    />
   );
 }

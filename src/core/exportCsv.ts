@@ -3,7 +3,6 @@
  * ブラウザ内で Blob を生成し、そのままダウンロードさせる(サーバー経由なし)。
  * Excelでの文字化けを防ぐため CSV には UTF-8 BOM を付与する。
  */
-import * as XLSX from 'xlsx';
 import type { TargetField } from '../types';
 
 type Row = Record<string, string>;
@@ -34,12 +33,13 @@ export function downloadCsv(csv: string, fileName: string): void {
   );
 }
 
-/** ターゲットフィールドの順序で Excel(.xlsx) をダウンロード */
-export function downloadXlsx(
+/** ターゲットフィールドの順序で Excel(.xlsx) をダウンロード(xlsxは遅延読込) */
+export async function downloadXlsx(
   rows: Record<string, string>[],
   fields: TargetField[],
   fileName: string,
-): void {
+): Promise<void> {
+  const XLSX = await import('xlsx');
   const header = fields.map((f) => f.key);
   const aoa = [header, ...rows.map((r) => header.map((k) => r[k] ?? ''))];
   const ws = XLSX.utils.aoa_to_sheet(aoa);

@@ -6,6 +6,8 @@ import { MappingEditor } from './components/MappingEditor';
 import { ResultView } from './components/ResultView';
 import { SchemaAdmin } from './components/SchemaAdmin';
 import { SettingsPage } from './components/Settings';
+import { TextShaper } from './components/TextShaper';
+import { AuthBadge } from './components/AuthBadge';
 
 const STEPS: { id: Step; label: string }[] = [
   { id: 'source', label: 'ソース投入' },
@@ -21,12 +23,18 @@ export function App() {
   const error = useStore((s) => s.error);
   const refreshSchemas = useStore((s) => s.refreshSchemas);
   const refreshRecipes = useStore((s) => s.refreshRecipes);
+  const refreshLearning = useStore((s) => s.refreshLearning);
+  const refreshAuth = useStore((s) => s.refreshAuth);
 
-  // 起動時に保存先を判定してテンプレート/レシピを同期
+  // 起動時: 先に認証状態を復元してから、保存先を判定してテンプレート/レシピ/学習辞書を同期
   useEffect(() => {
-    void refreshSchemas();
-    void refreshRecipes();
-  }, [refreshSchemas, refreshRecipes]);
+    void (async () => {
+      await refreshAuth();
+      await refreshSchemas();
+      await refreshRecipes();
+      refreshLearning();
+    })();
+  }, [refreshAuth, refreshSchemas, refreshRecipes, refreshLearning]);
 
   return (
     <div className="app">
@@ -38,7 +46,13 @@ export function App() {
             className={view === 'app' ? 'navbtn active' : 'navbtn'}
             onClick={() => setView('app')}
           >
-            整形
+            表の整形
+          </button>
+          <button
+            className={view === 'text' ? 'navbtn active' : 'navbtn'}
+            onClick={() => setView('text')}
+          >
+            テキスト整形
           </button>
           <button
             className={view === 'admin' ? 'navbtn active' : 'navbtn'}
@@ -53,18 +67,23 @@ export function App() {
             設定
           </button>
         </nav>
+        <AuthBadge />
       </div>
       <p className="subtitle">
         {view === 'app'
           ? '雑多なExcel/CSVを、AIがカラムを読み取ってインポート用フォーマットへ自動整形します。'
-          : view === 'admin'
-            ? 'インポート先（整形後）のフォーマットを自由に追加・編集できます。'
-            : '機能のON/OFF、AI(LLM)接続、マスキングをここで管理します。'}
+          : view === 'text'
+            ? '問合せメールなどの雑多なテキストを貼り付けると、AIがテンプレート形式へ整理します（渡す前にマスキング可）。'
+            : view === 'admin'
+              ? 'インポート先（整形後）のフォーマットを自由に追加・編集できます。'
+              : '機能のON/OFF、AI(LLM)接続、マスキングをここで管理します。'}
       </p>
 
       {error && <div className="alert error">{error}</div>}
 
-      {view === 'admin' ? (
+      {view === 'text' ? (
+        <TextShaper />
+      ) : view === 'admin' ? (
         <SchemaAdmin />
       ) : view === 'settings' ? (
         <SettingsPage />

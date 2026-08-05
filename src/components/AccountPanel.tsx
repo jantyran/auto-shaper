@@ -31,21 +31,26 @@ export function AccountPanel() {
     return (
       <div className="panel">
         <h2>アカウント</h2>
-        <ConnectionField />
         <p className="subtitle">
-          ログイン中はテンプレートとレシピが<b>サーバー(DB)に保存</b>され、複数端末で共有できます。
+          {'ログイン中はテンプレートとレシピが'}
+          <b>サーバー(DB)に保存</b>
+          {'され、複数端末で共有できます。'}
         </p>
         <div className="account-row">
           <div>
             <div className="toggle-title">{user.email}</div>
             <div className="toggle-desc">
-              保存先: {storageMode === 'api' ? 'サーバー(DB)' : 'localStorage(サーバー未接続)'}
+              保存先:{' '}
+              {storageMode === 'api'
+                ? 'サーバー(DB)'
+                : 'localStorage(サーバー未接続)'}
             </div>
           </div>
           <button className="ghost" onClick={() => void signOut()}>
             ログアウト
           </button>
         </div>
+        <ConnectionField />
       </div>
     );
   }
@@ -75,11 +80,16 @@ export function AccountPanel() {
   return (
     <div className="panel">
       <h2>アカウント</h2>
-      <ConnectionField />
       <p className="subtitle">
-        ログインは任意です。<b>ログインしなくても利用でき</b>、テンプレート/レシピはこのブラウザ
-        (localStorage)に保存されます。ログインすると<b>サーバー(DB)に保存</b>され、複数端末で
-        共有できます（保存されるのはテンプレート定義とマッピングのみで、実データは送信しません）。
+        {'ログインは任意です。'}
+        <b>ログインしなくても利用でき</b>
+        {
+          '、テンプレート/レシピはこのブラウザ(localStorage)に保存されます。ログインすると'
+        }
+        <b>サーバー(DB)に保存</b>
+        {
+          'され、複数端末で共有できます（保存されるのはテンプレート定義とマッピングのみで、実データは送信しません）。'
+        }
       </p>
 
       <div className="auth-tabs">
@@ -119,7 +129,9 @@ export function AccountPanel() {
           <input
             type="password"
             value={password}
-            autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+            autoComplete={
+              mode === 'signup' ? 'new-password' : 'current-password'
+            }
             placeholder="••••••••"
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={(e) => {
@@ -136,25 +148,37 @@ export function AccountPanel() {
       )}
 
       <div className="btn-row">
-        <button className="primary" onClick={() => void submit()} disabled={busy}>
-          {busy ? '処理中…' : mode === 'signup' ? '登録してログイン' : 'ログイン'}
+        <button
+          className="primary"
+          onClick={() => void submit()}
+          disabled={busy}
+        >
+          {busy
+            ? '処理中…'
+            : mode === 'signup'
+              ? '登録してログイン'
+              : 'ログイン'}
         </button>
       </div>
 
       <div className="security-note" style={{ marginTop: 8 }}>
-        パスワードはサーバーで scrypt によりハッシュ化して保存され、平文は保持されません。
-        バックエンド(<code>npm run server</code>)が起動していない場合、ログインは利用できません
-        （その場合も localStorage 保存でそのまま使えます）。
+        {
+          'パスワードはサーバーで scrypt によりハッシュ化して保存され、平文は保持されません。バックエンド('
+        }
+        <code>npm run server</code>
+        {
+          ')が起動していない場合、ログインは利用できません（その場合も localStorage 保存でそのまま使えます）。'
+        }
       </div>
+      <ConnectionField />
     </div>
   );
 }
 
 /**
- * APIサーバーの接続先URL設定。
- * Vite開発サーバー(5173)や同一オリジン配信なら空欄でOK(相対パスで届く)。
- * Live Server(例: 5502)など別オリジンで開く場合は、APIサーバーのURL
- * (例: http://localhost:8787)を入れると、そこへ直接アクセスする。
+ * APIサーバーの接続先URL設定。通常は空欄で、Vite proxy または同一オリジンの
+ * 相対パス `/api` を使う。Viteを使わない静的配信などで `/api` が中継されない
+ * 場合だけ、APIサーバーの絶対URLを指定する。
  */
 function ConnectionField() {
   const [base, setBase] = useState(getApiBase());
@@ -175,15 +199,16 @@ function ConnectionField() {
   };
 
   return (
-    <div className="conn-field">
+    <details className="conn-field">
+      <summary>接続先の詳細設定</summary>
       <label className="field-label" style={{ maxWidth: 560 }}>
-        APIサーバーURL（別オリジン/別ホストで開いている場合に設定）
+        APIサーバーURL
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <input
             type="text"
             style={{ flex: 1 }}
             value={base}
-            placeholder="空欄=同一オリジン/開発サーバー（例: http://localhost:8787）"
+            placeholder="通常は空欄"
             onChange={(e) => setBase(e.target.value)}
             onBlur={(e) => commit(e.target.value)}
           />
@@ -198,14 +223,12 @@ function ConnectionField() {
         </button>
       </div>
       <p className="subtitle" style={{ margin: '0 0 12px' }}>
-        <b>APIサーバー</b>は <code>npm run server</code> で動く Node サーバー(既定ポート8787)で、SQLite を読み書きします。
-        ブラウザは SQLite に直接ではなく、この API サーバー経由で保存します。<br />
-        Vite開発サーバー(<code>localhost:5173</code>)や同一オリジン配信なら<b>空欄でOK</b>です。
-        Live Server(<code>:5502</code>)や<b>リモートIP</b>(例 <code>http://133.18.123.87:5502</code>)で開く場合は、
-        同じホストの <code>:8787</code>(<code>http://&lt;このホスト&gt;:8787</code>) を指定してください
-        （上のボタンで自動入力できます）。そのホストで <code>npm run server</code> を起動し、
-        ポート8787が到達可能である必要があります。設定後にログインし直すと反映されます。
+        Vite開発サーバーや同一オリジン配信では空欄のままでOKです。Viteを使わない静的配信など、
+        <code>/api</code>
+        が中継されない場合のみ入力してください。別マシンのブラウザから使う場合は
+        <code>localhost</code>
+        ではなく、APIサーバーが動いているホスト名またはIPアドレスを指定します。
       </p>
-    </div>
+    </details>
   );
 }

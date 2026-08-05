@@ -73,7 +73,7 @@ async function postAuth(
     // ネットワーク到達不可(サーバー未起動 / 別オリジンで中継されていない 等)
     throw new Error(
       `APIサーバーに接続できませんでした（${url}）。` +
-        '`npm run server` の起動、または「APIサーバーURL」の設定を確認してください。',
+        'ログインを使うには `npm run server` でバックエンドを起動してください。APIサーバーURLの設定が必要なのは、Vite以外の別オリジン配信で開いている場合だけです。',
     );
   }
   const data = (await res.json().catch(() => ({}))) as {
@@ -84,11 +84,11 @@ async function postAuth(
   if (!res.ok || !data.token || !data.user) {
     // サーバーがJSONで理由を返していれば、それをそのまま見せる(原因が分かる)
     if (data.error) throw new Error(data.error);
-    // JSONエラーが無い = APIサーバーに届いていない(未起動 / 静的配信の404 / プロキシがECONNREFUSEDで500 など)
+    // JSONエラーが無い = APIサーバーに届いていない(未起動 / 静的配信の404 / プロキシ不通など)
     const hint = getApiBase()
       ? `送信先: ${url}。APIサーバーが起動しているか確認してください（npm run server）。`
-      : `送信先: ${url}（相対パス）。開発サーバー(5173)経由の場合は別ターミナルで npm run server を起動してください。` +
-        `別オリジン(例 5502)で開いている場合は「設定 → アカウント → APIサーバーURL」に http://localhost:8787 を設定してください。`;
+      : `送信先: ${url}（相対パス）。Vite開発サーバー/preview では API が同一オリジンで同梱されます。` +
+        `Viteを使わない別配信で開いている場合は「設定 → アカウント → 接続先の詳細設定」で APIサーバーURL を設定してください。`;
     throw new Error(`認証に失敗しました (${res.status})。${hint}`);
   }
   setToken(data.token);
@@ -96,13 +96,19 @@ async function postAuth(
 }
 
 /** 新規登録 */
-export async function signUp(email: string, password: string): Promise<AuthUser> {
+export async function signUp(
+  email: string,
+  password: string,
+): Promise<AuthUser> {
   const { user } = await postAuth('/api/auth/signup', { email, password });
   return user;
 }
 
 /** ログイン */
-export async function signIn(email: string, password: string): Promise<AuthUser> {
+export async function signIn(
+  email: string,
+  password: string,
+): Promise<AuthUser> {
   const { user } = await postAuth('/api/auth/login', { email, password });
   return user;
 }

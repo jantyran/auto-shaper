@@ -11,8 +11,13 @@
   --amber: #f0b429;
   --red: #f26d6d;
   --radius: 10px;
-  font-family: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans',
-    'Noto Sans JP', sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    'Hiragino Sans',
+    'Noto Sans JP',
+    sans-serif;
 }
 
 * {
@@ -151,6 +156,24 @@ a {
   padding: 3px;
 }
 
+.conn-field {
+  margin-top: 14px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.conn-field summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  user-select: none;
+}
+
+.conn-field[open] summary {
+  color: var(--text);
+  margin-bottom: 10px;
+}
+
 /* Settings: toggles and grid */
 .toggle-row {
   display: flex;
@@ -185,7 +208,9 @@ a {
   background: var(--panel-2);
   padding: 2px;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .switch .knob {
@@ -194,7 +219,9 @@ a {
   height: 18px;
   border-radius: 50%;
   background: var(--muted);
-  transition: transform 0.15s, background 0.15s;
+  transition:
+    transform 0.15s,
+    background 0.15s;
 }
 
 .switch.on {
@@ -373,7 +400,9 @@ button.icon {
   padding: 44px 20px;
   text-align: center;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .dropzone:hover,
@@ -401,7 +430,9 @@ button {
   background: var(--panel-2);
   color: var(--text);
   padding: 8px 16px;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 button:hover:not(:disabled) {
@@ -862,8 +893,8 @@ td.rownum {
   inset: 0;
   margin: 0;
   padding: 12px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Noto Sans JP',
-    monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Consolas, 'Noto Sans JP', monospace;
   font-size: 13px;
   line-height: 1.6;
   letter-spacing: 0;

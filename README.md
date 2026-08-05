@@ -118,10 +118,10 @@ localStorage に保存）。ログインすると、テンプレートとマッ�
 
 テンプレートとマッピング(レシピ)の保存先は、ログイン状態で切り替わります。
 
-| 状態 | 保存先 | 用途 |
-| --- | --- | --- |
-| **ログイン済み**（+ `npm run server` 起動） | **DB**（既定は SQLite / `server/data/auto-shaper.db`、ユーザー単位） | 複数端末で共有 |
-| 未ログイン / サーバーなし | ブラウザの **localStorage** | ゼロ設定・オフラインで即利用 |
+| 状態                                        | 保存先                                                               | 用途                         |
+| ------------------------------------------- | -------------------------------------------------------------------- | ---------------------------- |
+| **ログイン済み**（+ `npm run server` 起動） | **DB**（既定は SQLite / `server/data/auto-shaper.db`、ユーザー単位） | 複数端末で共有               |
+| 未ログイン / サーバーなし                   | ブラウザの **localStorage**                                          | ゼロ設定・オフラインで即利用 |
 
 - **認証**: メール + パスワードの自前バックエンド認証。パスワードは `scrypt` でハッシュ化して
   保存し（平文は保持しない）、ログイン時にセッショントークンを発行して DB に保存します
@@ -136,16 +136,19 @@ localStorage に保存）。ログインすると、テンプレートとマッ�
   サーバーに送られず、ブラウザ内から出ません(アプリの中核方針を維持)。
 - 管理ページから全テンプレートを **JSON でエクスポート/インポート**できます。
 
-### 別オリジン(Live Server 等)で使う場合
+### APIサーバーURLの設定が必要な場合
 
-フロントを Vite 開発サーバー(`http://localhost:5173`)や、API と同一オリジンで配信する場合は
-設定不要です（`/api` が相対パスで届きます）。一方、**Live Server(例 `http://localhost:5502`)など
-別オリジン**でフロントを開くと `/api` が中継されず、ログイン等が「認証に失敗しました」になります。
-その場合は以下のどちらかで、フロントから API サーバーへ直接届くようにします。
+フロントを Vite 開発サーバーや、API と同一オリジンで配信する場合は設定不要です。
+アプリ内の「APIサーバーURL」は空欄のままで、相対パス `/api` が同一オリジンの API に届きます。
 
-- **アプリ内で設定（推奨・再ビルド不要）**: 「設定 → アカウント」の**「APIサーバーURL」**に
-  `http://localhost:8787` を入力（`src/core/apiBase.ts` が localStorage に保存）。
+Viteを使わない静的配信などで `/api` が中継されない場合だけ、以下のどちらかで API の絶対URLを指定します。
+
+- **アプリ内で設定（再ビルド不要）**: 「設定 → アカウント → 接続先の詳細設定」の
+  **「APIサーバーURL」**に API サーバーのURLを入力（`src/core/apiBase.ts` が localStorage に保存）。
 - **ビルド時に指定**: 環境変数 `VITE_API_BASE=http://localhost:8787` を設定してビルド。
+
+別マシンのブラウザから使う場合、`localhost` はそのブラウザを開いている端末自身を指します。
+リモートサーバー上の API に接続する場合は、`http://<サーバーのIPまたはホスト名>:8787` のように指定します。
 
 API サーバー側は **CORS を許可済み**（`server/index.mjs`）です。既定は全オリジン許可（ローカル
 個人利用向け）で、`CORS_ORIGIN` 環境変数で特定オリジンに限定できます。認証は Cookie ではなく
@@ -153,19 +156,19 @@ API サーバー側は **CORS を許可済み**（`server/index.mjs`）です。
 
 ## アーキテクチャ
 
-| レイヤ | ファイル | 役割 |
-| --- | --- | --- |
-| パース | `src/core/parse.ts` | SheetJS で CSV/Excel を読み、カラム/型/サンプルを抽出 |
-| 匿名化 | `src/core/anonymize.ts` | AI に渡す前にメール/電話/長い数字列をマスク |
-| 推論(サジェスト) | `src/core/inference/heuristic.ts` | 辞書＋類似度＋データパターンでマッピングを提案 |
-| 正規化 | `src/core/normalize.ts` | 全角半角/会社名略記/電話番号などのクレンジング |
-| 変換エンジン | `src/core/transformEngine.ts` | JSON ルールを解釈して行を変換(純粋関数) |
-| 変換(全件) | `src/worker/transform.worker.ts` | Web Worker で数万行を UI を止めずに処理 |
-| 検証 | `src/core/validate.ts` | 必須欠落・メール/電話の形式不正をインポート前に検出 |
-| 出力 | `src/core/exportCsv.ts` | UTF-8 BOM 付き CSV / Excel(.xlsx) をブラウザから直接ダウンロード |
-| 既定値の自動適用 | `src/core/mappingDefaults.ts` | 未割当の項目にテンプレの既定値を固定値で自動設定 |
-| テンプレート/レシピ保存 | `src/core/schemaRepository.ts`, `src/core/collectionRepository.ts` | ログイン時はDB(API)、未ログイン時はlocalStorage |
-| 認証・DBドライバ | `src/core/auth.ts`, `server/auth.mjs`, `server/storage/` | メール+パスワード認証、差し替え可能なDB層 |
+| レイヤ                  | ファイル                                                           | 役割                                                             |
+| ----------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| パース                  | `src/core/parse.ts`                                                | SheetJS で CSV/Excel を読み、カラム/型/サンプルを抽出            |
+| 匿名化                  | `src/core/anonymize.ts`                                            | AI に渡す前にメール/電話/長い数字列をマスク                      |
+| 推論(サジェスト)        | `src/core/inference/heuristic.ts`                                  | 辞書＋類似度＋データパターンでマッピングを提案                   |
+| 正規化                  | `src/core/normalize.ts`                                            | 全角半角/会社名略記/電話番号などのクレンジング                   |
+| 変換エンジン            | `src/core/transformEngine.ts`                                      | JSON ルールを解釈して行を変換(純粋関数)                          |
+| 変換(全件)              | `src/worker/transform.worker.ts`                                   | Web Worker で数万行を UI を止めずに処理                          |
+| 検証                    | `src/core/validate.ts`                                             | 必須欠落・メール/電話の形式不正をインポート前に検出              |
+| 出力                    | `src/core/exportCsv.ts`                                            | UTF-8 BOM 付き CSV / Excel(.xlsx) をブラウザから直接ダウンロード |
+| 既定値の自動適用        | `src/core/mappingDefaults.ts`                                      | 未割当の項目にテンプレの既定値を固定値で自動設定                 |
+| テンプレート/レシピ保存 | `src/core/schemaRepository.ts`, `src/core/collectionRepository.ts` | ログイン時はDB(API)、未ログイン時はlocalStorage                  |
+| 認証・DBドライバ        | `src/core/auth.ts`, `server/auth.mjs`, `server/storage/`           | メール+パスワード認証、差し替え可能なDB層                        |
 
 ### LLM への差し替え
 
@@ -178,21 +181,21 @@ API サーバー側は **CORS を許可済み**（`server/index.mjs`）です。
 
 ## 機能別のモジュール
 
-| 機能 | ファイル |
-| --- | --- |
-| 設定(機能ON/OFF・AI・マスキング) | `src/core/settings.ts`, `src/components/Settings.tsx` |
-| マスキング(個人情報の自動判定) | `src/core/anonymize.ts` (`isPersonalColumn`) |
-| LLM推論(Anthropic / OpenAI / Gemini) | `src/core/inference/llm.ts`, `server/suggest.mjs` |
-| ログイン・アカウント | `src/core/auth.ts`, `src/components/AccountPanel.tsx`, `src/components/AuthBadge.tsx`, `server/auth.mjs` |
-| DBドライバ(差し替え可能) | `server/storage/index.mjs`, `server/storage/sqlite.mjs` |
-| APIベースURL(別オリジン対応)・CORS | `src/core/apiBase.ts`, `server/index.mjs` (CORS) |
-| 固定値・選択肢・既定値 | `src/types.ts` (`TargetField`), `src/core/mappingDefaults.ts`, `src/components/MappingEditor.tsx` |
-| 学習辞書 | `src/core/learning.ts` |
-| レシピ(マッピングの記憶) | `src/core/recipes.ts`, `src/core/collectionRepository.ts` |
-| 重複検出・名寄せ | `src/core/dedupe.ts` |
-| テキスト整形モード（画面） | `src/components/TextShaper.tsx` |
-| テキストのマスキング（自動＋手動＋復元） | `src/core/textMasking.ts` |
-| テキスト→テンプレ抽出（LLM/ローカル） | `src/core/textExtract.ts`, `server/extract.mjs` |
+| 機能                                     | ファイル                                                                                                 |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| 設定(機能ON/OFF・AI・マスキング)         | `src/core/settings.ts`, `src/components/Settings.tsx`                                                    |
+| マスキング(個人情報の自動判定)           | `src/core/anonymize.ts` (`isPersonalColumn`)                                                             |
+| LLM推論(Anthropic / OpenAI / Gemini)     | `src/core/inference/llm.ts`, `server/suggest.mjs`                                                        |
+| ログイン・アカウント                     | `src/core/auth.ts`, `src/components/AccountPanel.tsx`, `src/components/AuthBadge.tsx`, `server/auth.mjs` |
+| DBドライバ(差し替え可能)                 | `server/storage/index.mjs`, `server/storage/sqlite.mjs`                                                  |
+| APIベースURL(別オリジン対応)・CORS       | `src/core/apiBase.ts`, `server/index.mjs` (CORS)                                                         |
+| 固定値・選択肢・既定値                   | `src/types.ts` (`TargetField`), `src/core/mappingDefaults.ts`, `src/components/MappingEditor.tsx`        |
+| 学習辞書                                 | `src/core/learning.ts`                                                                                   |
+| レシピ(マッピングの記憶)                 | `src/core/recipes.ts`, `src/core/collectionRepository.ts`                                                |
+| 重複検出・名寄せ                         | `src/core/dedupe.ts`                                                                                     |
+| テキスト整形モード（画面）               | `src/components/TextShaper.tsx`                                                                          |
+| テキストのマスキング（自動＋手動＋復元） | `src/core/textMasking.ts`                                                                                |
+| テキスト→テンプレ抽出（LLM/ローカル）    | `src/core/textExtract.ts`, `server/extract.mjs`                                                          |
 
 ## 今後の拡張余地
 

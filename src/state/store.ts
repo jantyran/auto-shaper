@@ -15,7 +15,11 @@ import { buildSuggestContext } from '../core/anonymize';
 import { applyFieldDefaults } from '../core/mappingDefaults';
 import { heuristicSuggester } from '../core/inference/heuristic';
 import { schemaFromUploadedHeader } from '../core/targetSchemas';
-import { getAllSchemas, loadCustomSchemas } from '../core/schemaStore';
+import {
+  getAllSchemas,
+  loadCustomSchemas,
+  normalizeCustomSchemas,
+} from '../core/schemaStore';
 import {
   detectStorageMode,
   listSchemas,
@@ -103,7 +107,10 @@ interface AppState {
   updateFieldMapping: (targetKey: string, mapping: FieldMapping) => void;
   setTransformState: (
     partial: Partial<
-      Pick<AppState, 'isTransforming' | 'transformProgress' | 'transformedRows' | 'step'>
+      Pick<
+        AppState,
+        'isTransforming' | 'transformProgress' | 'transformedRows' | 'step'
+      >
     >,
   ) => void;
   reset: () => void;
@@ -149,7 +156,10 @@ export const useStore = create<AppState>((set, get) => ({
       detectStorageMode(),
       listSchemas(),
     ]);
-    set({ storageMode: mode, customSchemas });
+    set({
+      storageMode: mode,
+      customSchemas: normalizeCustomSchemas(customSchemas),
+    });
   },
 
   refreshAuth: async () => {
@@ -183,12 +193,23 @@ export const useStore = create<AppState>((set, get) => ({
     try {
       const source = await parseWorkbook(fileName, data);
       if (source.columns.length === 0) {
-        set({ error: 'カラムを検出できませんでした。ヘッダー行があるか確認してください。' });
+        set({
+          error:
+            'カラムを検出できませんでした。ヘッダー行があるか確認してください。',
+        });
         return;
       }
-      set({ source, sourceRaw: { fileName, data }, step: 'target', error: undefined });
+      set({
+        source,
+        sourceRaw: { fileName, data },
+        step: 'target',
+        error: undefined,
+      });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : 'ファイルの読み込みに失敗しました。' });
+      set({
+        error:
+          e instanceof Error ? e.message : 'ファイルの読み込みに失敗しました。',
+      });
     }
   },
 
@@ -207,7 +228,10 @@ export const useStore = create<AppState>((set, get) => ({
         error: undefined,
       });
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : 'シートの読み込みに失敗しました。' });
+      set({
+        error:
+          e instanceof Error ? e.message : 'シートの読み込みに失敗しました。',
+      });
     }
   },
 
@@ -218,7 +242,10 @@ export const useStore = create<AppState>((set, get) => ({
       return;
     }
     if (target.fields.length === 0) {
-      set({ error: 'このテンプレートには項目がありません。管理ページで項目を追加してください。' });
+      set({
+        error:
+          'このテンプレートには項目がありません。管理ページで項目を追加してください。',
+      });
       return;
     }
     await runSuggestion(set, get, target);
@@ -230,7 +257,12 @@ export const useStore = create<AppState>((set, get) => ({
       const target = schemaFromUploadedHeader(parsed);
       await runSuggestion(set, get, target);
     } catch (e) {
-      set({ error: e instanceof Error ? e.message : 'ターゲットの読み込みに失敗しました。' });
+      set({
+        error:
+          e instanceof Error
+            ? e.message
+            : 'ターゲットの読み込みに失敗しました。',
+      });
     }
   },
 
@@ -245,7 +277,10 @@ export const useStore = create<AppState>((set, get) => ({
       settings.features.learningDictionary &&
       mapping.transform.kind === 'direct'
     ) {
-      const learnedEntries = recordAssociation(mapping.transform.source, targetKey);
+      const learnedEntries = recordAssociation(
+        mapping.transform.source,
+        targetKey,
+      );
       set({ learnedEntries });
     }
     // マッピングを変えたら既存の変換結果は無効化し、再実行させる
@@ -272,13 +307,23 @@ export const useStore = create<AppState>((set, get) => ({
     }),
 
   saveSchema: async (schema) => {
-    const customSchemas = await persistSchema(schema);
-    set({ customSchemas });
+    const current = get().customSchemas;
+    const affected = schema.isDefault
+      ? current
+          .filter((s) => s.id !== schema.id && s.isDefault)
+          .map((s) => ({ ...s, isDefault: false }))
+      : [];
+    let customSchemas = current;
+    for (const item of affected) {
+      customSchemas = await persistSchema(item);
+    }
+    customSchemas = await persistSchema(schema);
+    set({ customSchemas: normalizeCustomSchemas(customSchemas) });
   },
 
   removeSchema: async (id) => {
     const customSchemas = await removeSchemaFromRepo(id);
-    set({ customSchemas });
+    set({ customSchemas: normalizeCustomSchemas(customSchemas) });
   },
 
   updateSettings: (settings) => {
@@ -315,7 +360,11 @@ export const useStore = create<AppState>((set, get) => ({
   renameRecipe: async (id, name) => {
     const recipe = get().recipes.find((r) => r.id === id);
     if (!recipe) return;
-    const recipes = await persistRecipe({ ...recipe, name, updatedAt: Date.now() });
+    const recipes = await persistRecipe({
+      ...recipe,
+      name,
+      updatedAt: Date.now(),
+    });
     set({ recipes });
   },
 

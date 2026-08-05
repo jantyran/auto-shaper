@@ -1,14 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../state/store';
-import type { DataType, TargetField, TargetSchema } from '../types';
-import { PRESET_SCHEMAS, schemaFromUploadedHeader } from '../core/targetSchemas';
+import type {
+  DataType,
+  FieldInputKind,
+  TargetField,
+  TargetSchema,
+} from '../types';
+import {
+  PRESET_SCHEMAS,
+  schemaFromUploadedHeader,
+} from '../core/targetSchemas';
 import { parseWorkbook } from '../core/parse';
 import {
   createEmptyField,
   createEmptySchema,
   duplicateSchema,
   schemaFromImport,
+  sortCustomSchemas,
 } from '../core/schemaStore';
+import { fieldDisplayName, fieldInputKind } from '../core/fieldMeta';
 
 const TYPE_LABELS: Record<DataType, string> = {
   string: '文字列',
@@ -30,6 +40,14 @@ const EDITABLE_TYPES: DataType[] = [
   'boolean',
 ];
 
+const INPUT_KIND_LABELS: Record<FieldInputKind, string> = {
+  text: '短文入力',
+  textarea: '長文入力',
+  select: '選択式',
+};
+
+const INPUT_KINDS: FieldInputKind[] = ['text', 'textarea', 'select'];
+
 /**
  * テンプレート管理ページ。整形プロセスとは独立して、インポート先フォーマット
  * (ターゲットスキーマ)をユーザーが自由に追加・編集・削除できる。
@@ -43,9 +61,30 @@ export function SchemaAdmin() {
   // 編集中スキーマ(ドラフト)。null なら一覧表示。
   const [draft, setDraft] = useState<TargetSchema | null>(null);
   const importRef = useRef<HTMLInputElement>(null);
+  const sortedCustomSchemas = sortCustomSchemas(customSchemas);
+
+  const saveOrderedSchemas = async (schemas: TargetSchema[]) => {
+    for (const [index, schema] of schemas.entries()) {
+      await saveSchema({ ...schema, sortOrder: index });
+    }
+  };
+
+  const moveSchema = (index: number, dir: -1 | 1) => {
+    const nextIndex = index + dir;
+    if (nextIndex < 0 || nextIndex >= sortedCustomSchemas.length) return;
+    const next = [...sortedCustomSchemas];
+    [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+    void saveOrderedSchemas(next);
+  };
+
+  const makeDefaultSchema = async (id: string) => {
+    for (const schema of sortedCustomSchemas) {
+      await saveSchema({ ...schema, isDefault: schema.id === id });
+    }
+  };
 
   const handleExport = () => {
-    const blob = new Blob([JSON.stringify(customSchemas, null, 2)], {
+    const blob = new Blob([JSON.stringify(sortedCustomSchemas, null, 2)], {
       type: 'application/json',
     });
     const url = URL.createObjectURL(blob);
@@ -74,7 +113,9 @@ export function SchemaAdmin() {
         const buf = await file.arrayBuffer();
         const dataset = await parseWorkbook(file.name, buf);
         if (dataset.columns.length === 0) {
-          alert('列が読み取れませんでした。1行目にヘッダーがあるCSV/Excelを選んでください。');
+          alert(
+            '列が読み取れませんでした。1行目にヘッダーがあるCSV/Excelを選んでください。',
+          );
           return;
         }
         const base = file.name.replace(/\.[^.]+$/, '');
@@ -105,7 +146,14 @@ export function SchemaAdmin() {
 
   return (
     <div className="panel">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          flexWrap: 'wrap',
+        }}
+      >
         <h2 style={{ margin: 0 }}>テンプレート管理</h2>
         <span className={`storage-badge ${storageMode === 'api' ? 'api' : ''}`}>
           <span className="dot" />
@@ -133,13 +181,17 @@ export function SchemaAdmin() {
             e.target.value = '';
           }}
         />
-        <button className="primary" onClick={() => setDraft(createEmptySchema())}>
+        <button
+          className="primary"
+          onClick={() => setDraft(createEmptySchema())}
+        >
           + 新規テンプレートを作成
         </button>
       </div>
       <p className="subtitle" style={{ marginTop: 8 }}>
         整形後（インポート先）のフォーマットをここで管理します。エクスポートしたJSONに加え、
-        <b>CSV / Excel のヘッダー行からもテンプレートを作成</b>できます（読み込むと型を推定した
+        <b>CSV / Excel のヘッダー行からもテンプレートを作成</b>
+        できます（読み込むと型を推定した
         編集画面が開くので、確認・調整してから保存します）。
         {storageMode === 'api'
           ? 'テンプレートはSQLiteサーバーに保存され、他の端末やチームでも共有できます。'
@@ -147,34 +199,62 @@ export function SchemaAdmin() {
       </p>
 
       <h3>あなたのテンプレート</h3>
-      {customSchemas.length === 0 ? (
+      {sortedCustomSchemas.length === 0 ? (
         <div className="alert info">
-          まだテンプレートがありません。「+ 新規テンプレートを作成」から追加するか、
-          下のプリセットを複製して編集できます。
+          {
+            'まだテンプレートがありません。「+ 新規テンプレートを作成」から追加するか、下のプリセットを複製して編集できます。'
+          }
         </div>
       ) : (
         <div className="card-grid">
-          {customSchemas.map((s) => (
+          {sortedCustomSchemas.map((s, i) => (
             <div key={s.id} className="mapping-row" style={{ marginBottom: 0 }}>
               <div className="mapping-head">
                 <span className="target-name" style={{ minWidth: 0 }}>
                   {s.name}
                 </span>
+                {s.isDefault && <span className="field-kind-badge">既定</span>}
               </div>
               <p className="rationale">{s.fields.length} フィールド</p>
               <div className="btn-row" style={{ marginTop: 10 }}>
-                <button onClick={() => setDraft(structuredClone(s))}>編集</button>
+                <button onClick={() => setDraft(structuredClone(s))}>
+                  編集
+                </button>
                 <button
                   className="ghost"
                   onClick={() => setDraft(duplicateSchema(s))}
                 >
                   複製
                 </button>
+                <button
+                  className="ghost"
+                  disabled={s.isDefault}
+                  onClick={() => void makeDefaultSchema(s.id)}
+                >
+                  既定にする
+                </button>
+                <button
+                  className="icon"
+                  title="上へ"
+                  disabled={i === 0}
+                  onClick={() => moveSchema(i, -1)}
+                >
+                  ↑
+                </button>
+                <button
+                  className="icon"
+                  title="下へ"
+                  disabled={i === sortedCustomSchemas.length - 1}
+                  onClick={() => moveSchema(i, 1)}
+                >
+                  ↓
+                </button>
                 <div className="spacer" />
                 <button
                   className="ghost"
                   onClick={() => {
-                    if (confirm(`「${s.name}」を削除しますか？`)) removeSchema(s.id);
+                    if (confirm(`「${s.name}」を削除しますか？`))
+                      removeSchema(s.id);
                   }}
                 >
                   削除
@@ -215,6 +295,8 @@ interface EditorProps {
 }
 
 function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+
   const setField = (i: number, patch: Partial<TargetField>) => {
     const fields = draft.fields.map((f, idx) =>
       idx === i ? { ...f, ...patch } : f,
@@ -232,13 +314,22 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
     [fields[i], fields[j]] = [fields[j], fields[i]];
     onChange({ ...draft, fields });
   };
+  const reorderField = (from: number, to: number) => {
+    if (from === to || from < 0 || to < 0) return;
+    const fields = [...draft.fields];
+    const [moved] = fields.splice(from, 1);
+    if (!moved) return;
+    fields.splice(to, 0, moved);
+    onChange({ ...draft, fields });
+  };
 
   // 保存可能条件: 名前があり、全フィールドにキーがあり、キーが重複しない
   const keys = draft.fields.map((f) => f.key.trim());
   const dupKeys = keys.filter((k, i) => k !== '' && keys.indexOf(k) !== i);
   const emptyKey = draft.fields.some((f) => f.key.trim() === '');
   const problems: string[] = [];
-  if (draft.name.trim() === '') problems.push('テンプレート名を入力してください');
+  if (draft.name.trim() === '')
+    problems.push('テンプレート名を入力してください');
   if (draft.fields.length === 0) problems.push('項目を1つ以上追加してください');
   if (emptyKey) problems.push('すべての項目にキー（出力列名）が必要です');
   if (dupKeys.length > 0)
@@ -246,7 +337,14 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
 
   return (
     <div className="panel">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          flexWrap: 'wrap',
+        }}
+      >
         <h2 style={{ margin: 0 }}>テンプレートを編集</h2>
       </div>
 
@@ -265,102 +363,245 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
 
       <h3>項目（出力フィールド）</h3>
       <p className="subtitle" style={{ marginBottom: 12 }}>
-        「キー」は出力CSVの列名になります。「別名」はカンマ区切りで、AIが元データの
-        どの列を割り当てるかの判定に使われます（多いほどマッチ精度が上がります）。
+        一覧ではキーと表示名だけを確認し、詳細編集が必要な項目だけ開いて設定します。
       </p>
 
-      <div className="admin-head">
-        <span>キー（出力列名）</span>
-        <span>表示名</span>
-        <span>型</span>
-        <span>別名（カンマ区切り）</span>
-        <span>必須</span>
-        <span></span>
+      <div className="field-list-head">
+        <span>項目</span>
+        <span>型 / 入力形式</span>
+        <span>設定</span>
       </div>
 
-      {draft.fields.map((f, i) => (
-        <div key={i} className="admin-field">
-          <div className="admin-row">
-            <input
-              type="text"
-              placeholder="Company"
-              value={f.key}
-              onChange={(e) => setField(i, { key: e.target.value })}
-            />
-            <input
-              type="text"
-              placeholder="会社名"
-              value={f.label}
-              onChange={(e) => setField(i, { label: e.target.value })}
-            />
-            <select
-              value={f.type}
-              onChange={(e) => setField(i, { type: e.target.value as DataType })}
+      <div className="field-accordion-list">
+        {draft.fields.map((f, i) => {
+          const inputKind = fieldInputKind(f);
+          const displayName = fieldDisplayName(f);
+          return (
+            <details
+              key={i}
+              className={`admin-field${dragIndex === i ? ' dragging' : ''}`}
+              open={f.key.trim() === ''}
+              onDragOver={(e) => {
+                if (dragIndex == null || dragIndex === i) return;
+                e.preventDefault();
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (dragIndex == null) return;
+                reorderField(dragIndex, i);
+                setDragIndex(null);
+              }}
             >
-              {EDITABLE_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {TYPE_LABELS[t]}
-                </option>
-              ))}
-            </select>
-            <CommaListInput
-              placeholder="会社名, 企業名, company"
-              value={f.aliases}
-              onChange={(aliases) => setField(i, { aliases })}
-            />
-            <label style={{ display: 'flex', justifyContent: 'center' }}>
-              <input
-                type="checkbox"
-                checked={f.required}
-                onChange={(e) => setField(i, { required: e.target.checked })}
-              />
-            </label>
-            <div className="admin-actions">
-              <button className="icon" title="上へ" onClick={() => moveField(i, -1)}>
-                ↑
-              </button>
-              <button className="icon" title="下へ" onClick={() => moveField(i, 1)}>
-                ↓
-              </button>
-              <button className="icon" title="削除" onClick={() => removeField(i)}>
-                ×
-              </button>
-            </div>
-          </div>
+              <summary className="admin-field-summary">
+                <div className="field-summary-main">
+                  <span
+                    className="drag-handle"
+                    title="ドラッグして並び替え"
+                    draggable
+                    onClick={(e) => e.preventDefault()}
+                    onDragStart={(e) => {
+                      e.dataTransfer.effectAllowed = 'move';
+                      e.dataTransfer.setData('text/plain', String(i));
+                      setDragIndex(i);
+                    }}
+                    onDragEnd={() => setDragIndex(null)}
+                  >
+                    ⋮⋮
+                  </span>
+                  <span className="field-summary-index">{i + 1}</span>
+                  <span className="field-summary-key">
+                    {f.key || '未設定のキー'}
+                  </span>
+                  <span className="field-summary-label">
+                    {f.label.trim() ? f.label : '表示名なし'}
+                  </span>
+                </div>
+                <div className="field-summary-meta">
+                  <span className="field-kind-badge subtle">
+                    {TYPE_LABELS[f.type]}
+                  </span>
+                  <span className={`field-kind-badge ${inputKind}`}>
+                    {INPUT_KIND_LABELS[inputKind]}
+                  </span>
+                  {f.required && <span className="required-badge">必須</span>}
+                  {inputKind === 'select' &&
+                    f.options &&
+                    f.options.length > 0 && (
+                      <span className="field-kind-badge subtle">
+                        {f.options.length}候補
+                      </span>
+                    )}
+                </div>
+                <div className="admin-actions summary-actions">
+                  <button
+                    type="button"
+                    className="icon"
+                    title="上へ"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      moveField(i, -1);
+                    }}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    className="icon"
+                    title="下へ"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      moveField(i, 1);
+                    }}
+                  >
+                    ↓
+                  </button>
+                  <button
+                    type="button"
+                    className="icon"
+                    title="削除"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      removeField(i);
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              </summary>
 
-          <div className="admin-extra">
-            <label className="field-label">
-              選択肢（カンマ区切り・固定値の候補）
-              <CommaListInput
-                placeholder="例: Web, 展示会, 紹介"
-                value={f.options ?? []}
-                onChange={(options) =>
-                  setField(i, { options: options.length ? options : undefined })
-                }
-              />
-            </label>
-            <label className="field-label">
-              既定値（対応列が無いとき自動で入る）
-              <input
-                type="text"
-                list={f.options && f.options.length ? `opts-${i}` : undefined}
-                placeholder={f.options?.[0] ? `例: ${f.options[0]}` : '例: 外部リスト'}
-                value={f.defaultValue ?? ''}
-                onChange={(e) =>
-                  setField(i, { defaultValue: e.target.value || undefined })
-                }
-              />
-              {f.options && f.options.length > 0 && (
-                <datalist id={`opts-${i}`}>
-                  {f.options.map((o) => (
-                    <option key={o} value={o} />
-                  ))}
-                </datalist>
-              )}
-            </label>
-          </div>
-        </div>
-      ))}
+              <div className="admin-detail-panel">
+                <div className="detail-section-title">基本</div>
+                <div className="admin-detail-grid basic">
+                  <label className="field-label">
+                    キー（出力列名）
+                    <input
+                      type="text"
+                      placeholder="Company"
+                      value={f.key}
+                      onChange={(e) => setField(i, { key: e.target.value })}
+                    />
+                  </label>
+                  <label className="field-label">
+                    表示名
+                    <input
+                      type="text"
+                      placeholder={f.key || '会社名'}
+                      value={f.label}
+                      onChange={(e) => setField(i, { label: e.target.value })}
+                    />
+                  </label>
+                  <label className="field-label">
+                    型
+                    <select
+                      value={f.type}
+                      onChange={(e) =>
+                        setField(i, { type: e.target.value as DataType })
+                      }
+                    >
+                      {EDITABLE_TYPES.map((t) => (
+                        <option key={t} value={t}>
+                          {TYPE_LABELS[t]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field-label">
+                    入力形式
+                    <select
+                      value={inputKind}
+                      onChange={(e) => {
+                        const nextKind = e.target.value as FieldInputKind;
+                        setField(i, { inputKind: nextKind });
+                      }}
+                    >
+                      {INPUT_KINDS.map((k) => (
+                        <option key={k} value={k}>
+                          {INPUT_KIND_LABELS[k]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="field-label check-row inline-check">
+                    <input
+                      type="checkbox"
+                      checked={f.required}
+                      onChange={(e) =>
+                        setField(i, { required: e.target.checked })
+                      }
+                    />
+                    必須
+                  </label>
+                </div>
+
+                <div className="detail-section-title">補助設定</div>
+                <div className="admin-detail-grid compact">
+                  <label className="field-label detail-wide">
+                    別名（カンマ区切り）
+                    <CommaListInput
+                      placeholder={`${displayName}, ${f.key}, alias`}
+                      value={f.aliases}
+                      onChange={(aliases) => setField(i, { aliases })}
+                    />
+                  </label>
+                </div>
+
+                {inputKind === 'select' && (
+                  <div className="detail-section">
+                    <div className="detail-section-title">選択肢</div>
+                    <label className="field-label">
+                      <OptionListEditor
+                        values={f.options ?? []}
+                        labels={f.optionLabels}
+                        onChange={(options, optionLabels) =>
+                          setField(i, {
+                            options: options.length ? options : undefined,
+                            optionLabels,
+                          })
+                        }
+                      />
+                    </label>
+                  </div>
+                )}
+
+                <div className="detail-section-title">既定値</div>
+                <div className="admin-detail-grid compact">
+                  <label className="field-label detail-wide">
+                    対応列が無いとき自動で入る値
+                    <input
+                      type="text"
+                      list={
+                        f.options && f.options.length ? `opts-${i}` : undefined
+                      }
+                      placeholder={
+                        f.options?.[0]
+                          ? `例: ${f.optionLabels?.[f.options[0]] ?? f.options[0]}`
+                          : '例: 外部リスト'
+                      }
+                      value={f.defaultValue ?? ''}
+                      onChange={(e) =>
+                        setField(i, {
+                          defaultValue: e.target.value || undefined,
+                        })
+                      }
+                    />
+                    {f.options && f.options.length > 0 && (
+                      <datalist id={`opts-${i}`}>
+                        {f.options.map((o) => (
+                          <option
+                            key={o}
+                            value={o}
+                            label={f.optionLabels?.[o] ?? o}
+                          />
+                        ))}
+                      </datalist>
+                    )}
+                  </label>
+                </div>
+              </div>
+            </details>
+          );
+        })}
+      </div>
 
       <div className="btn-row">
         <button onClick={addField}>+ 項目を追加</button>
@@ -379,10 +620,200 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
           キャンセル
         </button>
         <div className="spacer" />
-        <button className="primary" disabled={problems.length > 0} onClick={onSave}>
+        <button
+          className="primary"
+          disabled={problems.length > 0}
+          onClick={onSave}
+        >
           保存
         </button>
       </div>
+    </div>
+  );
+}
+
+interface DraftOption {
+  value: string;
+  label: string;
+}
+
+function parseOptionBulkText(text: string): DraftOption[] {
+  return text
+    .split(/[;；]/)
+    .map((raw) => raw.trim())
+    .filter(Boolean)
+    .map((item) => {
+      const sep = item.search(/[=＝]/);
+      if (sep > 0) {
+        const label = item.slice(0, sep).trim();
+        const value = item.slice(sep + 1).trim();
+        return value
+          ? { label: label || value, value }
+          : { label: item, value: item };
+      }
+      return { label: item, value: item };
+    });
+}
+
+function normalizeOptionLabels(
+  items: DraftOption[],
+): Record<string, string> | undefined {
+  const out: Record<string, string> = {};
+  for (const item of items) {
+    const label = item.label.trim();
+    const value = item.value.trim();
+    if (value && label && label !== value) out[value] = label;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+function OptionListEditor({
+  values,
+  labels,
+  onChange,
+}: {
+  values: string[];
+  labels?: Record<string, string>;
+  onChange: (values: string[], labels?: Record<string, string>) => void;
+}) {
+  const [bulkText, setBulkText] = useState('');
+
+  const items: DraftOption[] = values.map((value) => ({
+    value,
+    label: labels?.[value] ?? value,
+  }));
+
+  const commit = (nextItems: DraftOption[]) => {
+    const seen = new Set<string>();
+    const normalized = nextItems
+      .map((item) => ({
+        value: item.value.trim(),
+        label: item.label.trim() || item.value.trim(),
+      }))
+      .filter(
+        (item) => item.value && !seen.has(item.value) && seen.add(item.value),
+      );
+    onChange(
+      normalized.map((item) => item.value),
+      normalizeOptionLabels(normalized),
+    );
+  };
+
+  const addBulk = () => {
+    const parsed = parseOptionBulkText(bulkText);
+    if (parsed.length === 0) return;
+    commit([...items, ...parsed]);
+    setBulkText('');
+  };
+
+  const patchItem = (index: number, patch: Partial<DraftOption>) => {
+    commit(
+      items.map((item, i) => (i === index ? { ...item, ...patch } : item)),
+    );
+  };
+
+  const removeAt = (index: number) => {
+    commit(items.filter((_, i) => i !== index));
+  };
+
+  const moveItem = (index: number, dir: -1 | 1) => {
+    const nextIndex = index + dir;
+    if (nextIndex < 0 || nextIndex >= items.length) return;
+    const next = [...items];
+    [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+    commit(next);
+  };
+
+  return (
+    <div className="option-input">
+      <div className="option-bulk-row">
+        <input
+          type="text"
+          placeholder="例: 表示名=保存値; Web; A, Bを含む候補"
+          value={bulkText}
+          onChange={(e) => setBulkText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              addBulk();
+            }
+          }}
+        />
+        <button type="button" onClick={addBulk} disabled={!bulkText.trim()}>
+          追加
+        </button>
+      </div>
+      {items.length > 0 && (
+        <>
+          <div className="option-tags" aria-label="選択肢">
+            {items.map((item, index) => (
+              <span className="option-tag" key={`${item.value}-${index}`}>
+                {item.label === item.value
+                  ? item.value
+                  : `${item.label} = ${item.value}`}
+                <button
+                  type="button"
+                  aria-label={`${item.label} を削除`}
+                  onClick={() => removeAt(index)}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+          <div className="option-pair-head">
+            <span></span>
+            <span>ラベル（画面表示）</span>
+            <span>値（出力・検証）</span>
+            <span></span>
+          </div>
+          {items.map((item, index) => (
+            <div
+              className="option-pair-row"
+              key={`edit-${item.value}-${index}`}
+            >
+              <div className="option-order-actions">
+                <button
+                  type="button"
+                  className="icon"
+                  title="上へ"
+                  disabled={index === 0}
+                  onClick={() => moveItem(index, -1)}
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  className="icon"
+                  title="下へ"
+                  disabled={index === items.length - 1}
+                  onClick={() => moveItem(index, 1)}
+                >
+                  ↓
+                </button>
+              </div>
+              <input
+                type="text"
+                value={item.label}
+                placeholder={item.value}
+                onChange={(e) => patchItem(index, { label: e.target.value })}
+              />
+              <input
+                type="text"
+                value={item.value}
+                onChange={(e) => patchItem(index, { value: e.target.value })}
+              />
+              <button
+                type="button"
+                className="icon"
+                onClick={() => removeAt(index)}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </>
+      )}
     </div>
   );
 }
@@ -409,8 +840,11 @@ function CommaListInput({
   // 並べ替え/削除など、外部から value が変わったときだけ表示を同期する。
   // 入力中は onChange で親に反映済み(= parse(text) と一致)なので同期は起きない。
   useEffect(() => {
-    const parsed = text.split(',').map((s) => s.trim()).filter(Boolean);
-    if (parsed.join(' ') !== value.join(' ')) {
+    const parsed = text
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (parsed.join('\u0000') !== value.join('\u0000')) {
       // 制御入力のローカルバッファを prop に意図的に追従させる同期
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setText(value.join(', '));
@@ -425,7 +859,12 @@ function CommaListInput({
       value={text}
       onChange={(e) => {
         setText(e.target.value);
-        onChange(e.target.value.split(',').map((s) => s.trim()).filter(Boolean));
+        onChange(
+          e.target.value
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean),
+        );
       }}
     />
   );

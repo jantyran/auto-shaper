@@ -25,6 +25,7 @@ import {
   similarity,
 } from './dictionary';
 import { learnedBoost, type LearnedEntry } from '../learning';
+import { fieldDisplayName } from '../fieldMeta';
 
 const EMAIL_RE = /[^\s@]+@[^\s@]+\.[^\s@]+/;
 const PHONE_LIKE_RE = /^[\d\-+()\s]{7,}$/;
@@ -37,7 +38,10 @@ interface ScoredColumn {
 }
 
 /** ターゲットの型に応じた既定の正規化子 */
-function defaultNormalizers(type: DataType, targetKeyOrLabel: string): Normalizer[] {
+function defaultNormalizers(
+  type: DataType,
+  targetKeyOrLabel: string,
+): Normalizer[] {
   switch (type) {
     case 'email':
       return ['normalizeEmail'];
@@ -85,8 +89,8 @@ function scoreColumns(
   learned: LearnedEntry[] = [],
 ): ScoredColumn[] {
   const candidates = field.aliases.length
-    ? [field.key, field.label, ...field.aliases]
-    : [field.key, field.label];
+    ? [field.key, fieldDisplayName(field), ...field.aliases]
+    : [field.key, fieldDisplayName(field)];
 
   return ctx.columns
     .map((col) => {
@@ -107,7 +111,9 @@ function scoreColumns(
       let typeBonus = 0;
       if (field.type === col.inferredType) typeBonus += 0.15;
       if (
-        (field.type === 'email' || field.type === 'phone' || field.type === 'url') &&
+        (field.type === 'email' ||
+          field.type === 'phone' ||
+          field.type === 'url') &&
         patternRate >= 0.6
       ) {
         typeBonus += 0.2;
@@ -176,8 +182,12 @@ export class HeuristicSuggester implements MappingSuggester {
     const fields: FieldMapping[] = [];
 
     // 事前に姓/名の直接対応列があるか調べておく
-    const lastNameField = ctx.target.fields.find((f) => isLastNameField(f.key) || isLastNameField(f.label));
-    const firstNameField = ctx.target.fields.find((f) => isFirstNameField(f.key) || isFirstNameField(f.label));
+    const lastNameField = ctx.target.fields.find(
+      (f) => isLastNameField(f.key) || isLastNameField(fieldDisplayName(f)),
+    );
+    const firstNameField = ctx.target.fields.find(
+      (f) => isFirstNameField(f.key) || isFirstNameField(fieldDisplayName(f)),
+    );
 
     const directLastCandidate = lastNameField
       ? scoreColumns(lastNameField, ctx, learned)[0]
@@ -193,11 +203,17 @@ export class HeuristicSuggester implements MappingSuggester {
     const fullNameColumn = findFullNameColumn(ctx);
 
     for (const field of ctx.target.fields) {
-      const normalizers = defaultNormalizers(field.type, `${field.key} ${field.label}`);
+      const normalizers = defaultNormalizers(
+        field.type,
+        `${field.key} ${fieldDisplayName(field)}`,
+      );
 
       // ── 姓/名の特別処理: 結合列しか無い場合は split を提案 ──
       if (!hasSeparateName && fullNameColumn) {
-        if (isLastNameField(field.key) || isLastNameField(field.label)) {
+        if (
+          isLastNameField(field.key) ||
+          isLastNameField(fieldDisplayName(field))
+        ) {
           usedColumns.add(fullNameColumn);
           fields.push({
             targetKey: field.key,
@@ -213,7 +229,10 @@ export class HeuristicSuggester implements MappingSuggester {
           });
           continue;
         }
-        if (isFirstNameField(field.key) || isFirstNameField(field.label)) {
+        if (
+          isFirstNameField(field.key) ||
+          isFirstNameField(fieldDisplayName(field))
+        ) {
           fields.push({
             targetKey: field.key,
             transform: {
@@ -263,10 +282,13 @@ export class HeuristicSuggester implements MappingSuggester {
       .filter((name) => !usedColumns.has(name));
     if (leftover.length > 0) {
       for (const mapping of fields) {
-        const field = ctx.target.fields.find((f) => f.key === mapping.targetKey);
+        const field = ctx.target.fields.find(
+          (f) => f.key === mapping.targetKey,
+        );
         if (!field) continue;
         if (mapping.transform.kind !== 'empty') continue;
-        if (!isNotesField(field.key) && !isNotesField(field.label)) continue;
+        if (!isNotesField(field.key) && !isNotesField(fieldDisplayName(field)))
+          continue;
         mapping.transform = {
           kind: 'concat',
           sources: [...leftover],

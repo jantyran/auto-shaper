@@ -6,8 +6,10 @@
  * インポート前に洗い出す。(CRMのゴミ屋敷化を防ぐ、というこのプロダクトの価値の核)
  */
 import type { TargetSchema } from '../types';
+import { fieldDisplayName } from './fieldMeta';
 
-export type IssueKind = 'required' | 'email' | 'phone' | 'number' | 'url' | 'option';
+export type IssueKind =
+  'required' | 'email' | 'phone' | 'number' | 'url' | 'option';
 
 export interface RowIssue {
   /** 0始まりの行インデックス(表示は +1) */
@@ -78,7 +80,13 @@ export function validateRows(
     for (const field of target.fields) {
       const value = row[field.key] ?? '';
       const push = (kind: IssueKind) => {
-        issues.push({ row: i, targetKey: field.key, label: field.label, kind, value });
+        issues.push({
+          row: i,
+          targetKey: field.key,
+          label: fieldDisplayName(field),
+          kind,
+          value,
+        });
         invalidRows.add(i);
         counts[kind]++;
       };
@@ -88,7 +96,8 @@ export function validateRows(
       if (field.type === 'number' && isBadNumber(value)) push('number');
       if (field.type === 'url' && isBadUrl(value)) push('url');
       const opts = optionSets.get(field.key);
-      if (opts && value.trim() !== '' && !opts.has(value.trim())) push('option');
+      if (opts && value.trim() !== '' && !opts.has(value.trim()))
+        push('option');
     }
   });
 

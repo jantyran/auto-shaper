@@ -8,9 +8,9 @@
  *  - AI に送るのはマスク済みのテキストだけ。元の値はこのブラウザ内の辞書にのみ残る。
  *  - AI の応答に含まれるトークンは、ローカルで元の値へ復元してから表示・出力する。
  */
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../state/store';
-import { getAllSchemas } from '../core/schemaStore';
+import { getAllSchemas, getDefaultSchema } from '../core/schemaStore';
 import {
   autoMaskText,
   manualMaskSelection,
@@ -29,6 +29,11 @@ import {
 import { applyRecordDefaults } from '../core/mappingDefaults';
 import { toCsv, downloadCsv, downloadXlsx } from '../core/exportCsv';
 import type { TargetField } from '../types';
+import {
+  fieldDisplayName,
+  fieldInputKind,
+  fieldOptionItems,
+} from '../core/fieldMeta';
 
 /** 手動マスクで選べるカテゴリ（自動検出する NUMBER/CARD は手動ボタンから除外） */
 const MANUAL_CATEGORIES: MaskCategory[] = [
@@ -53,8 +58,18 @@ export function TextShaper() {
   const setView = useStore((s) => s.setView);
 
   const schemas = useMemo(() => getAllSchemas(customSchemas), [customSchemas]);
-  const [schemaId, setSchemaId] = useState<string>(schemas[0]?.id ?? '');
-  const target = schemas.find((s) => s.id === schemaId) ?? schemas[0];
+  const defaultSchema = useMemo(
+    () => getDefaultSchema(customSchemas),
+    [customSchemas],
+  );
+  const [schemaId, setSchemaId] = useState<string>('');
+  const target = schemas.find((s) => s.id === schemaId) ?? defaultSchema;
+
+  useEffect(() => {
+    if (!schemaId || !schemas.some((s) => s.id === schemaId)) {
+      setSchemaId(defaultSchema?.id ?? schemas[0]?.id ?? '');
+    }
+  }, [defaultSchema?.id, schemaId, schemas]);
 
   const [text, setText] = useState('');
   const [dict, setDict] = useState<MaskDictionary>(new Map());
@@ -86,7 +101,13 @@ export function TextShaper() {
   const maskSelection = (category: MaskCategory) => {
     const el = inputRef.current;
     if (!el) return;
-    const res = manualMaskSelection(text, el.selectionStart, el.selectionEnd, category, dict);
+    const res = manualMaskSelection(
+      text,
+      el.selectionStart,
+      el.selectionEnd,
+      category,
+      dict,
+    );
     if (res) {
       setText(res.maskedText);
       setDict(res.dictionary);
@@ -179,7 +200,7 @@ export function TextShaper() {
   const copyAsText = () => {
     if (!record || !target) return;
     const body = target.fields
-      .map((f) => `${f.label}: ${record[f.key] ?? ''}`)
+      .map((f) => `${fieldDisplayName(f)}: ${record[f.key] ?? ''}`)
       .join('\n');
     void navigator.clipboard.writeText(body).then(() => flashCopied('text'));
   };
@@ -224,7 +245,8 @@ export function TextShaper() {
         <select value={schemaId} onChange={(e) => setSchemaId(e.target.value)}>
           {schemas.map((s) => (
             <option key={s.id} value={s.id}>
-              {s.name}（{s.fields.length}項目）
+              {s.name}
+              {s.isDefault ? '（既定）' : ''}（{s.fields.length}項目）
             </option>
           ))}
         </select>
@@ -243,12 +265,20 @@ export function TextShaper() {
 
       {/* マスキング・ツールバー */}
       <div className="mask-toolbar">
-        <button className="btn-mini" onClick={runAutoMask} disabled={!text.trim()}>
+        <button
+          className="btn-mini"
+          onClick={runAutoMask}
+          disabled={!text.trim()}
+        >
           🛡 自動スキャンでマスク
         </button>
         <span className="mask-sep">選択範囲をマスク:</span>
         {MANUAL_CATEGORIES.map((cat) => (
-          <button key={cat} className="btn-mini" onClick={() => maskSelection(cat)}>
+          <button
+            key={cat}
+            className="btn-mini"
+            onClick={() => maskSelection(cat)}
+          >
             {CATEGORY_LABEL[cat]}
           </button>
         ))}
@@ -264,7 +294,11 @@ export function TextShaper() {
 
       {/* 入力エディタ（背面ハイライト + 透明テキストエリア） */}
       <div className="mask-editor">
-        <div ref={backdropRef} className="mask-layer mask-backdrop" aria-hidden="true">
+        <div
+          ref={backdropRef}
+          className="mask-layer mask-backdrop"
+          aria-hidden="true"
+        >
           {splitByTokens(text).map((part, i) => {
             const tok = dict.get(part);
             if (tok) {
@@ -312,7 +346,10 @@ export function TextShaper() {
               title={`元の値: ${t.original}`}
             >
               {t.display}
-              <button onClick={() => removeToken(t.display)} title="このマスクを解除">
+              <button
+                onClick={() => removeToken(t.display)}
+                title="このマスクを解除"
+              >
                 ×
               </button>
             </span>
@@ -410,34 +447,43 @@ function FillRow({
   value: string;
   onChange: (v: string) => void;
 }) {
-  const opts = field.options ?? [];
+  const opts = fieldOptionItems(field);
+  const values = opts.map((o) => o.value);
+  const inputKind = fieldInputKind(field);
 
   return (
     <>
       <div className="fill-label">
-        {field.label}
+        {fieldDisplayName(field)}
         {field.required && <span className="required-badge"> ※必須</span>}
+        <span className="field-kind-badge">
+          {inputKind === 'select'
+            ? '選択式'
+            : inputKind === 'textarea'
+              ? '長文'
+              : '短文'}
+        </span>
       </div>
-      {opts.length === 0 ? (
-        <input
-          type="text"
+      {inputKind === 'textarea' ? (
+        <textarea
           value={value}
           placeholder="—"
+          rows={3}
           onChange={(e) => onChange(e.target.value)}
         />
-      ) : (
+      ) : inputKind === 'select' && opts.length > 0 ? (
         // 選択肢はクイック選択。テキスト欄は常に編集可能で自由な上書きもできる
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <select
-            value={opts.includes(value) ? value : ''}
+            value={values.includes(value) ? value : ''}
             onChange={(e) => {
               if (e.target.value) onChange(e.target.value);
             }}
           >
             <option value="">選択…</option>
             {opts.map((o) => (
-              <option key={o} value={o}>
-                {o}
+              <option key={o.value} value={o.value}>
+                {o.label === o.value ? o.value : o.label + ' (' + o.value + ')'}
               </option>
             ))}
           </select>
@@ -449,6 +495,13 @@ function FillRow({
             onChange={(e) => onChange(e.target.value)}
           />
         </div>
+      ) : (
+        <input
+          type="text"
+          value={value}
+          placeholder="—"
+          onChange={(e) => onChange(e.target.value)}
+        />
       )}
     </>
   );

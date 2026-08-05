@@ -31,6 +31,8 @@ export type DataType =
   | 'boolean'
   | 'empty';
 
+export type FieldInputKind = 'text' | 'textarea' | 'select';
+
 /** パース済みのソースデータ全体 */
 export interface SourceDataset {
   fileName: string;
@@ -47,12 +49,14 @@ export interface SourceDataset {
 export interface TargetField {
   /** システム上のキー(例: Company, LastName) */
   key: string;
-  /** 画面表示名(例: 会社名) */
+  /** 画面表示名(例: 会社名)。空なら画面上は key を表示する。 */
   label: string;
   /** 必須項目か */
   required: boolean;
   /** 期待するデータ型(サジェスト精度向上に使用) */
   type: DataType;
+  /** 入力UIの種類。未指定の旧データは options があれば select、なければ text として扱う。 */
+  inputKind?: FieldInputKind;
   /** このフィールドを説明する別名・キーワード(サジェスト用) */
   aliases: string[];
   /**
@@ -60,6 +64,8 @@ export interface TargetField {
    * プルダウンから選べる(自由入力での上書きも可能)。
    */
   options?: string[];
+  /** 選択肢の表示ラベル。key は options の値、value は画面表示名。 */
+  optionLabels?: Record<string, string>;
   /**
    * 既定の固定値。元データに対応する列が無い(未割当)場合、この値が
    * 自動で入る。ユーザーはマッピング画面で選択変更・上書きできる。
@@ -73,6 +79,10 @@ export interface TargetSchema {
   name: string;
   /** 出所: 内蔵プリセット / アップロード / ユーザーが管理ページで作成 */
   origin: 'preset' | 'uploaded' | 'custom';
+  /** 当てはめ先テンプレート選択時の表示順。未指定の旧データは読み込み時に補完する。 */
+  sortOrder?: number;
+  /** 当てはめ先テンプレート選択時に最初に選ぶテンプレート。ユーザー定義内で1件だけ有効。 */
+  isDefault?: boolean;
   fields: TargetField[];
 }
 
@@ -127,12 +137,7 @@ export interface ConditionalCase {
 }
 
 export type ConditionOp =
-  | 'contains'
-  | 'equals'
-  | 'startsWith'
-  | 'endsWith'
-  | 'isEmpty'
-  | 'notEmpty';
+  'contains' | 'equals' | 'startsWith' | 'endsWith' | 'isEmpty' | 'notEmpty';
 
 /** 値を取り出した後に適用する正規化処理。適用順に配列で保持 */
 export type Normalizer =

@@ -50,12 +50,15 @@ Normalizer(適用順の配列。0個でも可)は次のいずれか:
 
 function buildUserContent(context) {
   const columns = context.columns
-    .map((c) => `- ${c.name} (型:${c.inferredType}, 充填率:${Math.round((c.fillRate ?? 0) * 100)}%)`)
+    .map(
+      (c) =>
+        `- ${c.name} (型:${c.inferredType}, 充填率:${Math.round((c.fillRate ?? 0) * 100)}%)`,
+    )
     .join('\n');
   const target = context.target.fields
     .map(
       (f) =>
-        `- key:${f.key} / 表示名:${f.label} / 型:${f.type}${f.required ? ' / 必須' : ''} / 別名:[${(f.aliases ?? []).join(', ')}]`,
+        `- key:${f.key} / 表示名:${f.label || f.key} / 型:${f.type}${f.required ? ' / 必須' : ''} / 別名:[${(f.aliases ?? []).join(', ')}]`,
     )
     .join('\n');
   const samples = JSON.stringify(context.anonymizedSamples ?? [], null, 0);
@@ -122,7 +125,9 @@ async function suggestWithGemini({ apiKey, model, context }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        contents: [{ role: 'user', parts: [{ text: buildUserContent(context) }] }],
+        contents: [
+          { role: 'user', parts: [{ text: buildUserContent(context) }] },
+        ],
         generationConfig: { responseMimeType: 'application/json' },
       }),
     },
@@ -146,8 +151,10 @@ export async function runSuggest({ provider, model, apiKey, context }) {
     throw err;
   }
   let config;
-  if (provider === 'openai') config = await suggestWithOpenAI({ apiKey, model, context });
-  else if (provider === 'gemini') config = await suggestWithGemini({ apiKey, model, context });
+  if (provider === 'openai')
+    config = await suggestWithOpenAI({ apiKey, model, context });
+  else if (provider === 'gemini')
+    config = await suggestWithGemini({ apiKey, model, context });
   else config = await suggestWithAnthropic({ apiKey, model, context });
   return { targetSchemaId: context.target.id, fields: config.fields ?? [] };
 }

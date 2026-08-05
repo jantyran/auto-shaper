@@ -31,7 +31,7 @@ function buildUserContent({ text, target }) {
   const fields = (target.fields ?? [])
     .map(
       (f) =>
-        `- key:${f.key} / 表示名:${f.label} / 型:${f.type}${f.required ? ' / 必須' : ''} / 別名:[${(f.aliases ?? []).join(', ')}]`,
+        `- key:${f.key} / 表示名:${f.label || f.key} / 型:${f.type}${f.required ? ' / 必須' : ''} / 別名:[${(f.aliases ?? []).join(', ')}]`,
     )
     .join('\n');
 
@@ -97,7 +97,12 @@ async function extractWithGemini({ apiKey, model, text, target }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-        contents: [{ role: 'user', parts: [{ text: buildUserContent({ text, target }) }] }],
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: buildUserContent({ text, target }) }],
+          },
+        ],
         generationConfig: { responseMimeType: 'application/json' },
       }),
     },
@@ -121,8 +126,10 @@ export async function runExtract({ provider, model, apiKey, text, target }) {
     throw err;
   }
   let result;
-  if (provider === 'openai') result = await extractWithOpenAI({ apiKey, model, text, target });
-  else if (provider === 'gemini') result = await extractWithGemini({ apiKey, model, text, target });
+  if (provider === 'openai')
+    result = await extractWithOpenAI({ apiKey, model, text, target });
+  else if (provider === 'gemini')
+    result = await extractWithGemini({ apiKey, model, text, target });
   else result = await extractWithAnthropic({ apiKey, model, text, target });
   return { fields: result.fields ?? result ?? {} };
 }

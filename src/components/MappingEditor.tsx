@@ -8,6 +8,7 @@ import type {
 } from '../types';
 import { evalTransform } from '../core/transformEngine';
 import { applyNormalizers } from '../core/normalize';
+import { fieldDisplayName, fieldOptionItems } from '../core/fieldMeta';
 
 const NORMALIZER_LABELS: Record<Normalizer, string> = {
   trim: '前後空白除去',
@@ -53,14 +54,15 @@ export function MappingEditor() {
         AIの提案です。確信度が低いものや違和感のある割り当てだけ直せばOKです。
       </p>
       <div className="security-note">
-        AIに渡したのはカラム名と匿名化した数行サンプルのみです。実データ（{source.rows.length.toLocaleString()}
+        AIに渡したのはカラム名と匿名化した数行サンプルのみです。実データ（
+        {source.rows.length.toLocaleString()}
         行）はこのブラウザから出ていません。
       </div>
 
       {missingRequired.length > 0 && (
         <div className="alert error">
           必須項目が未割り当てです:{' '}
-          {missingRequired.map((f) => f.label).join('、')}
+          {missingRequired.map(fieldDisplayName).join('、')}
         </div>
       )}
 
@@ -114,7 +116,7 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
     <div className="mapping-row">
       <div className="mapping-head">
         <span className="target-name">
-          {field.label}{' '}
+          {fieldDisplayName(field)}{' '}
           {field.required && <span className="required-badge">*必須</span>}
         </span>
         <span className={`confidence ${confidenceClass(mapping.confidence)}`}>
@@ -122,6 +124,13 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
         </span>
         <span className="meta" style={{ fontSize: 12, color: 'var(--muted)' }}>
           → {field.key}
+        </span>
+        <span className="field-kind-badge">
+          {field.inputKind === 'select' || field.options?.length
+            ? '選択式'
+            : field.inputKind === 'textarea'
+              ? '長文'
+              : '短文'}
         </span>
       </div>
 
@@ -136,7 +145,10 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
               const kind = e.target.value as Transform['kind'];
               switch (kind) {
                 case 'direct':
-                  setTransform({ kind: 'direct', source: columnNames[0] ?? '' });
+                  setTransform({
+                    kind: 'direct',
+                    source: columnNames[0] ?? '',
+                  });
                   break;
                 case 'concat':
                   setTransform({ kind: 'concat', sources: [], separator: ' ' });
@@ -181,7 +193,9 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
             ソース列
             <select
               value={t.source}
-              onChange={(e) => setTransform({ kind: 'direct', source: e.target.value })}
+              onChange={(e) =>
+                setTransform({ kind: 'direct', source: e.target.value })
+              }
             >
               {columnNames.map((c) => (
                 <option key={c} value={c}>
@@ -221,7 +235,9 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
                 type="text"
                 style={{ width: 60 }}
                 value={t.delimiter}
-                onChange={(e) => setTransform({ ...t, delimiter: e.target.value })}
+                onChange={(e) =>
+                  setTransform({ ...t, delimiter: e.target.value })
+                }
               />
             </label>
             <label className="field-label">
@@ -243,7 +259,7 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
         {t.kind === 'constant' && (
           <ConstantEditor
             value={t.value}
-            options={field.options}
+            options={fieldOptionItems(field)}
             onChange={(value) => setTransform({ kind: 'constant', value })}
           />
         )}
@@ -287,11 +303,12 @@ function ConstantEditor({
   onChange,
 }: {
   value: string;
-  options?: string[];
+  options?: { value: string; label: string }[];
   onChange: (value: string) => void;
 }) {
   const opts = options ?? [];
-  const isCustom = opts.length === 0 || !opts.includes(value);
+  const values = opts.map((o) => o.value);
+  const isCustom = opts.length === 0 || !values.includes(value);
 
   if (opts.length === 0) {
     return (
@@ -318,8 +335,8 @@ function ConstantEditor({
           }}
         >
           {opts.map((o) => (
-            <option key={o} value={o}>
-              {o}
+            <option key={o.value} value={o.value}>
+              {o.label === o.value ? o.value : o.label + ' (' + o.value + ')'}
             </option>
           ))}
           <option value="__custom__">（自由入力）</option>
@@ -403,7 +420,10 @@ function ConcatEditor({
           value={isCustom ? '__custom__' : transform.separator}
           onChange={(e) => {
             const v = e.target.value;
-            onChange({ ...transform, separator: v === '__custom__' ? ' / ' : v });
+            onChange({
+              ...transform,
+              separator: v === '__custom__' ? ' / ' : v,
+            });
           }}
         >
           {SEP_PRESETS.map((p) => (
@@ -421,7 +441,9 @@ function ConcatEditor({
             type="text"
             style={{ width: 70 }}
             value={transform.separator}
-            onChange={(e) => onChange({ ...transform, separator: e.target.value })}
+            onChange={(e) =>
+              onChange({ ...transform, separator: e.target.value })
+            }
           />
         </label>
       )}
@@ -446,18 +468,41 @@ function ConcatEditor({
       {transform.withLabels && (
         <div className="field-label" style={{ width: '100%' }}>
           項目名の表示（未入力なら元の列名を使用）
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontSize: 11, color: 'var(--muted)' }}>項目名と値の区切り:</span>
+          <div
+            style={{
+              display: 'flex',
+              gap: 6,
+              alignItems: 'center',
+              marginBottom: 6,
+            }}
+          >
+            <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+              項目名と値の区切り:
+            </span>
             <input
               type="text"
               style={{ width: 60 }}
               value={transform.labelSeparator ?? ': '}
-              onChange={(e) => onChange({ ...transform, labelSeparator: e.target.value })}
+              onChange={(e) =>
+                onChange({ ...transform, labelSeparator: e.target.value })
+              }
             />
           </div>
           {transform.sources.map((c) => (
-            <div key={c} style={{ display: 'flex', gap: 6, marginBottom: 4, alignItems: 'center' }}>
-              <span style={{ minWidth: 90, fontSize: 12, color: 'var(--muted)' }}>{c}</span>
+            <div
+              key={c}
+              style={{
+                display: 'flex',
+                gap: 6,
+                marginBottom: 4,
+                alignItems: 'center',
+              }}
+            >
+              <span
+                style={{ minWidth: 90, fontSize: 12, color: 'var(--muted)' }}
+              >
+                {c}
+              </span>
               <span>→</span>
               <input
                 type="text"
@@ -482,7 +527,10 @@ function ConditionalEditor({
   columnNames: string[];
   onChange: (t: Transform) => void;
 }) {
-  const setCase = (i: number, patch: Partial<(typeof transform.cases)[number]>) => {
+  const setCase = (
+    i: number,
+    patch: Partial<(typeof transform.cases)[number]>,
+  ) => {
     const cases = transform.cases.map((c, idx) =>
       idx === i ? { ...c, ...patch } : c,
     );
@@ -491,7 +539,14 @@ function ConditionalEditor({
   return (
     <div className="field-label" style={{ width: '100%' }}>
       条件分岐
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
+      <div
+        style={{
+          display: 'flex',
+          gap: 8,
+          alignItems: 'center',
+          marginBottom: 6,
+        }}
+      >
         <span>判定する列:</span>
         <select
           value={transform.source}
@@ -505,8 +560,14 @@ function ConditionalEditor({
         </select>
       </div>
       {transform.cases.map((c, i) => (
-        <div key={i} style={{ display: 'flex', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
-          <select value={c.op} onChange={(e) => setCase(i, { op: e.target.value as typeof c.op })}>
+        <div
+          key={i}
+          style={{ display: 'flex', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}
+        >
+          <select
+            value={c.op}
+            onChange={(e) => setCase(i, { op: e.target.value as typeof c.op })}
+          >
             <option value="contains">含む</option>
             <option value="equals">一致</option>
             <option value="startsWith">前方一致</option>
@@ -537,7 +598,10 @@ function ConditionalEditor({
         onClick={() =>
           onChange({
             ...transform,
-            cases: [...transform.cases, { op: 'contains', value: '', then: '' }],
+            cases: [
+              ...transform.cases,
+              { op: 'contains', value: '', then: '' },
+            ],
           })
         }
       >
@@ -561,7 +625,9 @@ function PreviewTable() {
         const out = applyNormalizers(raw, m.normalizers);
         // 「変換された」= 単純な1列コピー以外、または正規化で値が変化
         const primarySource =
-          m.transform.kind === 'direct' ? row[m.transform.source] ?? '' : undefined;
+          m.transform.kind === 'direct'
+            ? (row[m.transform.source] ?? '')
+            : undefined;
         const changed =
           m.transform.kind !== 'direct' || out !== (primarySource ?? '');
         return { out, changed, empty: out === '' };

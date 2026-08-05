@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useStore } from '../state/store';
 import { PRESET_SCHEMAS } from '../core/targetSchemas';
+import { sortCustomSchemas } from '../core/schemaStore';
 import { findMatchingRecipes } from '../core/recipes';
 import { FileDrop } from './FileDrop';
 
@@ -16,9 +17,14 @@ export function TargetSelector() {
   const recipes = useStore((s) => s.recipes);
   const applyRecipe = useStore((s) => s.applyRecipe);
   const recipesEnabled = useStore((s) => s.settings.features.recipes);
+  const sortedCustomSchemas = useMemo(
+    () => sortCustomSchemas(customSchemas),
+    [customSchemas],
+  );
 
   const matchingRecipes = useMemo(
-    () => (source && recipesEnabled ? findMatchingRecipes(recipes, source) : []),
+    () =>
+      source && recipesEnabled ? findMatchingRecipes(recipes, source) : [],
     [source, recipes, recipesEnabled],
   );
 
@@ -31,8 +37,8 @@ export function TargetSelector() {
 
       {source && (
         <div className="alert info">
-          読み込み済みソース: <b>{source.fileName}</b>（{source.columns.length}列 /{' '}
-          {source.rows.length.toLocaleString()}行）
+          読み込み済みソース: <b>{source.fileName}</b>（{source.columns.length}
+          列 / {source.rows.length.toLocaleString()}行）
         </div>
       )}
 
@@ -67,7 +73,9 @@ export function TargetSelector() {
                 onClick={() => applyRecipe(r)}
               >
                 <span className="name">🔁 {r.name}</span>
-                <span className="meta">{r.mapping.fields.length} 項目・レシピ適用</span>
+                <span className="meta">
+                  {r.mapping.fields.length} 項目・レシピ適用
+                </span>
               </button>
             ))}
           </div>
@@ -78,24 +86,33 @@ export function TargetSelector() {
         <div className="alert info">AIがマッピングを推論しています…</div>
       )}
 
-      {customSchemas.length > 0 && (
+      {sortedCustomSchemas.length > 0 && (
         <>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
             <h3 style={{ flex: 1 }}>あなたのテンプレート</h3>
-            <button className="ghost" style={{ padding: '4px 12px' }} onClick={() => setView('admin')}>
+            <button
+              className="ghost"
+              style={{ padding: '4px 12px' }}
+              onClick={() => setView('admin')}
+            >
               管理ページで編集
             </button>
           </div>
           <div className="card-grid">
-            {customSchemas.map((schema) => (
+            {sortedCustomSchemas.map((schema) => (
               <button
                 key={schema.id}
                 className="select-card"
                 disabled={isSuggesting}
                 onClick={() => void selectSchema(schema.id)}
               >
-                <span className="name">{schema.name}</span>
-                <span className="meta">{schema.fields.length} フィールド・ユーザー定義</span>
+                <span className="name">
+                  {schema.name}
+                  {schema.isDefault ? '（既定）' : ''}
+                </span>
+                <span className="meta">
+                  {schema.fields.length} フィールド・ユーザー定義
+                </span>
               </button>
             ))}
           </div>

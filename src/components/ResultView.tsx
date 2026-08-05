@@ -8,6 +8,8 @@ import type {
   TransformRequest,
   TransformResponse,
 } from '../worker/transform.worker';
+import type { TargetField } from '../types';
+import { fieldDisplayName } from '../core/fieldMeta';
 
 /** ステップ4: 全件変換の実行と出力 */
 export function ResultView() {
@@ -81,7 +83,8 @@ export function ResultView() {
   const dedupeEnabled = useStore((s) => s.settings.features.duplicateDetection);
 
   const validation = useMemo(
-    () => (transformedRows && target ? validateRows(transformedRows, target) : null),
+    () =>
+      transformedRows && target ? validateRows(transformedRows, target) : null,
     [transformedRows, target],
   );
 
@@ -124,7 +127,9 @@ export function ResultView() {
         <>
           <div className="stat-row">
             <div className="stat">
-              <span className="val">{transformedRows.length.toLocaleString()}</span>
+              <span className="val">
+                {transformedRows.length.toLocaleString()}
+              </span>
               <span className="lbl">変換した行数</span>
             </div>
             <div className="stat">
@@ -142,11 +147,20 @@ export function ResultView() {
           </div>
 
           {validation && (
-            <ValidationPanel validation={validation} total={transformedRows.length} />
+            <ValidationPanel
+              validation={validation}
+              total={transformedRows.length}
+            />
           )}
 
           {duplicates && duplicates.groups.length > 0 && (
-            <div className="validation" style={{ borderColor: 'var(--accent)', background: 'var(--accent-soft)' }}>
+            <div
+              className="validation"
+              style={{
+                borderColor: 'var(--accent)',
+                background: 'var(--accent-soft)',
+              }}
+            >
               <div className="validation-head">
                 <span className="v-title" style={{ color: 'var(--accent)' }}>
                   🔎 重複の可能性: {duplicates.groups.length} グループ
@@ -163,7 +177,9 @@ export function ResultView() {
                   </li>
                 ))}
                 {duplicates.groups.length > 6 && (
-                  <li className="v-more">…ほか {duplicates.groups.length - 6} グループ</li>
+                  <li className="v-more">
+                    …ほか {duplicates.groups.length - 6} グループ
+                  </li>
                 )}
               </ul>
             </div>
@@ -171,7 +187,7 @@ export function ResultView() {
 
           <ResultPreview
             rows={transformedRows}
-            keys={target.fields.map((f) => f.key)}
+            fields={target.fields}
             invalidRows={validation?.invalidRows ?? new Set()}
             issueCells={validation ? buildIssueCells(validation) : new Set()}
           />
@@ -180,7 +196,9 @@ export function ResultView() {
             <button className="primary" onClick={handleExportCsv}>
               整形済みCSVをダウンロード
             </button>
-            <button onClick={handleExportXlsx}>Excel(.xlsx)でダウンロード</button>
+            <button onClick={handleExportXlsx}>
+              Excel(.xlsx)でダウンロード
+            </button>
           </div>
         </>
       )}
@@ -189,7 +207,9 @@ export function ResultView() {
 }
 
 /** "row:key" のセット。検証で問題のあったセルを特定する */
-function buildIssueCells(validation: ReturnType<typeof validateRows>): Set<string> {
+function buildIssueCells(
+  validation: ReturnType<typeof validateRows>,
+): Set<string> {
   const set = new Set<string>();
   for (const iss of validation.issues) set.add(`${iss.row}:${iss.targetKey}`);
   return set;
@@ -208,7 +228,9 @@ function ValidationPanel({
   if (totalIssues === 0) {
     return (
       <div className="alert ok">
-        ✓ 検証OK — 必須項目の欠落やメール/電話の形式エラーは見つかりませんでした（{total.toLocaleString()}行）。
+        ✓ 検証OK —
+        必須項目の欠落やメール/電話の形式エラーは見つかりませんでした（
+        {total.toLocaleString()}行）。
       </div>
     );
   }
@@ -216,9 +238,12 @@ function ValidationPanel({
   return (
     <div className="validation">
       <div className="validation-head">
-        <span className="v-title">⚠ 取り込み前に確認すべき点が {totalIssues} 件</span>
+        <span className="v-title">
+          ⚠ 取り込み前に確認すべき点が {totalIssues} 件
+        </span>
         <span className="v-sub">
-          {invalidRows.size.toLocaleString()} / {total.toLocaleString()} 行に問題があります
+          {invalidRows.size.toLocaleString()} / {total.toLocaleString()}{' '}
+          行に問題があります
         </span>
       </div>
       <div className="v-counts">
@@ -238,7 +263,9 @@ function ValidationPanel({
             {iss.value ? `（値: ${iss.value}）` : ''}
           </li>
         ))}
-        {issues.length > 8 && <li className="v-more">…ほか {issues.length - 8} 件</li>}
+        {issues.length > 8 && (
+          <li className="v-more">…ほか {issues.length - 8} 件</li>
+        )}
       </ul>
     </div>
   );
@@ -246,12 +273,12 @@ function ValidationPanel({
 
 function ResultPreview({
   rows,
-  keys,
+  fields,
   invalidRows,
   issueCells,
 }: {
   rows: Record<string, string>[];
-  keys: string[];
+  fields: TargetField[];
   invalidRows: Set<number>;
   issueCells: Set<string>;
 }) {
@@ -267,7 +294,11 @@ function ResultPreview({
     <>
       <div className="preview-bar">
         <h3 style={{ margin: 0 }}>
-          出力プレビュー（{onlyIssues ? '問題のある行' : `先頭${Math.min(12, filtered.length)}行`}）
+          出力プレビュー（
+          {onlyIssues
+            ? '問題のある行'
+            : `先頭${Math.min(12, filtered.length)}行`}
+          ）
         </h3>
         {invalidRows.size > 0 && (
           <label className="toggle">
@@ -285,8 +316,8 @@ function ResultPreview({
           <thead>
             <tr>
               <th style={{ width: 44 }}>#</th>
-              {keys.map((k) => (
-                <th key={k}>{k}</th>
+              {fields.map((field) => (
+                <th key={field.key}>{fieldDisplayName(field)}</th>
               ))}
             </tr>
           </thead>
@@ -294,13 +325,15 @@ function ResultPreview({
             {preview.map(({ r, i }) => (
               <tr key={i}>
                 <td className="rownum">{i + 1}</td>
-                {keys.map((k) => (
+                {fields.map((field) => (
                   <td
-                    key={k}
-                    className={issueCells.has(`${i}:${k}`) ? 'invalid' : ''}
-                    title={r[k]}
+                    key={field.key}
+                    className={
+                      issueCells.has(`${i}:${field.key}`) ? 'invalid' : ''
+                    }
+                    title={r[field.key]}
                   >
-                    {r[k] ? r[k].replace(/\n/g, ' ⏎ ') : '—'}
+                    {r[field.key] ? r[field.key].replace(/\n/g, ' ⏎ ') : '—'}
                   </td>
                 ))}
               </tr>

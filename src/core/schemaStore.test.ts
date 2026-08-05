@@ -4,6 +4,10 @@ import {
   duplicateSchema,
   findSchemaById,
   getAllSchemas,
+  getDefaultSchema,
+  normalizeCustomSchemas,
+  schemaFromImport,
+  sortCustomSchemas,
 } from './schemaStore';
 import { PRESET_SCHEMAS } from './targetSchemas';
 import type { TargetSchema } from '../types';
@@ -14,6 +18,7 @@ describe('schemaStore (pure helpers)', () => {
     expect(s.origin).toBe('custom');
     expect(s.name).toBe('自社CRM');
     expect(s.fields.length).toBe(1);
+    expect(s.fields[0].inputKind).toBe('text');
     expect(s.id).toMatch(/^custom-/);
   });
 
@@ -34,10 +39,78 @@ describe('schemaStore (pure helpers)', () => {
     expect(all.length).toBe(PRESET_SCHEMAS.length + 1);
   });
 
+  it('normalizeCustomSchemas は表示順と既定テンプレートを補正する', () => {
+    const a = {
+      ...createEmptySchema('A'),
+      id: 'a',
+      sortOrder: 2,
+      isDefault: true,
+    };
+    const b = {
+      ...createEmptySchema('B'),
+      id: 'b',
+      sortOrder: 1,
+      isDefault: true,
+    };
+    const c = { ...createEmptySchema('C'), id: 'c' };
+
+    const normalized = normalizeCustomSchemas([a, b, c]);
+
+    expect(normalized.map((s) => s.id)).toEqual(['b', 'a', 'c']);
+    expect(normalized.map((s) => s.sortOrder)).toEqual([0, 1, 2]);
+    expect(normalized.filter((s) => s.isDefault).map((s) => s.id)).toEqual([
+      'b',
+    ]);
+  });
+
+  it('sortCustomSchemas と getDefaultSchema は当てはめ先選択順に従う', () => {
+    const a = { ...createEmptySchema('A'), id: 'a', sortOrder: 1 };
+    const b = {
+      ...createEmptySchema('B'),
+      id: 'b',
+      sortOrder: 0,
+      isDefault: true,
+    };
+
+    expect(sortCustomSchemas([a, b]).map((s) => s.id)).toEqual(['b', 'a']);
+    expect(getDefaultSchema([a, b])?.id).toBe('b');
+  });
+
   it('findSchemaById はプリセットとユーザー定義の両方から解決する', () => {
     const mine = createEmptySchema('Mine');
-    expect(findSchemaById('salesforce-lead', [mine])?.name).toContain('Salesforce');
+    expect(findSchemaById('salesforce-lead', [mine])?.name).toContain(
+      'Salesforce',
+    );
     expect(findSchemaById(mine.id, [mine])?.name).toBe('Mine');
     expect(findSchemaById('does-not-exist', [mine])).toBeUndefined();
   });
+});
+
+it('旧形式のoptions付きフィールドは選択式として読み込む', () => {
+  const s = schemaFromImport({
+    id: 'legacy',
+    name: 'Legacy',
+    fields: [
+      {
+        key: 'Status',
+        label: 'ステータス',
+        required: false,
+        type: 'string',
+        aliases: [],
+        options: ['A, Bを含む候補', 'C'],
+      },
+      {
+        key: 'Memo',
+        label: 'メモ',
+        required: false,
+        type: 'string',
+        aliases: [],
+        inputKind: 'textarea',
+      },
+    ],
+  });
+
+  expect(s.fields[0].inputKind).toBe('select');
+  expect(s.fields[0].options).toEqual(['A, Bを含む候補', 'C']);
+  expect(s.fields[1].inputKind).toBe('textarea');
 });

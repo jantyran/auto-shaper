@@ -13,13 +13,15 @@
  * マスクした値の復元（unmask）は呼び出し側で行う（services/textMasking.unmaskRecord）。
  */
 import type { TargetField, TargetSchema } from '../types';
+import { fieldDisplayName } from './fieldMeta';
 import type { LlmSettings } from './settings';
 import { apiUrl } from './apiBase';
 
 /** 抽出結果（key = テンプレ項目キー, value = 値。まだマスクトークンを含みうる） */
 export type ExtractedRecord = Record<string, string>;
 
-const EMAIL_RE = /[^\s@<>()[\]{}",;]+@[^\s@<>()[\]{}",;]+\.[^\s@<>()[\]{}",;.]+/;
+const EMAIL_RE =
+  /[^\s@<>()[\]{}",;]+@[^\s@<>()[\]{}",;]+\.[^\s@<>()[\]{}",;.]+/;
 const URL_RE = /https?:\/\/[^\s<>()"']+/i;
 const PHONE_RE = /\+?\d[\d\s()-]{7,}\d/;
 /** マスク済みのトークン（例: [EMAIL_1]）も型別フォールバックで拾えるようにする */
@@ -27,7 +29,10 @@ const TOKEN_RE = /\[[A-Z]+_\d+\]/;
 
 /** ラベル照合用の正規化（全半角・記号・空白差を吸収） */
 function norm(s: string): string {
-  return s.normalize('NFKC').toLowerCase().replace(/[\s_\-.・:：/（）()【】「」]/g, '');
+  return s
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[\s_\-.・:：/（）()【】「」]/g, '');
 }
 
 /**
@@ -35,9 +40,14 @@ function norm(s: string): string {
  * `{ fields: {key: value} }` でも、フラットな `{key: value}` でも受け付ける。
  * テンプレに無いキーは捨て、値は文字列化・トリムする。
  */
-export function sanitizeExtraction(raw: unknown, target: TargetSchema): ExtractedRecord {
+export function sanitizeExtraction(
+  raw: unknown,
+  target: TargetSchema,
+): ExtractedRecord {
   const container =
-    raw && typeof raw === 'object' && 'fields' in (raw as Record<string, unknown>)
+    raw &&
+    typeof raw === 'object' &&
+    'fields' in (raw as Record<string, unknown>)
       ? (raw as { fields: unknown }).fields
       : raw;
   const obj =
@@ -61,7 +71,10 @@ export function sanitizeExtraction(raw: unknown, target: TargetSchema): Extracte
  * 1) 「ラベル: 値」形式の行をテンプレ項目名・別名と突き合わせる
  * 2) 埋まらなかった email/phone/url 型は本文全体からパターンで補完する
  */
-export function localTextExtract(text: string, target: TargetSchema): ExtractedRecord {
+export function localTextExtract(
+  text: string,
+  target: TargetSchema,
+): ExtractedRecord {
   const out: ExtractedRecord = {};
 
   // 1) ラベル付き行の抽出
@@ -77,7 +90,7 @@ export function localTextExtract(text: string, target: TargetSchema): ExtractedR
 
   const usedPairs = new Set<number>();
   for (const f of target.fields) {
-    const cands = [f.label, f.key, ...f.aliases]
+    const cands = [fieldDisplayName(f), f.key, ...f.aliases]
       .map(norm)
       .filter((c) => c.length >= 2);
     if (cands.length === 0) continue;
@@ -123,7 +136,11 @@ function fallbackByType(text: string, field: TargetField): string | undefined {
 }
 
 /** 生パターンの最初の一致か、対応するマスクトークンのどちらかを返す */
-function firstMatch(text: string, re: RegExp, tokenPrefix?: string): string | undefined {
+function firstMatch(
+  text: string,
+  re: RegExp,
+  tokenPrefix?: string,
+): string | undefined {
   const m = text.match(re);
   if (m) return m[0].trim();
   if (tokenPrefix) {

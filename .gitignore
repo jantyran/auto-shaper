@@ -8,3 +8,10 @@ coverage
 tsconfig.tsbuildinfo
 server/data
 *.log
+.firebaserc
+.firebase
+
+# 実際の値が入る環境変数ファイル(本番の接続情報等)。サンプルだけコミットする。
+.env
+.env.*
+!.env.example

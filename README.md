@@ -81,6 +81,7 @@ npm run dev          # 開発サーバー(Vite) + API を同梱 → http://local
 npm run build        # 本番ビルド
 npm run preview      # ビルド成果物 + API を同梱 → http://localhost:4173
 npm run server       # API を単体で起動(別オリジン配信/本番用・任意) → :8787
+npm run server:prod  # ↑ の本番設定版(.env.production を読み込んで起動)
 ```
 
 **`npm run dev` / `npm run preview` は API を同一オリジンに同梱**しています（Vite に in-process で
@@ -92,6 +93,26 @@ npm run server       # API を単体で起動(別オリジン配信/本番用・
 `npm run server` は、フロントを**別オリジン(Live Server 等)や別ホスト/本番**で配信する場合に、
 API を単体で(:8787)立てるためのものです（この場合はアプリの「APIサーバーURL」設定が必要 →
 下記）。DBを差し替える場合は `DB_DRIVER` 環境変数と `server/storage/` を参照。
+
+### 環境変数
+
+`.env.example` が OSS 向けのテンプレートです(値は未設定のままコミットされています)。
+自分の環境で使う場合はコピーして値を入れてください。
+
+```bash
+cp .env.example .env.production   # 本番用。.gitignore 対象なのでコミットされない
+npm run server:prod               # .env.production を読み込んで起動(Node の --env-file)
+```
+
+- `.env`(任意)は `npm run server` が自動で読み込みます(存在しなくてもエラーになりません)。
+  postgres ドライバをローカルで試す場合などに使います。
+- `.env.production` は `npm run server:prod` が読み込みます。**Firebase Cloud Functions への
+  デプロイではこのファイルは使いません**(`DATABASE_URL` は Secret Manager 経由で渡します。
+  後述の「Firebase(Hosting + Cloud Functions)へのデプロイ」参照)。
+- `npm run dev` / `npm run build` / `npm run preview`(Vite)は `VITE_` 接頭辞の変数だけを
+  `.env` / `.env.production` などから自動で読み込みます(Vite標準の挙動。追加設定不要)。
+- 各変数の意味は `.env.example` のコメントを参照してください
+  (`PORT` / `DB_DRIVER` / `DATA_DIR` / `DATABASE_URL` / `CORS_ORIGIN` / `VITE_API_BASE`)。
 
 ### スクリプト
 
@@ -129,10 +150,14 @@ localStorage に保存）。ログインすると、テンプレートとマッ�
 - **認証**: メール + パスワードの自前バックエンド認証。パスワードは `scrypt` でハッシュ化して
   保存し（平文は保持しない）、ログイン時にセッショントークンを発行して DB に保存します
   （`server/auth.mjs`）。外部サービスや追加依存は使いません。
-- **DBの差し替え**: DBアクセスは `server/storage/` のドライバ層に集約しています。既定は
-  SQLite（`server/storage/sqlite.mjs`）で、環境変数 `DB_DRIVER` で選択します。本番で別のDBを
-  使う場合は、同じ「ストア契約」を満たすドライバを追加して `server/storage/index.mjs` の分岐へ
-  接続するだけで差し替えられます。
+- **DBの差し替え**: DBアクセスは `server/storage/` のドライバ層に集約しています。環境変数
+  `DB_DRIVER` で選択し、既定は **`sqlite`**（`server/storage/sqlite.mjs`、ローカルファイル
+  `server/data/auto-shaper.db`）です。個人利用・OSSでのローカル実行はこれが手軽です。
+  Cloud Functions / Cloud Run のようにファイルシステムが永続しない環境では **`postgres`**
+  （`server/storage/postgres.mjs`、[Neon](https://neon.tech) 等のサーバーレス Postgres 想定、
+  `DATABASE_URL` が必要）を使います。どちらも同じ「ストア契約」を実装しているだけなので、
+  アプリ側のコードは一切変更不要です。他のDBを使う場合も、同じ契約を満たすドライバを
+  追加して `server/storage/index.mjs` の分岐へ接続するだけで差し替えられます。
 - **API**: 認証 `POST /api/auth/{signup,login,logout}`・`GET /api/auth/me`、保存系
   `GET/PUT/DELETE /api/schemas`・`/api/collections/:name`（保存系は要ログイン）。
 - 保存されるのは**テンプレート定義とマッピングのみ**。顧客の実データは
@@ -174,6 +199,59 @@ API サーバー側は **CORS を許可済み**（`server/index.mjs`）です。
   必ず限定してください。
 - 脆弱性を見つけた場合は [SECURITY.md](SECURITY.md) の手順で報告してください。
 
+## Firebase(Hosting + Cloud Functions)へのデプロイ
+
+`npm run server` の代わりに、フロントを **Firebase Hosting**、API を **Cloud Functions
+(2nd gen)** に載せて公開する構成です。Cloud Functions はファイルシステムが永続しないため、
+DB は SQLite ではなく **[Neon](https://neon.tech)（サーバーレス Postgres）** を使います
+（`server/storage/postgres.mjs`）。ローカル開発は今まで通り SQLite のままで構いません。
+
+### 1. Neon の準備
+
+1. [neon.tech](https://neon.tech) で無料プロジェクトを作成
+2. 接続文字列(`postgresql://...`、`?sslmode=require` 付き)を控える → これが `DATABASE_URL`
+
+テーブルは初回起動時に `server/storage/postgres.mjs` が自動で作成します(手動でのマイグレーション操作は不要)。
+
+### 2. Firebase の準備
+
+```bash
+npm install -g firebase-tools
+firebase login
+firebase use --add          # 対象の Firebase プロジェクトを選択(.firebaserc が作られる)
+```
+
+`DATABASE_URL` は Secret Manager 経由で渡します(平文の環境変数にはしません)。
+
+```bash
+firebase functions:secrets:set DATABASE_URL
+# プロンプトで Neon の接続文字列を貼り付け
+```
+
+### 3. デプロイ
+
+```bash
+npm run build                 # dist/ を生成
+firebase deploy --only hosting,functions
+```
+
+- `firebase.json` の `hosting.rewrites` で `/api/**` を Cloud Functions の `api` 関数
+  (`server/firebase.mjs`)へ、それ以外を SPA として `dist/index.html` へルーティングします。
+  Hosting 経由なのでフロントとAPIは同一オリジンになり、`VITE_API_BASE` の設定は不要です。
+- `server/firebase.mjs` は起動時に `DB_DRIVER=postgres` を既定にし、`createApp()`
+  （`server/app.mjs`、標準の `npm run server` と同じ実装）をそのまま Cloud Functions の
+  リクエストハンドラとして使います。
+- 初回リクエスト(コールドスタート)は DB 接続・テーブル作成を待つため少し遅くなります。
+
+### 注意点
+
+- 無料枠の目安: Firebase Hosting(Sparkプラン)は無料、Cloud Functions(2nd gen)は
+  Cloud Run 相当の無料枠内に収まることが多い個人利用規模、Neon も無料プロジェクトで
+  十分動作します。ただし課金設定(Blazeプラン)自体は Cloud Functions 利用に必要です。
+- [公開ネットワークに晒す場合の注意](#公開ネットワークに-npm-run-server-を晒す場合の注意)
+  はこの構成にもそのまま当てはまります(`/api/suggest`・`/api/extract` は未認証、
+  ログインにレート制限なし)。
+
 ## アーキテクチャ
 
 | レイヤ                  | ファイル                                                           | 役割                                                             |
@@ -201,21 +279,22 @@ API サーバー側は **CORS を許可済み**（`server/index.mjs`）です。
 
 ## 機能別のモジュール
 
-| 機能                                     | ファイル                                                                                                 |
-| ---------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| 設定(機能ON/OFF・AI・マスキング)         | `src/core/settings.ts`, `src/components/Settings.tsx`                                                    |
-| マスキング(個人情報の自動判定)           | `src/core/anonymize.ts` (`isPersonalColumn`)                                                             |
-| LLM推論(Anthropic / OpenAI / Gemini)     | `src/core/inference/llm.ts`, `server/suggest.mjs`                                                        |
-| ログイン・アカウント                     | `src/core/auth.ts`, `src/components/AccountPanel.tsx`, `src/components/AuthBadge.tsx`, `server/auth.mjs` |
-| DBドライバ(差し替え可能)                 | `server/storage/index.mjs`, `server/storage/sqlite.mjs`                                                  |
-| APIベースURL(別オリジン対応)・CORS       | `src/core/apiBase.ts`, `server/index.mjs` (CORS)                                                         |
-| 固定値・選択肢・既定値                   | `src/types.ts` (`TargetField`), `src/core/mappingDefaults.ts`, `src/components/MappingEditor.tsx`        |
-| 学習辞書                                 | `src/core/learning.ts`                                                                                   |
-| レシピ(マッピングの記憶)                 | `src/core/recipes.ts`, `src/core/collectionRepository.ts`                                                |
-| 重複検出・名寄せ                         | `src/core/dedupe.ts`                                                                                     |
-| テキスト整形モード（画面）               | `src/components/TextShaper.tsx`                                                                          |
-| テキストのマスキング（自動＋手動＋復元） | `src/core/textMasking.ts`                                                                                |
-| テキスト→テンプレ抽出（LLM/ローカル）    | `src/core/textExtract.ts`, `server/extract.mjs`                                                          |
+| 機能                                        | ファイル                                                                                                 |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| 設定(機能ON/OFF・AI・マスキング)            | `src/core/settings.ts`, `src/components/Settings.tsx`                                                    |
+| マスキング(個人情報の自動判定)              | `src/core/anonymize.ts` (`isPersonalColumn`)                                                             |
+| LLM推論(Anthropic / OpenAI / Gemini)        | `src/core/inference/llm.ts`, `server/suggest.mjs`                                                        |
+| ログイン・アカウント                        | `src/core/auth.ts`, `src/components/AccountPanel.tsx`, `src/components/AuthBadge.tsx`, `server/auth.mjs` |
+| DBドライバ(差し替え可能)                    | `server/storage/index.mjs`, `server/storage/sqlite.mjs`, `server/storage/postgres.mjs`                   |
+| Firebase(Hosting + Cloud Functions)デプロイ | `firebase.json`, `server/firebase.mjs`                                                                   |
+| APIベースURL(別オリジン対応)・CORS          | `src/core/apiBase.ts`, `server/index.mjs` (CORS)                                                         |
+| 固定値・選択肢・既定値                      | `src/types.ts` (`TargetField`), `src/core/mappingDefaults.ts`, `src/components/MappingEditor.tsx`        |
+| 学習辞書                                    | `src/core/learning.ts`                                                                                   |
+| レシピ(マッピングの記憶)                    | `src/core/recipes.ts`, `src/core/collectionRepository.ts`                                                |
+| 重複検出・名寄せ                            | `src/core/dedupe.ts`                                                                                     |
+| テキスト整形モード（画面）                  | `src/components/TextShaper.tsx`                                                                          |
+| テキストのマスキング（自動＋手動＋復元）    | `src/core/textMasking.ts`                                                                                |
+| テキスト→テンプレ抽出（LLM/ローカル）       | `src/core/textExtract.ts`, `server/extract.mjs`                                                          |
 
 ## 今後の拡張余地
 

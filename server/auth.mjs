@@ -15,7 +15,9 @@ const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const SCRYPT_KEYLEN = 64;
 
 export function hashPassword(password, salt = randomBytes(16).toString('hex')) {
-  const hash = scryptSync(String(password), salt, SCRYPT_KEYLEN).toString('hex');
+  const hash = scryptSync(String(password), salt, SCRYPT_KEYLEN).toString(
+    'hex',
+  );
   return { hash, salt };
 }
 
@@ -43,18 +45,27 @@ export function newUserId() {
 
 /** Bearer トークンからユーザーを解決する Express ミドルウェアを作る */
 export function makeRequireAuth(store) {
-  return function requireAuth(req, res, next) {
-    const header = req.headers.authorization || '';
-    const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
-    if (!token) {
-      return res.status(401).json({ error: '認証が必要です' });
+  return async function requireAuth(req, res, next) {
+    try {
+      const header = req.headers.authorization || '';
+      const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+      if (!token) {
+        return res.status(401).json({ error: '認証が必要です' });
+      }
+      const session = await store.getSession(token);
+      if (!session) {
+        return res
+          .status(401)
+          .json({ error: 'セッションが無効か期限切れです' });
+      }
+      req.userId = session.userId;
+      req.sessionToken = token;
+      next();
+    } catch (e) {
+      console.error('auth check failed:', e);
+      res
+        .status(500)
+        .json({ error: `認証確認に失敗しました: ${e?.message ?? e}` });
     }
-    const session = store.getSession(token);
-    if (!session) {
-      return res.status(401).json({ error: 'セッションが無効か期限切れです' });
-    }
-    req.userId = session.userId;
-    req.sessionToken = token;
-    next();
   };
 }

@@ -46,8 +46,14 @@ export function createApp() {
       );
       res.setHeader('Vary', 'Origin');
     }
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader(
+      'Access-Control-Allow-Methods',
+      'GET,POST,PUT,DELETE,OPTIONS',
+    );
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Authorization',
+    );
     res.setHeader('Access-Control-Max-Age', '86400');
     if (req.method === 'OPTIONS') return res.sendStatus(204);
     next();
@@ -57,9 +63,9 @@ export function createApp() {
 
   const requireAuth = makeRequireAuth(store);
 
-  const issueSession = (userId) => {
+  const issueSession = async (userId) => {
     const token = newSessionToken();
-    store.createSession({ token, userId, expiresAt: sessionExpiry() });
+    await store.createSession({ token, userId, expiresAt: sessionExpiry() });
     return token;
   };
 
@@ -70,26 +76,32 @@ export function createApp() {
 
   // ── 認証(メール + パスワード) ──
 
-  app.post('/api/auth/signup', (req, res) => {
+  app.post('/api/auth/signup', async (req, res) => {
     try {
       const { email, password } = req.body ?? {};
       if (!isValidEmail(email)) {
-        return res.status(400).json({ error: 'メールアドレスの形式が正しくありません' });
+        return res
+          .status(400)
+          .json({ error: 'メールアドレスの形式が正しくありません' });
       }
       if (typeof password !== 'string' || password.length < 8) {
-        return res.status(400).json({ error: 'パスワードは8文字以上にしてください' });
+        return res
+          .status(400)
+          .json({ error: 'パスワードは8文字以上にしてください' });
       }
-      if (store.getUserByEmail(email)) {
-        return res.status(409).json({ error: 'このメールアドレスは登録済みです' });
+      if (await store.getUserByEmail(email)) {
+        return res
+          .status(409)
+          .json({ error: 'このメールアドレスは登録済みです' });
       }
       const { hash, salt } = hashPassword(password);
-      const user = store.createUser({
+      const user = await store.createUser({
         id: newUserId(),
         email,
         passwordHash: hash,
         salt,
       });
-      const token = issueSession(user.id);
+      const token = await issueSession(user.id);
       res.json({ token, user });
     } catch (e) {
       console.error('signup failed:', e);
@@ -97,40 +109,54 @@ export function createApp() {
     }
   });
 
-  app.post('/api/auth/login', (req, res) => {
+  app.post('/api/auth/login', async (req, res) => {
     try {
       const { email, password } = req.body ?? {};
-      const user = isValidEmail(email) ? store.getUserByEmail(email) : undefined;
+      const user = isValidEmail(email)
+        ? await store.getUserByEmail(email)
+        : undefined;
       // ユーザー不在でも同じレスポンスにして存在有無を漏らさない
-      if (!user || !verifyPassword(password ?? '', user.salt, user.passwordHash)) {
-        return res.status(401).json({ error: 'メールアドレスまたはパスワードが違います' });
+      if (
+        !user ||
+        !verifyPassword(password ?? '', user.salt, user.passwordHash)
+      ) {
+        return res
+          .status(401)
+          .json({ error: 'メールアドレスまたはパスワードが違います' });
       }
-      const token = issueSession(user.id);
+      const token = await issueSession(user.id);
       res.json({ token, user: { id: user.id, email: user.email } });
     } catch (e) {
       console.error('login failed:', e);
-      res.status(500).json({ error: `ログインに失敗しました: ${e?.message ?? e}` });
+      res
+        .status(500)
+        .json({ error: `ログインに失敗しました: ${e?.message ?? e}` });
     }
   });
 
-  app.post('/api/auth/logout', requireAuth, (req, res) => {
+  app.post('/api/auth/logout', requireAuth, async (req, res) => {
     try {
-      store.deleteSession(req.sessionToken);
+      await store.deleteSession(req.sessionToken);
       res.json({ ok: true });
     } catch (e) {
       console.error('logout failed:', e);
-      res.status(500).json({ error: `ログアウトに失敗しました: ${e?.message ?? e}` });
+      res
+        .status(500)
+        .json({ error: `ログアウトに失敗しました: ${e?.message ?? e}` });
     }
   });
 
-  app.get('/api/auth/me', requireAuth, (req, res) => {
+  app.get('/api/auth/me', requireAuth, async (req, res) => {
     try {
-      const user = store.getUserById(req.userId);
-      if (!user) return res.status(401).json({ error: 'ユーザーが見つかりません' });
+      const user = await store.getUserById(req.userId);
+      if (!user)
+        return res.status(401).json({ error: 'ユーザーが見つかりません' });
       res.json({ user: { id: user.id, email: user.email } });
     } catch (e) {
       console.error('me failed:', e);
-      res.status(500).json({ error: `ユーザー情報の取得に失敗しました: ${e?.message ?? e}` });
+      res.status(500).json({
+        error: `ユーザー情報の取得に失敗しました: ${e?.message ?? e}`,
+      });
     }
   });
 
@@ -150,37 +176,68 @@ export function createApp() {
   app.post('/api/extract', async (req, res) => {
     try {
       const { provider, model, apiKey, text, target } = req.body ?? {};
-      const result = await runExtract({ provider, model, apiKey, text, target });
+      const result = await runExtract({
+        provider,
+        model,
+        apiKey,
+        text,
+        target,
+      });
       res.json(result);
     } catch (e) {
       const status = e.status ?? 502;
-      res.status(status).json({ error: e.message ?? 'テキスト抽出に失敗しました' });
+      res
+        .status(status)
+        .json({ error: e.message ?? 'テキスト抽出に失敗しました' });
     }
   });
 
   // ── テンプレート(ユーザー単位・要ログイン) ──
 
-  app.get('/api/schemas', requireAuth, (req, res) => {
-    res.json(store.listSchemas(req.userId));
-  });
-
-  app.put('/api/schemas/:id', requireAuth, (req, res) => {
-    const body = req.body ?? {};
-    const schema = {
-      id: req.params.id,
-      name: typeof body.name === 'string' ? body.name : '',
-      fields: Array.isArray(body.fields) ? body.fields : null,
-    };
-    if (!schema.name.trim() || !schema.fields) {
-      return res.status(400).json({ error: 'name と fields(配列) は必須です' });
+  app.get('/api/schemas', requireAuth, async (req, res) => {
+    try {
+      res.json(await store.listSchemas(req.userId));
+    } catch (e) {
+      console.error('list schemas failed:', e);
+      res.status(500).json({
+        error: `テンプレートの取得に失敗しました: ${e?.message ?? e}`,
+      });
     }
-    store.upsertSchema(req.userId, schema);
-    res.json(store.listSchemas(req.userId));
   });
 
-  app.delete('/api/schemas/:id', requireAuth, (req, res) => {
-    store.deleteSchema(req.userId, req.params.id);
-    res.json(store.listSchemas(req.userId));
+  app.put('/api/schemas/:id', requireAuth, async (req, res) => {
+    try {
+      const body = req.body ?? {};
+      const schema = {
+        id: req.params.id,
+        name: typeof body.name === 'string' ? body.name : '',
+        fields: Array.isArray(body.fields) ? body.fields : null,
+      };
+      if (!schema.name.trim() || !schema.fields) {
+        return res
+          .status(400)
+          .json({ error: 'name と fields(配列) は必須です' });
+      }
+      await store.upsertSchema(req.userId, schema);
+      res.json(await store.listSchemas(req.userId));
+    } catch (e) {
+      console.error('upsert schema failed:', e);
+      res.status(500).json({
+        error: `テンプレートの保存に失敗しました: ${e?.message ?? e}`,
+      });
+    }
+  });
+
+  app.delete('/api/schemas/:id', requireAuth, async (req, res) => {
+    try {
+      await store.deleteSchema(req.userId, req.params.id);
+      res.json(await store.listSchemas(req.userId));
+    } catch (e) {
+      console.error('delete schema failed:', e);
+      res.status(500).json({
+        error: `テンプレートの削除に失敗しました: ${e?.message ?? e}`,
+      });
+    }
   });
 
   // ── 汎用コレクション(レシピ等・ユーザー単位・要ログイン) ──
@@ -192,20 +249,60 @@ export function createApp() {
     next();
   };
 
-  app.get('/api/collections/:name', requireAuth, guardCollection, (req, res) => {
-    res.json(store.listCollection(req.userId, req.params.name));
-  });
+  app.get(
+    '/api/collections/:name',
+    requireAuth,
+    guardCollection,
+    async (req, res) => {
+      try {
+        res.json(await store.listCollection(req.userId, req.params.name));
+      } catch (e) {
+        console.error('list collection failed:', e);
+        res
+          .status(500)
+          .json({ error: `一覧の取得に失敗しました: ${e?.message ?? e}` });
+      }
+    },
+  );
 
-  app.put('/api/collections/:name/:id', requireAuth, guardCollection, (req, res) => {
-    const item = { ...(req.body ?? {}), id: req.params.id };
-    store.upsertCollectionItem(req.userId, req.params.name, item);
-    res.json(store.listCollection(req.userId, req.params.name));
-  });
+  app.put(
+    '/api/collections/:name/:id',
+    requireAuth,
+    guardCollection,
+    async (req, res) => {
+      try {
+        const item = { ...(req.body ?? {}), id: req.params.id };
+        await store.upsertCollectionItem(req.userId, req.params.name, item);
+        res.json(await store.listCollection(req.userId, req.params.name));
+      } catch (e) {
+        console.error('upsert collection item failed:', e);
+        res
+          .status(500)
+          .json({ error: `保存に失敗しました: ${e?.message ?? e}` });
+      }
+    },
+  );
 
-  app.delete('/api/collections/:name/:id', requireAuth, guardCollection, (req, res) => {
-    store.deleteCollectionItem(req.userId, req.params.name, req.params.id);
-    res.json(store.listCollection(req.userId, req.params.name));
-  });
+  app.delete(
+    '/api/collections/:name/:id',
+    requireAuth,
+    guardCollection,
+    async (req, res) => {
+      try {
+        await store.deleteCollectionItem(
+          req.userId,
+          req.params.name,
+          req.params.id,
+        );
+        res.json(await store.listCollection(req.userId, req.params.name));
+      } catch (e) {
+        console.error('delete collection item failed:', e);
+        res
+          .status(500)
+          .json({ error: `削除に失敗しました: ${e?.message ?? e}` });
+      }
+    },
+  );
 
   return app;
 }

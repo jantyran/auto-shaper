@@ -1,0 +1,18 @@
+# Cloud Functions(`functions.source: "."`)のデプロイでアップロードしないもの。
+# node_modules はビルド時に Cloud Build 側で `npm install` されるため不要。
+.git
+.gitignore
+.github
+node_modules
+dist
+src
+samples
+.claude
+.local
+*.log
+*.md
+tsconfig.tsbuildinfo
+
+# 秘密情報はSecret Manager経由で渡すので、環境変数ファイルはデプロイに含めない。
+.env
+.env.*

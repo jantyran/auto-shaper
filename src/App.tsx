@@ -10,6 +10,7 @@ import { TextShaper } from './components/TextShaper';
 import { AuthBadge } from './components/AuthBadge';
 import { FormulaReference } from './components/FormulaReference';
 import { GuidedTour } from './components/GuidedTour';
+import { EntranceScreen } from './components/EntranceScreen';
 
 const STEPS: { id: Step; label: string }[] = [
   { id: 'source', label: 'ソース投入' },
@@ -19,6 +20,7 @@ const STEPS: { id: Step; label: string }[] = [
 ];
 
 export function App() {
+  const entranceActive = useStore((s) => s.entranceActive);
   const view = useStore((s) => s.view);
   const setView = useStore((s) => s.setView);
   const step = useStore((s) => s.step);
@@ -43,9 +45,15 @@ export function App() {
 
   return (
     <div className="app">
+      {entranceActive && <EntranceScreen />}
       <div className="app-header">
-        <h1>Auto Shaper</h1>
-        <span className="tag">ブラウザ完結・データは外部に出ません</span>
+        <div className="app-header-top">
+          <div className="app-brand">
+            <h1>Auto Shaper</h1>
+            <span className="tag">ブラウザ完結・データは外部に出ません</span>
+          </div>
+          <AuthBadge />
+        </div>
         <nav className="topnav">
           <button
             className={view === 'app' ? 'navbtn active' : 'navbtn'}
@@ -84,7 +92,6 @@ export function App() {
             使い方
           </button>
         </nav>
-        <AuthBadge />
       </div>
       <GuidedTour />
       {demoActive && (

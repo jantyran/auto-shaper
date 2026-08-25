@@ -1,10 +1,14 @@
-import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useStore, type Step, type View } from '../state/store';
 import { tourStepsFor, type TourStep } from '../core/tour';
 
 const PAD = 6;
 const CARD_WIDTH = 330;
-/** 吹き出しカードのおおよその高さ(配置計算用) */
+/**
+ * 吹き出しカードの初回配置に使うおおよその高さ。
+ * 実際の高さは描画後に測り直して補正する(`waitHint` の有無などで
+ * 実高さが変わり、これより低く見積もると対象ボタンに被ってしまうため)。
+ */
 const CARD_EST_HEIGHT = 210;
 
 const FLOW_STEPS = [
@@ -404,9 +408,18 @@ function TourCard({
   onSkipScreen: () => void;
   onHardClose: () => void;
 }) {
-  const style = cardStyle(rect);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [style, setStyle] = useState(() => cardStyle(rect, CARD_EST_HEIGHT));
+
+  // 見積もり高さで一旦配置した後、実際の高さで測り直して補正する。
+  // useLayoutEffect 内なので、ペイント前に反映されチラつきは出ない。
+  useLayoutEffect(() => {
+    const height = cardRef.current?.offsetHeight ?? CARD_EST_HEIGHT;
+    setStyle(cardStyle(rect, height));
+  }, [rect, step, waiting]);
+
   return (
-    <div className="tour-card" style={style}>
+    <div className="tour-card" ref={cardRef} style={style}>
       <div className="tour-card-head">
         <span className="tour-step-count">
           {index + 1} / {total}
@@ -451,7 +464,10 @@ function TourCard({
   );
 }
 
-function cardStyle(rect: DOMRect | null): {
+function cardStyle(
+  rect: DOMRect | null,
+  cardHeight: number,
+): {
   top: number;
   left: number;
   width: number;
@@ -459,19 +475,20 @@ function cardStyle(rect: DOMRect | null): {
   const margin = 14;
   if (!rect) {
     const left = Math.max(margin, (window.innerWidth - CARD_WIDTH) / 2);
-    return { top: window.innerHeight / 2 - 90, left, width: CARD_WIDTH };
+    return {
+      top: window.innerHeight / 2 - cardHeight / 2,
+      left,
+      width: CARD_WIDTH,
+    };
   }
-  // 対象の下に入りきるなら下、無理なら上に置く
+  // 対象の下に入りきるなら下、無理なら上に置く(実測した cardHeight で判定)
   const spaceBelow = window.innerHeight - rect.bottom;
   const rawTop =
-    spaceBelow > CARD_EST_HEIGHT + margin
+    spaceBelow > cardHeight + margin
       ? rect.bottom + margin
-      : rect.top - margin - CARD_EST_HEIGHT;
+      : rect.top - margin - cardHeight;
   // スクロール中も含め、カードが画面外へ出て見失われないよう常に収める
-  const maxTop = Math.max(
-    margin,
-    window.innerHeight - CARD_EST_HEIGHT - margin,
-  );
+  const maxTop = Math.max(margin, window.innerHeight - cardHeight - margin);
   const top = Math.min(Math.max(margin, rawTop), maxTop);
   const maxLeft = Math.max(margin, window.innerWidth - CARD_WIDTH - margin);
   const left = Math.min(Math.max(margin, rect.left), maxLeft);

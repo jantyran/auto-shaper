@@ -240,7 +240,7 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
         <span className={`confidence ${confidenceClass(mapping.confidence)}`}>
           確信度 {Math.round(mapping.confidence * 100)}%
         </span>
-        <span className="meta" style={{ fontSize: 12, color: 'var(--muted)' }}>
+        <span className="meta" style={{ fontSize: 14, color: 'var(--muted)' }}>
           → {field.key}
         </span>
         <span className="field-kind-badge">
@@ -635,7 +635,7 @@ function ConcatEditor({
               marginBottom: 6,
             }}
           >
-            <span style={{ fontSize: 11, color: 'var(--muted)' }}>
+            <span style={{ fontSize: 14, color: 'var(--muted)' }}>
               項目名と値の区切り:
             </span>
             <input
@@ -658,7 +658,7 @@ function ConcatEditor({
               }}
             >
               <span
-                style={{ minWidth: 90, fontSize: 12, color: 'var(--muted)' }}
+                style={{ minWidth: 90, fontSize: 14, color: 'var(--muted)' }}
               >
                 {c}
               </span>

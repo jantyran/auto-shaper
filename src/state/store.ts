@@ -34,6 +34,7 @@ import {
   signIn as authSignIn,
   signUp as authSignUp,
   signOut as authSignOut,
+  isAuthenticated,
   type AuthUser,
 } from '../core/auth';
 import { llmSuggester } from '../core/inference/llm';
@@ -51,7 +52,7 @@ import {
   type Recipe,
 } from '../core/recipes';
 import { findSchemaById } from '../core/schemaStore';
-import { hasSeenTour, markTourSeen } from '../core/tourState';
+import { hasSeenEntrance, markEntranceSeen } from '../core/entranceState';
 import { DEMO_SOURCE_CSV, DEMO_SOURCE_FILE_NAME } from '../core/demoData';
 
 export type Step = 'source' | 'target' | 'mapping' | 'result';
@@ -88,6 +89,8 @@ interface AppState {
   error?: string;
   /** プレビュー/出力で「空（未割当）」の項目列を除外するか */
   dropEmptyColumns: boolean;
+  /** 初回・未ログイン訪問者にだけ最初に見せるエントランス画面を表示中か */
+  entranceActive: boolean;
   /** 操作画面に重ねるガイドツアーを表示中か */
   tourActive: boolean;
   /** ツアーを開始するたびに増える識別子(開き直しを確実に検知するため) */
@@ -124,6 +127,7 @@ interface AppState {
   updateFieldMapping: (targetKey: string, mapping: FieldMapping) => void;
   updateImportContext: (entries: ImportContextEntry[]) => void;
   setDropEmptyColumns: (drop: boolean) => void;
+  dismissEntrance: () => void;
   startTour: () => void;
   closeTour: () => void;
   markExported: () => void;
@@ -156,14 +160,19 @@ interface AppState {
   clearLearning: () => void;
 }
 
+/** エントランス画面が消えてから、使い方ガイドを自動起動するまでの間 */
+const ENTRANCE_TO_TOUR_DELAY_MS = 2000;
+
 /**
- * 初回訪問時だけガイドツアーを自動表示する。
+ * 初回・未ログイン訪問者にだけエントランス画面を自動表示する。
  * 表示するかどうかを判定した時点で「見た」ことにして記録するため、
- * 導入ポップアップの選択(学ぶ/スキップ)に関わらず次回以降は自動起動しない。
+ * 途中でスキップしても次回以降は自動起動しない。
+ * ログイン済み(トークンあり)の場合は、再訪問者として最初から出さない。
  */
-function initialTourActive(): boolean {
-  if (hasSeenTour()) return false;
-  markTourSeen();
+function initialEntranceActive(): boolean {
+  if (isAuthenticated()) return false;
+  if (hasSeenEntrance()) return false;
+  markEntranceSeen();
   return true;
 }
 
@@ -182,7 +191,8 @@ export const useStore = create<AppState>((set, get) => ({
   transformProgress: 0,
   importContext: [],
   dropEmptyColumns: false,
-  tourActive: initialTourActive(),
+  entranceActive: initialEntranceActive(),
+  tourActive: false,
   tourNonce: 0,
   exportedOnce: false,
   demoActive: false,
@@ -376,15 +386,20 @@ export const useStore = create<AppState>((set, get) => ({
 
   setDropEmptyColumns: (drop) => set({ dropEmptyColumns: drop }),
 
+  // エントランス画面が消えたら、いったん通常画面を見せてから少し間を置いて
+  // 使い方ガイドを自動起動する(通常画面に触れる間もなく案内が始まると
+  // うるさいため)。
+  dismissEntrance: () => {
+    set({ entranceActive: false });
+    window.setTimeout(() => get().startTour(), ENTRANCE_TO_TOUR_DELAY_MS);
+  },
+
   // ツアーは「表の整形」から始まる。設定など手順ガイドを持たない画面から
   // 呼ばれても無反応にならないよう、開始時に整形タブへ寄せる
   // (ステップは維持するので、作業途中でも今いる場所から案内が始まる)。
   startTour: () =>
     set((s) => ({ tourActive: true, view: 'app', tourNonce: s.tourNonce + 1 })),
-  closeTour: () => {
-    markTourSeen();
-    set({ tourActive: false });
-  },
+  closeTour: () => set({ tourActive: false }),
 
   markExported: () => set({ exportedOnce: true }),
 

@@ -7,7 +7,10 @@ import {
 } from '../core/settings';
 import { AccountPanel } from './AccountPanel';
 
-const FEATURE_LABELS: Record<keyof FeatureFlags, { title: string; desc: string }> = {
+const FEATURE_LABELS: Record<
+  keyof FeatureFlags,
+  { title: string; desc: string }
+> = {
   masking: {
     title: 'マスキング',
     desc: 'AIに渡す前に個人情報・機微情報を伏字にする（推奨: ON）',
@@ -72,9 +75,11 @@ export function SettingsPage() {
       <div className="panel">
         <h2>AI（LLM）接続</h2>
         <p className="subtitle">
-          LLM推論を使う場合の接続設定です。APIキーは<b>このブラウザにのみ保存</b>され、
+          LLM推論を使う場合の接続設定です。APIキーは
+          <b>このブラウザにのみ保存</b>され、
           推論時は自前のバックエンド経由でプロバイダに送られます（送るのは
-          <b>マスキング済みのカラム名とサンプルのみ</b>で、実データは送りません）。
+          <b>マスキング済みのカラム名とサンプルのみ</b>
+          で、実データは送りません）。
         </p>
         <div className="settings-grid">
           <label className="field-label">
@@ -186,12 +191,14 @@ export function SettingsPage() {
         <div className="panel">
           <h2>保存済みレシピ</h2>
           <p className="subtitle">
-            「このソース形式 → このCRM」の確定マッピングです。同じ列構成のファイルを
+            「このソース形式 →
+            このCRM」の確定マッピングです。同じ列構成のファイルを
             投入すると自動で候補に出ます。
           </p>
           {recipes.length === 0 ? (
             <div className="alert info">
-              まだレシピがありません。マッピング画面の「🔁 レシピとして保存」で作成できます。
+              まだレシピがありません。マッピング画面の「🔁
+              レシピとして保存」で作成できます。
             </div>
           ) : (
             recipes.map((r) => (
@@ -208,7 +215,8 @@ export function SettingsPage() {
                   <button
                     onClick={() => {
                       const name = prompt('レシピ名を変更', r.name);
-                      if (name && name.trim()) void renameRecipe(r.id, name.trim());
+                      if (name && name.trim())
+                        void renameRecipe(r.id, name.trim());
                     }}
                   >
                     名前変更
@@ -216,7 +224,8 @@ export function SettingsPage() {
                   <button
                     className="ghost"
                     onClick={() => {
-                      if (confirm(`「${r.name}」を削除しますか？`)) void removeRecipe(r.id);
+                      if (confirm(`「${r.name}」を削除しますか？`))
+                        void removeRecipe(r.id);
                     }}
                   >
                     削除
@@ -232,8 +241,8 @@ export function SettingsPage() {
         <div className="panel">
           <h2>学習辞書</h2>
           <p className="subtitle">
-            あなたがマッピングを直した「列名 → 項目」の履歴です。使うほどサジェスト精度が
-            上がります。
+            あなたがマッピングを直した「列名 →
+            項目」の履歴です。使うほどサジェスト精度が 上がります。
           </p>
           <div className="stat-row" style={{ marginBottom: 12 }}>
             <div className="stat">
@@ -270,7 +279,8 @@ export function SettingsPage() {
               <button
                 className="ghost"
                 onClick={() => {
-                  if (confirm('学習辞書をすべて消去しますか？')) clearLearning();
+                  if (confirm('学習辞書をすべて消去しますか？'))
+                    clearLearning();
                 }}
               >
                 学習辞書をクリア

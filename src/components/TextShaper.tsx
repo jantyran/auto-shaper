@@ -9,7 +9,7 @@
  *  - AI に送るのはマスク済みのテキストだけ。元の値はこのブラウザ内の辞書にのみ残る。
  *  - AI の応答に含まれるトークンは、ローカルで元の値へ復元してから表示・出力する。
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useStore } from '../state/store';
 import { getAllSchemas, getDefaultSchema } from '../core/schemaStore';
 import {
@@ -28,6 +28,7 @@ import {
   type ExtractedRecord,
 } from '../core/textExtract';
 import { applyRecordDefaults } from '../core/mappingDefaults';
+import { DEMO_INQUIRY_TEXT } from '../core/demoData';
 import { applyAutoFillRules } from '../core/autoFillRules';
 import { toCsv, downloadCsv, downloadXlsx } from '../core/exportCsv';
 import type { TargetField } from '../types';
@@ -86,20 +87,22 @@ export function TextShaper() {
   const settings = useStore((s) => s.settings);
   const customSchemas = useStore((s) => s.customSchemas);
   const setView = useStore((s) => s.setView);
+  const demoActive = useStore((s) => s.demoActive);
 
   const schemas = useMemo(() => getAllSchemas(customSchemas), [customSchemas]);
   const defaultSchema = useMemo(
     () => getDefaultSchema(customSchemas),
     [customSchemas],
   );
-  const [schemaId, setSchemaId] = useState<string>('');
+  // ユーザーが選んだテンプレート。未選択、または選択後にそのテンプレートが
+  // 消えた場合は既定テンプレートへ自動フォールバックする(状態を同期する必要は
+  // ないので、useEffect ではなくレンダー時の派生値として解決する)。
+  const [pickedSchemaId, setPickedSchemaId] = useState<string>('');
+  const schemaId =
+    pickedSchemaId && schemas.some((s) => s.id === pickedSchemaId)
+      ? pickedSchemaId
+      : (defaultSchema?.id ?? schemas[0]?.id ?? '');
   const target = schemas.find((s) => s.id === schemaId) ?? defaultSchema;
-
-  useEffect(() => {
-    if (!schemaId || !schemas.some((s) => s.id === schemaId)) {
-      setSchemaId(defaultSchema?.id ?? schemas[0]?.id ?? '');
-    }
-  }, [defaultSchema?.id, schemaId, schemas]);
 
   const [text, setText] = useState('');
   const [dict, setDict] = useState<MaskDictionary>(new Map());
@@ -117,6 +120,17 @@ export function TextShaper() {
 
   const llmReady = settings.features.llm && settings.llm.apiKey.trim() !== '';
   const maskingOn = settings.features.masking;
+
+  // ガイドツアーのデモ中は、空欄なら体験用の文面を自動で入れておく。
+  // demoActiveがtrueになった最初のレンダーでだけ判定し、後から手動で空にしても
+  // 再投入しない(一度きりのフラグを保持)。
+  const [demoPrefilled, setDemoPrefilled] = useState(false);
+  if (demoActive && !demoPrefilled) {
+    setDemoPrefilled(true);
+    if (!text) setText(DEMO_INQUIRY_TEXT);
+  } else if (!demoActive && demoPrefilled) {
+    setDemoPrefilled(false);
+  }
 
   const syncScroll = () => {
     if (inputRef.current && backdropRef.current) {
@@ -172,7 +186,7 @@ export function TextShaper() {
       setOpenRecordIds(new Set());
       setManualRecordFields({});
     }
-    setSchemaId(nextSchemaId);
+    setPickedSchemaId(nextSchemaId);
   };
 
   const handleExtract = async (forceLocal: boolean) => {
@@ -371,7 +385,7 @@ export function TextShaper() {
       </p>
 
       {/* マスキング・ツールバー */}
-      <div className="mask-toolbar">
+      <div className="mask-toolbar" data-tour="tour-text-input">
         <button
           className="btn-mini"
           onClick={runAutoMask}
@@ -510,7 +524,7 @@ export function TextShaper() {
 
       {/* 整形結果 */}
       {records.length > 0 && target && (
-        <div className="text-result-list">
+        <div className="text-result-list" data-tour="tour-text-results">
           <div className="preview-bar">
             <h3 style={{ margin: 0 }}>整形結果（{records.length}件）</h3>
             <span className="v-sub">

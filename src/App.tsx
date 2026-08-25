@@ -28,6 +28,8 @@ export function App() {
   const refreshLearning = useStore((s) => s.refreshLearning);
   const refreshAuth = useStore((s) => s.refreshAuth);
   const startTour = useStore((s) => s.startTour);
+  const demoActive = useStore((s) => s.demoActive);
+  const reset = useStore((s) => s.reset);
 
   // 起動時: 先に認証状態を復元してから、保存先を判定してテンプレート/レシピ/学習辞書を同期
   useEffect(() => {
@@ -53,18 +55,21 @@ export function App() {
           </button>
           <button
             className={view === 'text' ? 'navbtn active' : 'navbtn'}
+            data-tour="tour-nav-text"
             onClick={() => setView('text')}
           >
             テキスト整形
           </button>
           <button
             className={view === 'admin' ? 'navbtn active' : 'navbtn'}
+            data-tour="tour-nav-admin"
             onClick={() => setView('admin')}
           >
             テンプレート管理
           </button>
           <button
             className={view === 'formula' ? 'navbtn active' : 'navbtn'}
+            data-tour="tour-nav-formula"
             onClick={() => setView('formula')}
           >
             式リファレンス
@@ -82,6 +87,21 @@ export function App() {
         <AuthBadge />
       </div>
       <GuidedTour />
+      {demoActive && (
+        <div className="demo-banner">
+          <span>🧪 デモデータで操作を体験中です（実データではありません）</span>
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => {
+              reset();
+              setView('app');
+            }}
+          >
+            自分のデータで始める
+          </button>
+        </div>
+      )}
       <p className="subtitle">
         {view === 'app'
           ? '雑多なExcel/CSVを、AIがカラムを読み取ってインポート用フォーマットへ自動整形します。'
@@ -151,7 +171,7 @@ function SourceStep() {
           onFile={(name, data) => loadSource(name, data)}
         />
       </div>
-      <div className="security-note" data-tour="tour-source-security">
+      <div className="security-note">
         アップロードしたファイルはブラウザ内でのみ処理されます。サーバーやAIへ実データを送信しません。
       </div>
     </div>
@@ -196,6 +216,7 @@ function MappingStep() {
         <div className="spacer" />
         <button
           className="primary"
+          data-tour="tour-mapping-convert"
           disabled={requiredUnmet}
           title={requiredUnmet ? '必須項目を割り当ててください' : ''}
           onClick={() => goTo('result')}

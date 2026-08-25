@@ -178,6 +178,7 @@ export function SchemaAdmin() {
           gap: 12,
           flexWrap: 'wrap',
         }}
+        data-tour="tour-admin-toolbar"
       >
         <h2 style={{ margin: 0 }}>テンプレート管理</h2>
         <span className={`storage-badge ${storageMode === 'api' ? 'api' : ''}`}>
@@ -223,72 +224,80 @@ export function SchemaAdmin() {
           : 'テンプレートはこのブラウザに保存されます（サーバーを起動すると自動でSQLite保存に切り替わります）。'}
       </p>
 
-      <h3>あなたのテンプレート</h3>
-      {sortedCustomSchemas.length === 0 ? (
-        <div className="alert info">
-          {
-            'まだテンプレートがありません。「+ 新規テンプレートを作成」から追加するか、下のプリセットを複製して編集できます。'
-          }
-        </div>
-      ) : (
-        <div className="card-grid">
-          {sortedCustomSchemas.map((s, i) => (
-            <div key={s.id} className="mapping-row" style={{ marginBottom: 0 }}>
-              <div className="mapping-head">
-                <span className="target-name" style={{ minWidth: 0 }}>
-                  {s.name}
-                </span>
-                {s.isDefault && <span className="field-kind-badge">既定</span>}
+      <div data-tour="tour-admin-list">
+        <h3>あなたのテンプレート</h3>
+        {sortedCustomSchemas.length === 0 ? (
+          <div className="alert info">
+            {
+              'まだテンプレートがありません。「+ 新規テンプレートを作成」から追加するか、下のプリセットを複製して編集できます。'
+            }
+          </div>
+        ) : (
+          <div className="card-grid">
+            {sortedCustomSchemas.map((s, i) => (
+              <div
+                key={s.id}
+                className="mapping-row"
+                style={{ marginBottom: 0 }}
+              >
+                <div className="mapping-head">
+                  <span className="target-name" style={{ minWidth: 0 }}>
+                    {s.name}
+                  </span>
+                  {s.isDefault && (
+                    <span className="field-kind-badge">既定</span>
+                  )}
+                </div>
+                <p className="rationale">{s.fields.length} フィールド</p>
+                <div className="btn-row" style={{ marginTop: 10 }}>
+                  <button onClick={() => setDraft(structuredClone(s))}>
+                    編集
+                  </button>
+                  <button
+                    className="ghost"
+                    onClick={() => setDraft(duplicateSchema(s))}
+                  >
+                    複製
+                  </button>
+                  <button
+                    className="ghost"
+                    disabled={s.isDefault}
+                    onClick={() => void makeDefaultSchema(s.id)}
+                  >
+                    既定にする
+                  </button>
+                  <button
+                    className="icon"
+                    title="上へ"
+                    disabled={i === 0}
+                    onClick={() => moveSchema(i, -1)}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    className="icon"
+                    title="下へ"
+                    disabled={i === sortedCustomSchemas.length - 1}
+                    onClick={() => moveSchema(i, 1)}
+                  >
+                    ↓
+                  </button>
+                  <div className="spacer" />
+                  <button
+                    className="ghost"
+                    onClick={() => {
+                      if (confirm(`「${s.name}」を削除しますか？`))
+                        removeSchema(s.id);
+                    }}
+                  >
+                    削除
+                  </button>
+                </div>
               </div>
-              <p className="rationale">{s.fields.length} フィールド</p>
-              <div className="btn-row" style={{ marginTop: 10 }}>
-                <button onClick={() => setDraft(structuredClone(s))}>
-                  編集
-                </button>
-                <button
-                  className="ghost"
-                  onClick={() => setDraft(duplicateSchema(s))}
-                >
-                  複製
-                </button>
-                <button
-                  className="ghost"
-                  disabled={s.isDefault}
-                  onClick={() => void makeDefaultSchema(s.id)}
-                >
-                  既定にする
-                </button>
-                <button
-                  className="icon"
-                  title="上へ"
-                  disabled={i === 0}
-                  onClick={() => moveSchema(i, -1)}
-                >
-                  ↑
-                </button>
-                <button
-                  className="icon"
-                  title="下へ"
-                  disabled={i === sortedCustomSchemas.length - 1}
-                  onClick={() => moveSchema(i, 1)}
-                >
-                  ↓
-                </button>
-                <div className="spacer" />
-                <button
-                  className="ghost"
-                  onClick={() => {
-                    if (confirm(`「${s.name}」を削除しますか？`))
-                      removeSchema(s.id);
-                  }}
-                >
-                  削除
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
 
       <h3>プリセット（読み取り専用・複製して編集可）</h3>
       <div className="card-grid">

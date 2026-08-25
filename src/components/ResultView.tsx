@@ -28,6 +28,7 @@ export function ResultView() {
   const setTransformState = useStore((s) => s.setTransformState);
   const dropEmptyColumns = useStore((s) => s.dropEmptyColumns);
   const setDropEmptyColumns = useStore((s) => s.setDropEmptyColumns);
+  const markExported = useStore((s) => s.markExported);
 
   const workerRef = useRef<Worker | null>(null);
 
@@ -120,10 +121,12 @@ export function ResultView() {
   const handleExportCsv = () => {
     if (!transformedRows) return;
     downloadCsv(toCsv(transformedRows, outputFields), `${base}_shaped.csv`);
+    markExported();
   };
   const handleExportXlsx = () => {
     if (!transformedRows) return;
     void downloadXlsx(transformedRows, outputFields, `${base}_shaped.xlsx`);
+    markExported();
   };
 
   return (

@@ -83,7 +83,7 @@ const REFS = [
 
 export function FormulaReference() {
   return (
-    <div className="panel formula-reference">
+    <div className="panel formula-reference" data-tour="tour-formula-panel">
       <h2>自動記入ルール 式リファレンス</h2>
       <p className="subtitle" style={{ marginBottom: 14 }}>
         テンプレート項目の自動記入ルールで使える安全なミニ式です。JavaScriptやPythonのコードは実行せず、ここに載っている構文だけを評価します。

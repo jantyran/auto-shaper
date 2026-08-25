@@ -52,6 +52,7 @@ import {
 } from '../core/recipes';
 import { findSchemaById } from '../core/schemaStore';
 import { hasSeenTour, markTourSeen } from '../core/tourState';
+import { DEMO_SOURCE_CSV, DEMO_SOURCE_FILE_NAME } from '../core/demoData';
 
 export type Step = 'source' | 'target' | 'mapping' | 'result';
 export type View = 'app' | 'text' | 'admin' | 'formula' | 'settings';
@@ -89,6 +90,12 @@ interface AppState {
   dropEmptyColumns: boolean;
   /** 操作画面に重ねるガイドツアーを表示中か */
   tourActive: boolean;
+  /** ツアーを開始するたびに増える識別子(開き直しを確実に検知するため) */
+  tourNonce: number;
+  /** 現在の変換結果を一度でもダウンロードしたか(ツアーの進行判定に使う) */
+  exportedOnce: boolean;
+  /** 現在のソースがガイドツアー用のデモデータか(実データではない) */
+  demoActive: boolean;
 
   // navigation
   setView: (view: View) => void;
@@ -109,6 +116,8 @@ interface AppState {
 
   // formatting process
   loadSource: (fileName: string, data: ArrayBuffer) => void;
+  /** ガイドツアー用: 埋め込みサンプルCSVを実アップロードと同じ経路で読み込む */
+  loadDemoSource: () => Promise<void>;
   selectSheet: (sheetName: string) => void;
   selectSchema: (id: string) => Promise<void>;
   loadUploadedTarget: (fileName: string, data: ArrayBuffer) => Promise<void>;
@@ -117,6 +126,7 @@ interface AppState {
   setDropEmptyColumns: (drop: boolean) => void;
   startTour: () => void;
   closeTour: () => void;
+  markExported: () => void;
   setTransformState: (
     partial: Partial<
       Pick<
@@ -146,6 +156,17 @@ interface AppState {
   clearLearning: () => void;
 }
 
+/**
+ * 初回訪問時だけガイドツアーを自動表示する。
+ * 表示するかどうかを判定した時点で「見た」ことにして記録するため、
+ * 導入ポップアップの選択(学ぶ/スキップ)に関わらず次回以降は自動起動しない。
+ */
+function initialTourActive(): boolean {
+  if (hasSeenTour()) return false;
+  markTourSeen();
+  return true;
+}
+
 export const useStore = create<AppState>((set, get) => ({
   view: 'app',
   step: 'source',
@@ -161,7 +182,10 @@ export const useStore = create<AppState>((set, get) => ({
   transformProgress: 0,
   importContext: [],
   dropEmptyColumns: false,
-  tourActive: !hasSeenTour(),
+  tourActive: initialTourActive(),
+  tourNonce: 0,
+  exportedOnce: false,
+  demoActive: false,
 
   setView: (view) => set({ view, error: undefined }),
   goTo: (step) => set({ step }),
@@ -220,14 +244,42 @@ export const useStore = create<AppState>((set, get) => ({
         target: undefined,
         mapping: undefined,
         transformedRows: undefined,
+        exportedOnce: false,
         importContext: [],
         step: 'target',
         error: undefined,
+        demoActive: false,
       });
     } catch (e) {
       set({
         error:
           e instanceof Error ? e.message : 'ファイルの読み込みに失敗しました。',
+      });
+    }
+  },
+
+  loadDemoSource: async () => {
+    const data = new TextEncoder().encode(DEMO_SOURCE_CSV).buffer;
+    try {
+      const source = await parseWorkbook(DEMO_SOURCE_FILE_NAME, data);
+      set({
+        source,
+        sourceRaw: { fileName: DEMO_SOURCE_FILE_NAME, data },
+        target: undefined,
+        mapping: undefined,
+        transformedRows: undefined,
+        exportedOnce: false,
+        importContext: [],
+        step: 'target',
+        error: undefined,
+        demoActive: true,
+      });
+    } catch (e) {
+      set({
+        error:
+          e instanceof Error
+            ? e.message
+            : 'デモデータの読み込みに失敗しました。',
       });
     }
   },
@@ -243,6 +295,7 @@ export const useStore = create<AppState>((set, get) => ({
         target: undefined,
         mapping: undefined,
         transformedRows: undefined,
+        exportedOnce: false,
         importContext: [],
         step: 'target',
         error: undefined,
@@ -307,6 +360,7 @@ export const useStore = create<AppState>((set, get) => ({
     set({
       mapping: { ...config, fields },
       transformedRows: undefined,
+      exportedOnce: false,
       transformProgress: 0,
     });
   },
@@ -315,17 +369,24 @@ export const useStore = create<AppState>((set, get) => ({
     set({
       importContext: entries,
       transformedRows: undefined,
+      exportedOnce: false,
       transformProgress: 0,
     });
   },
 
   setDropEmptyColumns: (drop) => set({ dropEmptyColumns: drop }),
 
-  startTour: () => set({ tourActive: true }),
+  // ツアーは「表の整形」から始まる。設定など手順ガイドを持たない画面から
+  // 呼ばれても無反応にならないよう、開始時に整形タブへ寄せる
+  // (ステップは維持するので、作業途中でも今いる場所から案内が始まる)。
+  startTour: () =>
+    set((s) => ({ tourActive: true, view: 'app', tourNonce: s.tourNonce + 1 })),
   closeTour: () => {
     markTourSeen();
     set({ tourActive: false });
   },
+
+  markExported: () => set({ exportedOnce: true }),
 
   setTransformState: (partial) => set(partial),
 
@@ -336,9 +397,11 @@ export const useStore = create<AppState>((set, get) => ({
       target: undefined,
       mapping: undefined,
       transformedRows: undefined,
+      exportedOnce: false,
       transformProgress: 0,
       importContext: [],
       dropEmptyColumns: false,
+      demoActive: false,
       isTransforming: false,
       isSuggesting: false,
       error: undefined,
@@ -351,11 +414,11 @@ export const useStore = create<AppState>((set, get) => ({
           .filter((s) => s.id !== schema.id && s.isDefault)
           .map((s) => ({ ...s, isDefault: false }))
       : [];
-    let customSchemas = current;
+    // 既定フラグを外す更新は保存だけ行い、一覧は最後の保存結果を採用する
     for (const item of affected) {
-      customSchemas = await persistSchema(item);
+      await persistSchema(item);
     }
-    customSchemas = await persistSchema(schema);
+    const customSchemas = await persistSchema(schema);
     set({ customSchemas: normalizeCustomSchemas(customSchemas) });
   },
 
@@ -415,6 +478,7 @@ export const useStore = create<AppState>((set, get) => ({
       mapping: recipe.mapping,
       step: 'mapping',
       transformedRows: undefined,
+      exportedOnce: false,
       transformProgress: 0,
       error: target
         ? undefined

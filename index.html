@@ -3,7 +3,73 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Auto Shaper — AIデータ整形ツール</title>
+
+    <!-- prettier-ignore -->
+    <title>Auto Shaper — 雑多なExcel/CSVをAIがインポート用フォーマットへ自動整形</title>
+    <meta
+      name="description"
+      content="バラバラなExcel/CSVのカラムをAIが読み取り、Salesforce・HubSpotなどのインポート用フォーマットへ自動整形するブラウザ完結型ツール。全角半角の統一、(株)→株式会社、氏名の姓名分割、重複検出まで。実データはブラウザ内で処理され外部に送信されません。無料・オープンソース。"
+    />
+    <meta
+      name="keywords"
+      content="CSV 整形,Excel 整形,データクレンジング,名寄せ,CRM インポート,Salesforce インポート,HubSpot,表記ゆれ,データ変換,AI"
+    />
+    <link rel="canonical" href="https://auto-shaper.web.app/" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#0f1420" />
+
+    <!-- Open Graph (SNS・チャットでのリンク共有時の見え方) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Auto Shaper" />
+    <meta property="og:locale" content="ja_JP" />
+    <meta property="og:url" content="https://auto-shaper.web.app/" />
+    <meta
+      property="og:title"
+      content="Auto Shaper — 雑多なExcel/CSVをAIがインポート用フォーマットへ自動整形"
+    />
+    <meta
+      property="og:description"
+      content="バラバラなExcel/CSVのカラムをAIが読み取り、CRM等のインポート用フォーマットへ自動整形。表記ゆれの統一・姓名分割・重複検出まで、すべてブラウザ内で完結します。"
+    />
+    <meta property="og:image" content="https://auto-shaper.web.app/ogp.png" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="670" />
+    <meta
+      property="og:image:alt"
+      content="Auto Shaper のマッピング画面。AIが提案した変換ルールを確信度つきで確認できる。"
+    />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:title"
+      content="Auto Shaper — 雑多なExcel/CSVをAIが自動整形"
+    />
+    <meta
+      name="twitter:description"
+      content="バラバラなExcel/CSVのカラムをAIが読み取り、CRM等のインポート用フォーマットへ自動整形。すべてブラウザ内で完結します。"
+    />
+    <meta name="twitter:image" content="https://auto-shaper.web.app/ogp.png" />
+
+    <!-- 構造化データ(検索結果でのアプリ情報の理解を助ける) -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Auto Shaper",
+        "url": "https://auto-shaper.web.app/",
+        "applicationCategory": "BusinessApplication",
+        "operatingSystem": "Web ブラウザ",
+        "inLanguage": "ja",
+        "description": "バラバラなExcel/CSVのカラムをAIが読み取り、CRM等のインポート用フォーマットへ自動整形するブラウザ完結型ツール。表記ゆれの統一・姓名分割・重複検出に対応。",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "JPY"
+        },
+        "license": "https://opensource.org/licenses/MIT",
+        "isAccessibleForFree": true
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

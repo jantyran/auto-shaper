@@ -142,17 +142,15 @@ export function App() {
       )}
 
       <footer className="app-footer">
-        <span>Shaped by Shotaroh Horiguchi w/ AI</span>
-        <span aria-hidden="true">·</span>
+        <span>Shaped by Shotaroh Horiguchi</span>
+        <span aria-hidden="true">/</span>
         <a
           href="https://github.com/jantyran/auto-shaper"
           target="_blank"
           rel="noreferrer"
         >
-          GitHub
+          MIT License
         </a>
-        <span aria-hidden="true">·</span>
-        <span>MIT License</span>
       </footer>
     </div>
   );

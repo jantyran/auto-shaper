@@ -391,7 +391,12 @@ export const useStore = create<AppState>((set, get) => ({
   // うるさいため)。
   dismissEntrance: () => {
     set({ entranceActive: false });
-    window.setTimeout(() => get().startTour(), ENTRANCE_TO_TOUR_DELAY_MS);
+    window.setTimeout(() => {
+      // 待っている間にユーザーが自分でツアーを開いた(または開いて閉じた)なら、
+      // 割り込んで開き直さない。tourNonce は startTour のたびに増えるので、
+      // 0 のままなら「まだ一度も開かれていない」と判断できる。
+      if (get().tourNonce === 0) get().startTour();
+    }, ENTRANCE_TO_TOUR_DELAY_MS);
   },
 
   // ツアーは「表の整形」から始まる。設定など手順ガイドを持たない画面から

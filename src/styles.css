@@ -852,6 +852,24 @@ button:disabled {
   gap: 12px;
 }
 
+/* プリセットのカテゴリ見出し */
+.preset-group-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 8px;
+}
+
+.preset-group-title {
+  font-weight: 650;
+}
+
+.preset-group-desc {
+  color: var(--muted);
+  font-size: 14px;
+}
+
 .select-card {
   text-align: left;
   padding: 16px;

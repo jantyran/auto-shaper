@@ -103,12 +103,21 @@ export interface TargetField {
   autoFill?: FieldAutoFillRule;
 }
 
+/**
+ * 内蔵プリセットの分類。設定で表示するカテゴリを絞れるようにするためのもの。
+ * ユーザー定義テンプレート(origin: 'custom' / 'uploaded')には付かない。
+ */
+export type SchemaCategory =
+  'crm' | 'ma' | 'card' | 'recruit' | 'accounting' | 'logistics' | 'ads' | 'hr';
+
 /** インポート先スキーマ(プリセット or アップロード) */
 export interface TargetSchema {
   id: string;
   name: string;
   /** 出所: 内蔵プリセット / アップロード / ユーザーが管理ページで作成 */
   origin: 'preset' | 'uploaded' | 'custom';
+  /** プリセットの分類(内蔵プリセットのみ)。設定で表示/非表示を切り替える単位。 */
+  category?: SchemaCategory;
   /** 当てはめ先テンプレート選択時の表示順。未指定の旧データは読み込み時に補完する。 */
   sortOrder?: number;
   /** 当てはめ先テンプレート選択時に最初に選ぶテンプレート。ユーザー定義内で1件だけ有効。 */

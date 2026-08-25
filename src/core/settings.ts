@@ -62,6 +62,12 @@ export interface Settings {
   features: FeatureFlags;
   llm: LlmSettings;
   masking: MaskingSettings;
+  /**
+   * インポート先選択画面に出す内蔵プリセットのカテゴリ(`SchemaCategory`)。
+   * 既定は CRM と MA のみ。設定でONにしたカテゴリだけを追加で表示する
+   * (最初から全部見せると選択肢が多すぎるため)。
+   */
+  schemaCategories: string[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -72,6 +78,7 @@ export const DEFAULT_SETTINGS: Settings = {
     llm: false,
     masking: true,
   },
+  schemaCategories: ['crm', 'ma'],
   llm: {
     provider: 'anthropic',
     apiKey: '',
@@ -122,5 +129,8 @@ export function mergeSettings(partial: Partial<Settings>): Settings {
         ? partial.masking!.sensitiveColumns.map(String)
         : [],
     },
+    schemaCategories: Array.isArray(partial.schemaCategories)
+      ? partial.schemaCategories.map(String)
+      : structuredClone(DEFAULT_SETTINGS.schemaCategories),
   };
 }

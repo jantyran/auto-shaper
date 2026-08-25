@@ -2,13 +2,70 @@
  * インポート先(整形後)ターゲットスキーマ。
  * 内蔵プリセットと、ユーザーがアップロードしたヘッダーからの動的生成の両方を扱う。
  */
-import type { SourceDataset, TargetField, TargetSchema } from '../types';
+import type {
+  SchemaCategory,
+  SourceDataset,
+  TargetField,
+  TargetSchema,
+} from '../types';
+
+/** カテゴリの表示名と説明(設定・テンプレート選択画面の見出しに使う) */
+export const SCHEMA_CATEGORY_LABELS: Record<
+  SchemaCategory,
+  { title: string; desc: string }
+> = {
+  crm: {
+    title: 'CRM（顧客管理）',
+    desc: 'Salesforce / HubSpot / Dynamics 365 などへのリード・取引先取り込み',
+  },
+  ma: {
+    title: 'MA・メール配信',
+    desc: '配信リスト、オプトイン状況、流入経路つきのマーケティング向けリスト',
+  },
+  card: {
+    title: '名刺・人脈',
+    desc: '展示会や商談で集めた名刺データ（部署・住所・交換日など）',
+  },
+  recruit: {
+    title: '採用・応募者',
+    desc: '応募者リスト、選考ステータス、応募経路',
+  },
+  accounting: {
+    title: '会計・経費',
+    desc: '請求明細、経費精算（日付・金額・勘定科目・税区分）',
+  },
+  logistics: {
+    title: '配送・EC',
+    desc: '送り状データ、受注データ、商品マスタ（住所・電話の表記ゆれ修正が効きます）',
+  },
+  ads: {
+    title: '広告レポート',
+    desc: '媒体ごとにバラバラな広告レポートを統一フォーマットへ',
+  },
+  hr: {
+    title: '人事・勤怠',
+    desc: '従業員名簿、勤怠・工数データ',
+  },
+};
+
+/** 設定画面などでカテゴリを列挙するときの順序 */
+export const SCHEMA_CATEGORY_ORDER: SchemaCategory[] = [
+  'crm',
+  'ma',
+  'card',
+  'recruit',
+  'accounting',
+  'logistics',
+  'ads',
+  'hr',
+];
 
 /** Salesforce Lead オブジェクトの代表的な項目 */
 const SALESFORCE_LEAD: TargetSchema = {
   id: 'salesforce-lead',
   name: 'Salesforce — リード(Lead)',
   origin: 'preset',
+  category: 'crm',
   fields: [
     {
       key: 'LastName',
@@ -29,7 +86,17 @@ const SALESFORCE_LEAD: TargetSchema = {
       label: '会社名',
       required: true,
       type: 'string',
-      aliases: ['会社名', '会社', '企業名', '法人名', '団体名', 'company', 'account', 'organization', '組織名'],
+      aliases: [
+        '会社名',
+        '会社',
+        '企業名',
+        '法人名',
+        '団体名',
+        'company',
+        'account',
+        'organization',
+        '組織名',
+      ],
     },
     {
       key: 'Title',
@@ -92,8 +159,23 @@ const SALESFORCE_LEAD: TargetSchema = {
       label: 'リードソース',
       required: false,
       type: 'string',
-      aliases: ['リードソース', '流入元', '獲得経路', 'source', 'leadsource', '経路'],
-      options: ['Web', '電話問い合わせ', '展示会', '紹介', '外部リスト', 'パートナー', 'その他'],
+      aliases: [
+        'リードソース',
+        '流入元',
+        '獲得経路',
+        'source',
+        'leadsource',
+        '経路',
+      ],
+      options: [
+        'Web',
+        '電話問い合わせ',
+        '展示会',
+        '紹介',
+        '外部リスト',
+        'パートナー',
+        'その他',
+      ],
     },
     {
       key: 'Industry',
@@ -101,7 +183,17 @@ const SALESFORCE_LEAD: TargetSchema = {
       required: false,
       type: 'string',
       aliases: ['業種', '業界', 'industry'],
-      options: ['製造', '情報通信', '建設', '金融', '小売', '医療', '教育', '公共', 'その他'],
+      options: [
+        '製造',
+        '情報通信',
+        '建設',
+        '金融',
+        '小売',
+        '医療',
+        '教育',
+        '公共',
+        'その他',
+      ],
     },
   ],
 };
@@ -111,6 +203,7 @@ const HUBSPOT_CONTACT: TargetSchema = {
   id: 'hubspot-contact',
   name: 'HubSpot — コンタクト(Contact)',
   origin: 'preset',
+  category: 'crm',
   fields: [
     {
       key: 'firstname',
@@ -138,7 +231,14 @@ const HUBSPOT_CONTACT: TargetSchema = {
       label: 'Company name',
       required: false,
       type: 'string',
-      aliases: ['会社名', '会社', '企業名', '法人名', 'company', 'organization'],
+      aliases: [
+        '会社名',
+        '会社',
+        '企業名',
+        '法人名',
+        'company',
+        'organization',
+      ],
     },
     {
       key: 'jobtitle',
@@ -167,7 +267,14 @@ const HUBSPOT_CONTACT: TargetSchema = {
       required: false,
       type: 'string',
       aliases: ['ステータス', 'status', 'lead status', '状態'],
-      options: ['NEW', 'OPEN', 'IN_PROGRESS', 'OPEN_DEAL', 'UNQUALIFIED', 'CONNECTED'],
+      options: [
+        'NEW',
+        'OPEN',
+        'IN_PROGRESS',
+        'OPEN_DEAL',
+        'UNQUALIFIED',
+        'CONNECTED',
+      ],
     },
   ],
 };
@@ -180,6 +287,7 @@ const DYNAMICS_LEAD: TargetSchema = {
   id: 'dynamics-lead',
   name: 'Microsoft Dynamics 365 — リード(Lead)',
   origin: 'preset',
+  category: 'crm',
   fields: [
     {
       key: 'subject',
@@ -207,7 +315,17 @@ const DYNAMICS_LEAD: TargetSchema = {
       label: '会社名',
       required: false,
       type: 'string',
-      aliases: ['会社名', '会社', '企業名', '法人名', '団体名', '組織名', 'company', 'companyname', 'account'],
+      aliases: [
+        '会社名',
+        '会社',
+        '企業名',
+        '法人名',
+        '団体名',
+        '組織名',
+        'company',
+        'companyname',
+        'account',
+      ],
     },
     {
       key: 'jobtitle',
@@ -221,14 +339,29 @@ const DYNAMICS_LEAD: TargetSchema = {
       label: 'メール',
       required: false,
       type: 'email',
-      aliases: ['メール', 'メールアドレス', 'email', 'e-mail', 'mail', 'emailaddress'],
+      aliases: [
+        'メール',
+        'メールアドレス',
+        'email',
+        'e-mail',
+        'mail',
+        'emailaddress',
+      ],
     },
     {
       key: 'telephone1',
       label: '勤務先電話',
       required: false,
       type: 'phone',
-      aliases: ['電話', '電話番号', 'tel', 'phone', '連絡先', 'business phone', 'telephone'],
+      aliases: [
+        '電話',
+        '電話番号',
+        'tel',
+        'phone',
+        '連絡先',
+        'business phone',
+        'telephone',
+      ],
     },
     {
       key: 'mobilephone',
@@ -277,7 +410,14 @@ const DYNAMICS_LEAD: TargetSchema = {
       label: 'リードソース',
       required: false,
       type: 'string',
-      aliases: ['リードソース', '流入元', '獲得経路', 'source', 'leadsource', '経路'],
+      aliases: [
+        'リードソース',
+        '流入元',
+        '獲得経路',
+        'source',
+        'leadsource',
+        '経路',
+      ],
     },
     {
       key: 'industrycode',
@@ -291,7 +431,16 @@ const DYNAMICS_LEAD: TargetSchema = {
       label: '説明(備考)',
       required: false,
       type: 'string',
-      aliases: ['備考', 'メモ', '説明', 'コメント', 'notes', 'description', 'remarks', '摘要'],
+      aliases: [
+        '備考',
+        'メモ',
+        '説明',
+        'コメント',
+        'notes',
+        'description',
+        'remarks',
+        '摘要',
+      ],
     },
   ],
 };
@@ -301,6 +450,7 @@ const DYNAMICS_CONTACT: TargetSchema = {
   id: 'dynamics-contact',
   name: 'Microsoft Dynamics 365 — 取引先担当者(Contact)',
   origin: 'preset',
+  category: 'crm',
   fields: [
     {
       key: 'lastname',
@@ -321,7 +471,16 @@ const DYNAMICS_CONTACT: TargetSchema = {
       label: '会社名(取引先)',
       required: false,
       type: 'string',
-      aliases: ['会社名', '会社', '企業名', '法人名', '取引先', 'company', 'account', '組織名'],
+      aliases: [
+        '会社名',
+        '会社',
+        '企業名',
+        '法人名',
+        '取引先',
+        'company',
+        'account',
+        '組織名',
+      ],
     },
     {
       key: 'jobtitle',
@@ -335,7 +494,14 @@ const DYNAMICS_CONTACT: TargetSchema = {
       label: 'メール',
       required: false,
       type: 'email',
-      aliases: ['メール', 'メールアドレス', 'email', 'e-mail', 'mail', 'emailaddress'],
+      aliases: [
+        'メール',
+        'メールアドレス',
+        'email',
+        'e-mail',
+        'mail',
+        'emailaddress',
+      ],
     },
     {
       key: 'telephone1',
@@ -384,7 +550,16 @@ const DYNAMICS_CONTACT: TargetSchema = {
       label: '説明(備考)',
       required: false,
       type: 'string',
-      aliases: ['備考', 'メモ', '説明', 'コメント', 'notes', 'description', 'remarks', '摘要'],
+      aliases: [
+        '備考',
+        'メモ',
+        '説明',
+        'コメント',
+        'notes',
+        'description',
+        'remarks',
+        '摘要',
+      ],
     },
   ],
 };
@@ -394,20 +569,40 @@ const DYNAMICS_ACCOUNT: TargetSchema = {
   id: 'dynamics-account',
   name: 'Microsoft Dynamics 365 — 取引先企業(Account)',
   origin: 'preset',
+  category: 'crm',
   fields: [
     {
       key: 'name',
       label: '取引先名',
       required: true,
       type: 'string',
-      aliases: ['取引先名', '会社名', '会社', '企業名', '法人名', '団体名', '組織名', 'company', 'account', 'name'],
+      aliases: [
+        '取引先名',
+        '会社名',
+        '会社',
+        '企業名',
+        '法人名',
+        '団体名',
+        '組織名',
+        'company',
+        'account',
+        'name',
+      ],
     },
     {
       key: 'telephone1',
       label: '主要電話',
       required: false,
       type: 'phone',
-      aliases: ['電話', '電話番号', 'tel', 'phone', '代表電話', 'main phone', 'telephone'],
+      aliases: [
+        '電話',
+        '電話番号',
+        'tel',
+        'phone',
+        '代表電話',
+        'main phone',
+        'telephone',
+      ],
     },
     {
       key: 'websiteurl',
@@ -456,7 +651,13 @@ const DYNAMICS_ACCOUNT: TargetSchema = {
       label: '従業員数',
       required: false,
       type: 'number',
-      aliases: ['従業員数', '社員数', '人数', 'employees', 'number of employees'],
+      aliases: [
+        '従業員数',
+        '社員数',
+        '人数',
+        'employees',
+        'number of employees',
+      ],
     },
     {
       key: 'revenue',
@@ -470,17 +671,1127 @@ const DYNAMICS_ACCOUNT: TargetSchema = {
       label: '説明(備考)',
       required: false,
       type: 'string',
-      aliases: ['備考', 'メモ', '説明', 'コメント', 'notes', 'description', 'remarks', '摘要'],
+      aliases: [
+        '備考',
+        'メモ',
+        '説明',
+        'コメント',
+        'notes',
+        'description',
+        'remarks',
+        '摘要',
+      ],
+    },
+  ],
+};
+
+// ── MA・メール配信 ──────────────────────────────────────────
+
+/** MA/メール配信ツール向けの配信リスト(オプトイン・流入経路つき) */
+const MA_CONTACT_LIST: TargetSchema = {
+  id: 'ma-contact-list',
+  name: 'MA — 配信リスト',
+  origin: 'preset',
+  category: 'ma',
+  fields: [
+    {
+      key: 'Email',
+      label: 'メールアドレス',
+      required: true,
+      type: 'email',
+      aliases: ['メール', 'メールアドレス', 'email', 'e-mail', 'mail'],
+    },
+    {
+      key: 'LastName',
+      label: '姓',
+      required: false,
+      type: 'string',
+      aliases: ['姓', '苗字', '名字', 'lastname', 'last name'],
+    },
+    {
+      key: 'FirstName',
+      label: '名',
+      required: false,
+      type: 'string',
+      aliases: ['名', 'firstname', 'first name'],
+    },
+    {
+      key: 'Company',
+      label: '会社名',
+      required: false,
+      type: 'string',
+      aliases: [
+        '会社名',
+        '会社',
+        '企業名',
+        '法人名',
+        'company',
+        'organization',
+      ],
+    },
+    {
+      key: 'OptInStatus',
+      label: '配信同意',
+      required: false,
+      type: 'string',
+      aliases: [
+        '配信同意',
+        'オプトイン',
+        '同意',
+        'opt-in',
+        'optin',
+        'subscribed',
+        'consent',
+      ],
+      options: ['subscribed', 'unsubscribed', 'pending'],
+      optionLabels: {
+        subscribed: '配信可',
+        unsubscribed: '配信停止',
+        pending: '未確認',
+      },
+      defaultValue: 'pending',
+    },
+    {
+      key: 'Source',
+      label: '流入経路',
+      required: false,
+      type: 'string',
+      aliases: [
+        '流入経路',
+        '経路',
+        '獲得経路',
+        'ソース',
+        'source',
+        'utm_source',
+        '媒体',
+      ],
+    },
+    {
+      key: 'ListName',
+      label: 'リスト名・タグ',
+      required: false,
+      type: 'string',
+      aliases: [
+        'リスト',
+        'リスト名',
+        'タグ',
+        'セグメント',
+        'list',
+        'tag',
+        'segment',
+      ],
+    },
+    {
+      key: 'LeadScore',
+      label: 'リードスコア',
+      required: false,
+      type: 'number',
+      aliases: ['スコア', 'リードスコア', 'score', 'lead score', '点数'],
+    },
+  ],
+};
+
+/** 最小構成のメルマガ配信リスト(とにかく送れればよい用) */
+const NEWSLETTER_LIST: TargetSchema = {
+  id: 'newsletter-list',
+  name: 'メルマガ — 配信リスト（最小構成）',
+  origin: 'preset',
+  category: 'ma',
+  fields: [
+    {
+      key: 'email',
+      label: 'メールアドレス',
+      required: true,
+      type: 'email',
+      aliases: ['メール', 'メールアドレス', 'email', 'e-mail', 'mail'],
+    },
+    {
+      key: 'name',
+      label: '氏名',
+      required: false,
+      type: 'string',
+      aliases: ['氏名', '名前', 'お名前', 'name', 'full name'],
+    },
+    {
+      key: 'unsubscribed',
+      label: '配信停止',
+      required: false,
+      type: 'boolean',
+      aliases: [
+        '配信停止',
+        '停止',
+        '解除',
+        'unsubscribe',
+        'unsubscribed',
+        'opt-out',
+      ],
+      options: ['false', 'true'],
+      optionLabels: { false: '配信する', true: '配信しない' },
+      defaultValue: 'false',
+    },
+    {
+      key: 'tags',
+      label: 'タグ',
+      required: false,
+      type: 'string',
+      aliases: ['タグ', '分類', 'ラベル', 'tag', 'tags', 'label'],
+    },
+  ],
+};
+
+// ── 名刺・人脈 ──────────────────────────────────────────────
+
+/** 展示会や商談で集めた名刺データ(CRM Lead に無い部署・住所・交換日を持つ) */
+const BUSINESS_CARD: TargetSchema = {
+  id: 'business-card',
+  name: '名刺データ',
+  origin: 'preset',
+  category: 'card',
+  fields: [
+    {
+      key: 'LastName',
+      label: '姓',
+      required: true,
+      type: 'string',
+      aliases: ['姓', '苗字', '名字', 'lastname', 'last name'],
+    },
+    {
+      key: 'FirstName',
+      label: '名',
+      required: false,
+      type: 'string',
+      aliases: ['名', 'firstname', 'first name'],
+    },
+    {
+      key: 'NameKana',
+      label: 'フリガナ',
+      required: false,
+      type: 'string',
+      aliases: [
+        'フリガナ',
+        'ふりがな',
+        'カナ',
+        'かな',
+        'kana',
+        'furigana',
+        '読み',
+      ],
+    },
+    {
+      key: 'Company',
+      label: '会社名',
+      required: true,
+      type: 'string',
+      aliases: [
+        '会社名',
+        '会社',
+        '企業名',
+        '法人名',
+        '団体名',
+        'company',
+        'organization',
+      ],
+    },
+    {
+      key: 'Department',
+      label: '部署',
+      required: false,
+      type: 'string',
+      aliases: [
+        '部署',
+        '部門',
+        '所属',
+        '事業部',
+        'department',
+        'division',
+        'section',
+      ],
+    },
+    {
+      key: 'Title',
+      label: '役職',
+      required: false,
+      type: 'string',
+      aliases: ['役職', '肩書', '職位', 'title', 'position', 'job title'],
+    },
+    {
+      key: 'Email',
+      label: 'メール',
+      required: false,
+      type: 'email',
+      aliases: ['メール', 'メールアドレス', 'email', 'e-mail', 'mail'],
+    },
+    {
+      key: 'Phone',
+      label: '電話番号',
+      required: false,
+      type: 'phone',
+      aliases: ['電話', '電話番号', 'tel', 'phone', '連絡先', 'ｔｅｌ'],
+    },
+    {
+      key: 'MobilePhone',
+      label: '携帯番号',
+      required: false,
+      type: 'phone',
+      aliases: ['携帯', '携帯番号', '携帯電話', 'mobile', 'cell', 'ケータイ'],
+    },
+    {
+      key: 'PostalCode',
+      label: '郵便番号',
+      required: false,
+      type: 'string',
+      aliases: ['郵便番号', '〒', 'zip', 'postal', 'postal code', 'zipcode'],
+    },
+    {
+      key: 'Address',
+      label: '住所',
+      required: false,
+      type: 'string',
+      aliases: ['住所', '所在地', '本社所在地', 'address', '番地'],
+    },
+    {
+      key: 'ExchangedAt',
+      label: '名刺交換日',
+      required: false,
+      type: 'date',
+      aliases: [
+        '交換日',
+        '名刺交換日',
+        '取得日',
+        '獲得日',
+        '日付',
+        'date',
+        'exchanged',
+      ],
+    },
+    {
+      key: 'OwnerName',
+      label: '交換した担当者',
+      required: false,
+      type: 'string',
+      aliases: ['担当', '担当者', '自社担当', 'owner', '営業担当'],
+    },
+    {
+      key: 'EventName',
+      label: '獲得イベント',
+      required: false,
+      type: 'string',
+      aliases: ['イベント', '展示会', 'セミナー', '獲得経路', 'event', '経路'],
+    },
+  ],
+};
+
+// ── 採用・応募者 ────────────────────────────────────────────
+
+/** ATS(採用管理)向けの応募者リスト */
+const APPLICANT_LIST: TargetSchema = {
+  id: 'applicant-list',
+  name: '採用 — 応募者リスト',
+  origin: 'preset',
+  category: 'recruit',
+  fields: [
+    {
+      key: 'LastName',
+      label: '姓',
+      required: true,
+      type: 'string',
+      aliases: ['姓', '苗字', '名字', 'lastname', 'last name'],
+    },
+    {
+      key: 'FirstName',
+      label: '名',
+      required: false,
+      type: 'string',
+      aliases: ['名', 'firstname', 'first name'],
+    },
+    {
+      key: 'Email',
+      label: 'メール',
+      required: true,
+      type: 'email',
+      aliases: ['メール', 'メールアドレス', 'email', 'e-mail', 'mail'],
+    },
+    {
+      key: 'Phone',
+      label: '電話番号',
+      required: false,
+      type: 'phone',
+      aliases: ['電話', '電話番号', 'tel', 'phone', '連絡先'],
+    },
+    {
+      key: 'Position',
+      label: '応募ポジション',
+      required: false,
+      type: 'string',
+      aliases: [
+        'ポジション',
+        '応募職種',
+        '職種',
+        '募集職種',
+        'position',
+        'job',
+        '求人',
+      ],
+    },
+    {
+      key: 'Stage',
+      label: '選考ステータス',
+      required: false,
+      type: 'string',
+      aliases: [
+        'ステータス',
+        '選考状況',
+        '進捗',
+        'stage',
+        'status',
+        '選考ステータス',
+      ],
+      options: [
+        'applied',
+        'screening',
+        'interview',
+        'offer',
+        'hired',
+        'rejected',
+      ],
+      optionLabels: {
+        applied: '応募',
+        screening: '書類選考',
+        interview: '面接',
+        offer: '内定',
+        hired: '入社',
+        rejected: '不採用',
+      },
+      defaultValue: 'applied',
+    },
+    {
+      key: 'Channel',
+      label: '応募経路',
+      required: false,
+      type: 'string',
+      aliases: [
+        '応募経路',
+        '媒体',
+        '経路',
+        'チャネル',
+        'channel',
+        'source',
+        '流入元',
+      ],
+    },
+    {
+      key: 'AppliedAt',
+      label: '応募日',
+      required: false,
+      type: 'date',
+      aliases: ['応募日', '登録日', '日付', 'date', 'applied', 'applied at'],
+    },
+    {
+      key: 'Note',
+      label: '備考',
+      required: false,
+      type: 'string',
+      aliases: ['備考', 'メモ', 'コメント', 'note', 'notes', 'remarks'],
+    },
+  ],
+};
+
+// ── 会計・経費 ──────────────────────────────────────────────
+
+/** 請求書明細(会計ソフト取り込み向け) */
+const INVOICE_LINE: TargetSchema = {
+  id: 'invoice-line',
+  name: '会計 — 請求明細',
+  origin: 'preset',
+  category: 'accounting',
+  fields: [
+    {
+      key: 'IssueDate',
+      label: '発生日',
+      required: true,
+      type: 'date',
+      aliases: ['日付', '発生日', '取引日', '請求日', 'date', '計上日'],
+    },
+    {
+      key: 'PartnerName',
+      label: '取引先',
+      required: true,
+      type: 'string',
+      aliases: [
+        '取引先',
+        '取引先名',
+        '得意先',
+        '請求先',
+        '支払先',
+        'partner',
+        '会社名',
+      ],
+    },
+    {
+      key: 'Description',
+      label: '摘要',
+      required: false,
+      type: 'string',
+      aliases: ['摘要', '品目', '内容', '明細', '備考', 'description', 'item'],
+    },
+    {
+      key: 'Amount',
+      label: '金額',
+      required: true,
+      type: 'number',
+      aliases: ['金額', '価格', '合計', '税抜金額', 'amount', 'price', 'total'],
+    },
+    {
+      key: 'TaxRate',
+      label: '税区分',
+      required: false,
+      type: 'string',
+      aliases: ['税区分', '消費税', '税率', 'tax', 'tax rate', '税'],
+      options: ['10', '8', '0'],
+      optionLabels: { '10': '10%', '8': '8%(軽減)', '0': '非課税・対象外' },
+      defaultValue: '10',
+    },
+    {
+      key: 'AccountItem',
+      label: '勘定科目',
+      required: false,
+      type: 'string',
+      aliases: ['勘定科目', '科目', '費目', 'account', 'account item'],
+    },
+    {
+      key: 'InvoiceNumber',
+      label: '請求書番号',
+      required: false,
+      type: 'string',
+      aliases: [
+        '請求書番号',
+        '伝票番号',
+        '番号',
+        'invoice',
+        'invoice no',
+        '請求番号',
+      ],
+    },
+  ],
+};
+
+/** 経費精算データ */
+const EXPENSE_REPORT: TargetSchema = {
+  id: 'expense-report',
+  name: '経費精算',
+  origin: 'preset',
+  category: 'accounting',
+  fields: [
+    {
+      key: 'UsedAt',
+      label: '利用日',
+      required: true,
+      type: 'date',
+      aliases: ['利用日', '日付', '使用日', '支払日', 'date', '発生日'],
+    },
+    {
+      key: 'EmployeeName',
+      label: '申請者',
+      required: true,
+      type: 'string',
+      aliases: ['申請者', '氏名', '名前', '社員', '担当者', 'employee', 'name'],
+    },
+    {
+      key: 'PayeeName',
+      label: '支払先',
+      required: false,
+      type: 'string',
+      aliases: [
+        '支払先',
+        '店名',
+        '利用先',
+        '取引先',
+        'payee',
+        'vendor',
+        '店舗',
+      ],
+    },
+    {
+      key: 'AccountItem',
+      label: '勘定科目',
+      required: false,
+      type: 'string',
+      aliases: ['勘定科目', '科目', '費目', '経費区分', 'account', 'category'],
+    },
+    {
+      key: 'Amount',
+      label: '金額',
+      required: true,
+      type: 'number',
+      aliases: ['金額', '合計', '費用', 'amount', 'price', 'total'],
+    },
+    {
+      key: 'TaxRate',
+      label: '税区分',
+      required: false,
+      type: 'string',
+      aliases: ['税区分', '消費税', '税率', 'tax', 'tax rate'],
+      options: ['10', '8', '0'],
+      optionLabels: { '10': '10%', '8': '8%(軽減)', '0': '非課税・対象外' },
+      defaultValue: '10',
+    },
+    {
+      key: 'Note',
+      label: '摘要',
+      required: false,
+      type: 'string',
+      aliases: ['摘要', '内容', '目的', '備考', 'メモ', 'note', 'description'],
+    },
+  ],
+};
+
+// ── 配送・EC ────────────────────────────────────────────────
+
+/**
+ * 配送の送り状データ。
+ * 送り状CSVはフォーマットが厳格で、住所・電話・郵便番号の表記ゆれ修正が要る。
+ * このアプリの正規化(全角半角・電話番号)が最も効く用途。
+ */
+const SHIPPING_LABEL: TargetSchema = {
+  id: 'shipping-label',
+  name: '配送 — 送り状データ',
+  origin: 'preset',
+  category: 'logistics',
+  fields: [
+    {
+      key: 'RecipientName',
+      label: 'お届け先氏名',
+      required: true,
+      type: 'string',
+      aliases: [
+        'お届け先',
+        '氏名',
+        '名前',
+        '宛名',
+        '送り先',
+        'name',
+        'recipient',
+      ],
+    },
+    {
+      key: 'RecipientKana',
+      label: 'お届け先フリガナ',
+      required: false,
+      type: 'string',
+      aliases: ['フリガナ', 'ふりがな', 'カナ', 'kana', '宛名カナ'],
+    },
+    {
+      key: 'PostalCode',
+      label: '郵便番号',
+      required: true,
+      type: 'string',
+      aliases: ['郵便番号', '〒', 'zip', 'postal', 'postal code', 'zipcode'],
+    },
+    {
+      key: 'Address1',
+      label: '住所1（都道府県・市区町村）',
+      required: true,
+      type: 'string',
+      aliases: ['住所', '住所1', '都道府県', '市区町村', 'address', 'address1'],
+    },
+    {
+      key: 'Address2',
+      label: '住所2（番地・建物名）',
+      required: false,
+      type: 'string',
+      aliases: [
+        '住所2',
+        '番地',
+        '建物',
+        'マンション',
+        'ビル',
+        'address2',
+        '建物名',
+      ],
+    },
+    {
+      key: 'Phone',
+      label: '電話番号',
+      required: true,
+      type: 'phone',
+      aliases: ['電話', '電話番号', 'tel', 'phone', '連絡先'],
+    },
+    {
+      key: 'ItemName',
+      label: '品名',
+      required: false,
+      type: 'string',
+      aliases: ['品名', '商品名', '内容品', '品目', 'item', 'product', '商品'],
+    },
+    {
+      key: 'Quantity',
+      label: '個数',
+      required: false,
+      type: 'number',
+      aliases: ['個数', '数量', '点数', 'quantity', 'qty', '数'],
+      defaultValue: '1',
+    },
+    {
+      key: 'DeliveryDate',
+      label: '配達希望日',
+      required: false,
+      type: 'date',
+      aliases: [
+        '配達希望日',
+        '希望日',
+        'お届け日',
+        '配送日',
+        'delivery',
+        'date',
+      ],
+    },
+    {
+      key: 'DeliveryTime',
+      label: '配達希望時間帯',
+      required: false,
+      type: 'string',
+      aliases: ['時間帯', '希望時間', '配達時間', 'time', 'delivery time'],
+    },
+  ],
+};
+
+/** EC の受注データ */
+const EC_ORDER: TargetSchema = {
+  id: 'ec-order',
+  name: 'EC — 受注データ',
+  origin: 'preset',
+  category: 'logistics',
+  fields: [
+    {
+      key: 'OrderNumber',
+      label: '注文番号',
+      required: true,
+      type: 'string',
+      aliases: [
+        '注文番号',
+        '受注番号',
+        '伝票番号',
+        'order',
+        'order id',
+        'order no',
+      ],
+    },
+    {
+      key: 'OrderedAt',
+      label: '注文日',
+      required: false,
+      type: 'date',
+      aliases: ['注文日', '受注日', '日付', 'date', 'ordered', 'order date'],
+    },
+    {
+      key: 'CustomerName',
+      label: '購入者氏名',
+      required: true,
+      type: 'string',
+      aliases: [
+        '購入者',
+        '注文者',
+        '氏名',
+        '名前',
+        'customer',
+        'name',
+        'お客様',
+      ],
+    },
+    {
+      key: 'Email',
+      label: 'メール',
+      required: false,
+      type: 'email',
+      aliases: ['メール', 'メールアドレス', 'email', 'e-mail', 'mail'],
+    },
+    {
+      key: 'ProductCode',
+      label: '商品コード',
+      required: false,
+      type: 'string',
+      aliases: [
+        '商品コード',
+        'sku',
+        'jan',
+        '品番',
+        'product code',
+        'item code',
+      ],
+    },
+    {
+      key: 'ProductName',
+      label: '商品名',
+      required: false,
+      type: 'string',
+      aliases: ['商品名', '品名', '商品', 'product', 'item', 'item name'],
+    },
+    {
+      key: 'Quantity',
+      label: '数量',
+      required: false,
+      type: 'number',
+      aliases: ['数量', '個数', '点数', 'quantity', 'qty'],
+    },
+    {
+      key: 'Amount',
+      label: '金額',
+      required: false,
+      type: 'number',
+      aliases: ['金額', '合計', 'price', 'amount', 'total', '小計'],
+    },
+    {
+      key: 'ShippingAddress',
+      label: '配送先住所',
+      required: false,
+      type: 'string',
+      aliases: [
+        '配送先',
+        'お届け先住所',
+        '住所',
+        'address',
+        'shipping address',
+      ],
+    },
+  ],
+};
+
+/** EC 出品などで使う商品マスタ */
+const PRODUCT_MASTER: TargetSchema = {
+  id: 'product-master',
+  name: 'EC — 商品マスタ',
+  origin: 'preset',
+  category: 'logistics',
+  fields: [
+    {
+      key: 'Sku',
+      label: '商品コード(SKU)',
+      required: true,
+      type: 'string',
+      aliases: [
+        '商品コード',
+        'sku',
+        '品番',
+        '型番',
+        'product code',
+        'item code',
+      ],
+    },
+    {
+      key: 'ProductName',
+      label: '商品名',
+      required: true,
+      type: 'string',
+      aliases: ['商品名', '品名', '商品', 'product', 'item', 'name'],
+    },
+    {
+      key: 'JanCode',
+      label: 'JANコード',
+      required: false,
+      type: 'string',
+      aliases: ['jan', 'janコード', 'ean', 'バーコード', 'jan code'],
+    },
+    {
+      key: 'Category',
+      label: 'カテゴリ',
+      required: false,
+      type: 'string',
+      aliases: ['カテゴリ', '分類', 'ジャンル', 'category', 'genre'],
+    },
+    {
+      key: 'Price',
+      label: '販売価格',
+      required: false,
+      type: 'number',
+      aliases: ['価格', '販売価格', '税込価格', '定価', 'price', 'amount'],
+    },
+    {
+      key: 'Stock',
+      label: '在庫数',
+      required: false,
+      type: 'number',
+      aliases: ['在庫', '在庫数', '数量', 'stock', 'inventory', 'qty'],
+    },
+    {
+      key: 'Description',
+      label: '商品説明',
+      required: false,
+      type: 'string',
+      inputKind: 'textarea',
+      aliases: ['説明', '商品説明', '詳細', 'description', '備考'],
+    },
+  ],
+};
+
+// ── 広告レポート ────────────────────────────────────────────
+
+/** 媒体ごとにバラバラな広告レポートを統一するフォーマット */
+const AD_REPORT: TargetSchema = {
+  id: 'ad-report',
+  name: '広告 — レポート統合',
+  origin: 'preset',
+  category: 'ads',
+  fields: [
+    {
+      key: 'Date',
+      label: '日付',
+      required: true,
+      type: 'date',
+      aliases: ['日付', '日', '配信日', 'date', 'day', '期間'],
+    },
+    {
+      key: 'Platform',
+      label: '媒体',
+      required: false,
+      type: 'string',
+      aliases: [
+        '媒体',
+        'プラットフォーム',
+        '広告media',
+        'platform',
+        'media',
+        'source',
+      ],
+    },
+    {
+      key: 'CampaignName',
+      label: 'キャンペーン名',
+      required: false,
+      type: 'string',
+      aliases: ['キャンペーン', 'キャンペーン名', 'campaign', 'campaign name'],
+    },
+    {
+      key: 'Impressions',
+      label: 'インプレッション',
+      required: false,
+      type: 'number',
+      aliases: [
+        'imp',
+        'impression',
+        'impressions',
+        '表示回数',
+        'インプレッション',
+      ],
+    },
+    {
+      key: 'Clicks',
+      label: 'クリック数',
+      required: false,
+      type: 'number',
+      aliases: ['クリック', 'クリック数', 'click', 'clicks'],
+    },
+    {
+      key: 'Cost',
+      label: '費用',
+      required: false,
+      type: 'number',
+      aliases: [
+        '費用',
+        'コスト',
+        '広告費',
+        '消化金額',
+        'cost',
+        'spend',
+        'amount',
+      ],
+    },
+    {
+      key: 'Conversions',
+      label: 'コンバージョン',
+      required: false,
+      type: 'number',
+      aliases: ['cv', 'コンバージョン', '成果', 'conversion', 'conversions'],
+    },
+  ],
+};
+
+// ── 人事・勤怠 ──────────────────────────────────────────────
+
+/** 従業員名簿(人事システム取り込み向け) */
+const EMPLOYEE_ROSTER: TargetSchema = {
+  id: 'employee-roster',
+  name: '人事 — 従業員名簿',
+  origin: 'preset',
+  category: 'hr',
+  fields: [
+    {
+      key: 'EmployeeCode',
+      label: '社員番号',
+      required: true,
+      type: 'string',
+      aliases: [
+        '社員番号',
+        '従業員番号',
+        '社員コード',
+        'id',
+        'employee code',
+        '番号',
+      ],
+    },
+    {
+      key: 'LastName',
+      label: '姓',
+      required: true,
+      type: 'string',
+      aliases: ['姓', '苗字', '名字', 'lastname', 'last name'],
+    },
+    {
+      key: 'FirstName',
+      label: '名',
+      required: false,
+      type: 'string',
+      aliases: ['名', 'firstname', 'first name'],
+    },
+    {
+      key: 'NameKana',
+      label: 'フリガナ',
+      required: false,
+      type: 'string',
+      aliases: ['フリガナ', 'ふりがな', 'カナ', 'kana', 'furigana'],
+    },
+    {
+      key: 'Email',
+      label: '会社メール',
+      required: false,
+      type: 'email',
+      aliases: ['メール', 'メールアドレス', 'email', '会社メール', 'mail'],
+    },
+    {
+      key: 'Department',
+      label: '部署',
+      required: false,
+      type: 'string',
+      aliases: ['部署', '所属', '部門', '事業部', 'department', 'division'],
+    },
+    {
+      key: 'Title',
+      label: '役職',
+      required: false,
+      type: 'string',
+      aliases: ['役職', '肩書', '職位', 'title', 'position'],
+    },
+    {
+      key: 'EmploymentType',
+      label: '雇用形態',
+      required: false,
+      type: 'string',
+      aliases: [
+        '雇用形態',
+        '区分',
+        '社員区分',
+        'employment',
+        'employment type',
+      ],
+      options: ['fulltime', 'contract', 'parttime', 'outsourcing'],
+      optionLabels: {
+        fulltime: '正社員',
+        contract: '契約社員',
+        parttime: 'アルバイト・パート',
+        outsourcing: '業務委託',
+      },
+    },
+    {
+      key: 'JoinedAt',
+      label: '入社日',
+      required: false,
+      type: 'date',
+      aliases: ['入社日', '入社', '雇入日', 'joined', 'hire date', '開始日'],
+    },
+    {
+      key: 'LeftAt',
+      label: '退社日',
+      required: false,
+      type: 'date',
+      aliases: ['退社日', '退職日', '契約終了日', 'left', 'end date', '終了日'],
+    },
+  ],
+};
+
+/** 勤怠・工数データ */
+const TIMESHEET: TargetSchema = {
+  id: 'timesheet',
+  name: '勤怠・工数',
+  origin: 'preset',
+  category: 'hr',
+  fields: [
+    {
+      key: 'Date',
+      label: '日付',
+      required: true,
+      type: 'date',
+      aliases: ['日付', '日', '作業日', '勤務日', 'date', 'day'],
+    },
+    {
+      key: 'EmployeeName',
+      label: '担当者',
+      required: true,
+      type: 'string',
+      aliases: ['担当者', '氏名', '名前', '社員', 'employee', 'name', 'member'],
+    },
+    {
+      key: 'ProjectName',
+      label: 'プロジェクト',
+      required: false,
+      type: 'string',
+      aliases: ['プロジェクト', '案件', '業務', 'project', 'task', '作業内容'],
+    },
+    {
+      key: 'Hours',
+      label: '工数(時間)',
+      required: false,
+      type: 'number',
+      aliases: ['工数', '時間', '作業時間', '稼働時間', 'hours', 'time'],
+    },
+    {
+      key: 'StartTime',
+      label: '開始時刻',
+      required: false,
+      type: 'string',
+      aliases: ['開始', '開始時刻', '出社', '始業', 'start', 'start time'],
+    },
+    {
+      key: 'EndTime',
+      label: '終了時刻',
+      required: false,
+      type: 'string',
+      aliases: ['終了', '終了時刻', '退社', '終業', 'end', 'end time'],
+    },
+    {
+      key: 'Note',
+      label: '備考',
+      required: false,
+      type: 'string',
+      aliases: ['備考', 'メモ', 'コメント', 'note', 'remarks'],
     },
   ],
 };
 
 export const PRESET_SCHEMAS: TargetSchema[] = [
+  // CRM
   SALESFORCE_LEAD,
   HUBSPOT_CONTACT,
   DYNAMICS_LEAD,
   DYNAMICS_CONTACT,
   DYNAMICS_ACCOUNT,
+  // MA・メール配信
+  MA_CONTACT_LIST,
+  NEWSLETTER_LIST,
+  // 名刺・人脈
+  BUSINESS_CARD,
+  // 採用
+  APPLICANT_LIST,
+  // 会計・経費
+  INVOICE_LINE,
+  EXPENSE_REPORT,
+  // 配送・EC
+  SHIPPING_LABEL,
+  EC_ORDER,
+  PRODUCT_MASTER,
+  // 広告レポート
+  AD_REPORT,
+  // 人事・勤怠
+  EMPLOYEE_ROSTER,
+  TIMESHEET,
 ];
 
 export function getPresetById(id: string): TargetSchema | undefined {
@@ -491,9 +1802,7 @@ export function getPresetById(id: string): TargetSchema | undefined {
  * ユーザーがアップロードした「インポート用シート」のヘッダー行から
  * ターゲットスキーマを生成する。各列名をそのままキー兼ラベルにする。
  */
-export function schemaFromUploadedHeader(
-  dataset: SourceDataset,
-): TargetSchema {
+export function schemaFromUploadedHeader(dataset: SourceDataset): TargetSchema {
   const fields: TargetField[] = dataset.columns.map((c) => ({
     key: c.name,
     label: c.name,

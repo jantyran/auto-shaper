@@ -1,9 +1,14 @@
 import { useMemo } from 'react';
 import { useStore } from '../state/store';
-import { PRESET_SCHEMAS } from '../core/targetSchemas';
+import {
+  PRESET_SCHEMAS,
+  SCHEMA_CATEGORY_LABELS,
+  SCHEMA_CATEGORY_ORDER,
+} from '../core/targetSchemas';
 import { sortCustomSchemas } from '../core/schemaStore';
 import { findMatchingRecipes } from '../core/recipes';
 import { FileDrop } from './FileDrop';
+import type { SchemaCategory, TargetSchema } from '../types';
 
 /** ステップ2: インポート先フォーマット(ターゲットスキーマ)の選択 */
 export function TargetSelector() {
@@ -17,10 +22,22 @@ export function TargetSelector() {
   const recipes = useStore((s) => s.recipes);
   const applyRecipe = useStore((s) => s.applyRecipe);
   const recipesEnabled = useStore((s) => s.settings.features.recipes);
+  const schemaCategories = useStore((s) => s.settings.schemaCategories);
   const sortedCustomSchemas = useMemo(
     () => sortCustomSchemas(customSchemas),
     [customSchemas],
   );
+
+  // 設定でONにしたカテゴリのプリセットだけを、カテゴリ順にまとめて出す
+  const presetGroups = useMemo(() => {
+    const enabled = new Set(schemaCategories);
+    return SCHEMA_CATEGORY_ORDER.filter((c) => enabled.has(c))
+      .map((category) => ({
+        category,
+        schemas: PRESET_SCHEMAS.filter((s) => s.category === category),
+      }))
+      .filter((g) => g.schemas.length > 0);
+  }, [schemaCategories]);
 
   const matchingRecipes = useMemo(
     () =>
@@ -120,19 +137,26 @@ export function TargetSelector() {
       )}
 
       <h3>プリセットから選ぶ</h3>
-      <div className="card-grid">
-        {PRESET_SCHEMAS.map((schema) => (
-          <button
-            key={schema.id}
-            className="select-card"
+      {presetGroups.length === 0 ? (
+        <div className="alert info">
+          表示するプリセットのカテゴリが選ばれていません。「設定 →
+          テンプレートのカテゴリ」で使いたいカテゴリをONにしてください。
+        </div>
+      ) : (
+        presetGroups.map(({ category, schemas }) => (
+          <PresetGroup
+            key={category}
+            category={category}
+            schemas={schemas}
             disabled={isSuggesting}
-            onClick={() => void selectSchema(schema.id)}
-          >
-            <span className="name">{schema.name}</span>
-            <span className="meta">{schema.fields.length} フィールド</span>
-          </button>
-        ))}
-      </div>
+            onSelect={(id) => void selectSchema(id)}
+          />
+        ))
+      )}
+      <p className="subtitle" style={{ margin: '4px 0 10px' }}>
+        他の業務（会計・配送・広告レポートなど）のプリセットも用意しています。「設定
+        → テンプレートのカテゴリ」から追加で表示できます。
+      </p>
 
       <h3>独自フォーマットをアップロード</h3>
       <p className="subtitle" style={{ marginBottom: 10 }}>
@@ -153,5 +177,41 @@ export function TargetSelector() {
         onFile={(name, data) => void loadUploadedTarget(name, data)}
       />
     </div>
+  );
+}
+
+/** プリセットをカテゴリ単位で見出しつきに並べる */
+function PresetGroup({
+  category,
+  schemas,
+  disabled,
+  onSelect,
+}: {
+  category: SchemaCategory;
+  schemas: TargetSchema[];
+  disabled: boolean;
+  onSelect: (id: string) => void;
+}) {
+  const { title, desc } = SCHEMA_CATEGORY_LABELS[category];
+  return (
+    <section style={{ marginBottom: 14 }}>
+      <div className="preset-group-head">
+        <span className="preset-group-title">{title}</span>
+        <span className="preset-group-desc">{desc}</span>
+      </div>
+      <div className="card-grid">
+        {schemas.map((schema) => (
+          <button
+            key={schema.id}
+            className="select-card"
+            disabled={disabled}
+            onClick={() => onSelect(schema.id)}
+          >
+            <span className="name">{schema.name}</span>
+            <span className="meta">{schema.fields.length} フィールド</span>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }

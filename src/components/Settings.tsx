@@ -5,6 +5,11 @@ import {
   type LlmProvider,
   type Settings,
 } from '../core/settings';
+import {
+  PRESET_SCHEMAS,
+  SCHEMA_CATEGORY_LABELS,
+  SCHEMA_CATEGORY_ORDER,
+} from '../core/targetSchemas';
 import { AccountPanel } from './AccountPanel';
 
 const FEATURE_LABELS: Record<
@@ -52,6 +57,12 @@ export function SettingsPage() {
   };
   const setLlm = (patch: Partial<Settings['llm']>) =>
     set({ llm: { ...settings.llm, ...patch } });
+  const toggleCategory = (category: string, on: boolean) => {
+    const next = on
+      ? [...settings.schemaCategories, category]
+      : settings.schemaCategories.filter((c) => c !== category);
+    set({ schemaCategories: next });
+  };
   const setMasking = (patch: Partial<Settings['masking']>) =>
     set({ masking: { ...settings.masking, ...patch } });
 
@@ -71,6 +82,31 @@ export function SettingsPage() {
             onChange={(v) => setFeature(key, v)}
           />
         ))}
+      </div>
+
+      <div className="panel">
+        <h2>テンプレートのカテゴリ</h2>
+        <p className="subtitle">
+          インポート先の選択画面に出す内蔵テンプレートを、業務のカテゴリ単位で
+          追加できます。既定はCRMとMAのみです（必要なものだけONにすると選びやすくなります）。
+          ONにしたテンプレートは「テンプレート管理」から複製して、自分用に項目を
+          追加・変更することもできます。
+        </p>
+        {SCHEMA_CATEGORY_ORDER.map((category) => {
+          const { title, desc } = SCHEMA_CATEGORY_LABELS[category];
+          const count = PRESET_SCHEMAS.filter(
+            (s) => s.category === category,
+          ).length;
+          return (
+            <ToggleRow
+              key={category}
+              title={`${title}（${count}件）`}
+              desc={desc}
+              checked={settings.schemaCategories.includes(category)}
+              onChange={(v) => toggleCategory(category, v)}
+            />
+          );
+        })}
       </div>
 
       <div className="panel">

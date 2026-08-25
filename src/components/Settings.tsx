@@ -10,6 +10,7 @@ import {
   SCHEMA_CATEGORY_LABELS,
   SCHEMA_CATEGORY_ORDER,
 } from '../core/targetSchemas';
+import { THEMES, type ThemeId } from '../core/theme';
 import { AccountPanel } from './AccountPanel';
 
 const FEATURE_LABELS: Record<
@@ -81,6 +82,39 @@ export function SettingsPage() {
             checked={settings.features[key]}
             onChange={(v) => setFeature(key, v)}
           />
+        ))}
+      </div>
+
+      <div className="panel">
+        <h2>配色</h2>
+        <p className="subtitle">
+          画面全体の配色を切り替えます。選んだ配色はこのブラウザに保存されます。
+        </p>
+        {(['light', 'dark'] as const).map((mode) => (
+          <div key={mode} style={{ marginBottom: 14 }}>
+            <div className="theme-group-label">
+              {mode === 'light' ? '明るい配色' : '暗い配色'}
+            </div>
+            <div className="theme-grid">
+              {THEMES.filter((t) => t.mode === mode).map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  className={`theme-card${settings.theme === t.id ? ' active' : ''}`}
+                  aria-pressed={settings.theme === t.id}
+                  onClick={() => set({ theme: t.id as ThemeId })}
+                >
+                  <span className="theme-swatch" aria-hidden="true">
+                    {t.preview.map((c) => (
+                      <span key={c} style={{ background: c }} />
+                    ))}
+                  </span>
+                  <span className="theme-name">{t.name}</span>
+                  <span className="theme-desc">{t.desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
 

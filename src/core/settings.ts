@@ -5,6 +5,7 @@
  * APIキーなどの機微情報を含むため、設定はサーバー(SQLite)には送らず
  * このブラウザ内(localStorage)にのみ保存する。
  */
+import { DEFAULT_THEME, normalizeTheme, type ThemeId } from './theme';
 
 export interface FeatureFlags {
   /** マッピングのレシピ保存・再適用 */
@@ -68,6 +69,8 @@ export interface Settings {
    * (最初から全部見せると選択肢が多すぎるため)。
    */
   schemaCategories: string[];
+  /** 配色テーマ(`core/theme.ts` の ThemeId) */
+  theme: ThemeId;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -79,6 +82,7 @@ export const DEFAULT_SETTINGS: Settings = {
     masking: true,
   },
   schemaCategories: ['crm', 'ma'],
+  theme: DEFAULT_THEME,
   llm: {
     provider: 'anthropic',
     apiKey: '',
@@ -132,5 +136,6 @@ export function mergeSettings(partial: Partial<Settings>): Settings {
     schemaCategories: Array.isArray(partial.schemaCategories)
       ? partial.schemaCategories.map(String)
       : structuredClone(DEFAULT_SETTINGS.schemaCategories),
+    theme: normalizeTheme(partial.theme),
   };
 }

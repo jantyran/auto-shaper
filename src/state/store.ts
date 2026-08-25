@@ -29,6 +29,7 @@ import {
   type StorageMode,
 } from '../core/schemaRepository';
 import { loadSettings, saveSettings, type Settings } from '../core/settings';
+import { applyTheme } from '../core/theme';
 import {
   fetchMe,
   signIn as authSignIn,
@@ -449,6 +450,8 @@ export const useStore = create<AppState>((set, get) => ({
 
   updateSettings: (settings) => {
     saveSettings(settings);
+    // 配色は CSS 変数で切り替わるので、保存と同時に反映しておく
+    applyTheme(settings.theme);
     set({ settings });
   },
 

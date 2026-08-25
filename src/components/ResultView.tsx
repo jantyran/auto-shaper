@@ -176,7 +176,7 @@ export function ResultView() {
           </label>
 
           <div className="security-note">
-            変換はすべてこのブラウザ内で完結しました。データは外部サーバーを通過していません。
+            変換はすべてこのブラウザ内で完結しました。実データは外部サーバーを通過していません。
           </div>
 
           {validation && (

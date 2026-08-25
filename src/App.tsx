@@ -50,7 +50,7 @@ export function App() {
         <div className="app-header-top">
           <div className="app-brand">
             <h1>Auto Shaper</h1>
-            <span className="tag">ブラウザ完結・データは外部に出ません</span>
+            <span className="tag">ブラウザ完結・実データは外部に出ません</span>
           </div>
           <AuthBadge />
         </div>

@@ -27,8 +27,10 @@ Vulnerability Reporting）から報告してください。内容は報告者と
 [README「公開ネットワークに `npm run server` を晒す場合の注意」](README.md#公開ネットワークに-npm-run-server-を晒す場合の注意)
 を参照してください。
 
-- `/api/suggest`・`/api/extract` は意図的に未認証(ステートレスな LLM 中継のみ)
-- ログイン/サインアップにレート制限なし(公開時はリバースプロキシ側での対策を推奨)
+- `/api/suggest`・`/api/extract`(LLM 中継)はログイン必須、`/api/auth/login`・
+  `/api/auth/signup`・LLM 中継とも簡易レート制限あり(`server/rateLimit.mjs`)。ただし
+  プロセス内メモリでの実装のため、Cloud Functions のように複数インスタンスに増える
+  環境ではインスタンスごとにしか効かない(公開時はリバースプロキシ側での対策も推奨)
 - CORS の既定値は全オリジン許可(ローカル個人利用向け)
 
 上記以外の脆弱性(例: 認証バイパス、他ユーザーのデータへのアクセス、保存データの

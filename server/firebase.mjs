@@ -13,6 +13,9 @@ import { onRequest } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 
 process.env.DB_DRIVER = process.env.DB_DRIVER || 'postgres';
+// Hosting/Cloud Functions は信頼できるリバースプロキシなので、req.ip をそこから
+// 復元してよい(server/app.mjs 参照。IPベースのレート制限が正しく効くために必要)。
+process.env.TRUST_PROXY = process.env.TRUST_PROXY || '1';
 
 const databaseUrl = defineSecret('DATABASE_URL');
 

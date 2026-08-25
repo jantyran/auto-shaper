@@ -31,9 +31,14 @@ export { storageDriver };
 export function createApp() {
   const app = express();
 
-  // Firebase Hosting / Cloud Functions のようなプロキシ配下では、これが無いと
-  // req.ip がプロキシ自身のIPになり、IPベースのレート制限が機能しない。
-  app.set('trust proxy', true);
+  // Firebase Hosting / Cloud Functions のような「信頼できるリバースプロキシ配下」
+  // でだけ有効にする(TRUST_PROXY=1、server/firebase.mjs が既定で設定)。
+  // プロキシが無い状態(npm run server を直接インターネットに公開等)で無条件に
+  // 信頼すると、クライアントが X-Forwarded-For を偽装して req.ip を詐称でき、
+  // IPベースのレート制限(server/rateLimit.mjs)を簡単に回避されてしまう。
+  if (process.env.TRUST_PROXY === '1') {
+    app.set('trust proxy', true);
+  }
 
   /**
    * CORS。フロントを別オリジン(例: Live Server の http://host:5502)で配信する場合に必要。

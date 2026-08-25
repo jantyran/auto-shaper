@@ -29,7 +29,7 @@ export function TargetSelector() {
   );
 
   return (
-    <div className="panel">
+    <div className="panel" data-tour="tour-target-panel">
       <h2>2. インポート先フォーマットを選ぶ</h2>
       <p className="subtitle" style={{ marginBottom: 12 }}>
         整形後のデータをどのフォーマットに合わせるかを指定します。

@@ -41,6 +41,16 @@ function inProcessApi() {
 
 export default defineConfig({
   plugins: [react(), inProcessApi()],
+  server: {
+    port: 5502,
+    strictPort: true,
+    host: true,
+  },
+  preview: {
+    port: 5502,
+    strictPort: true,
+    host: true,
+  },
   worker: {
     format: 'es',
   },

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useStore } from '../state/store';
 import type {
   FieldMapping,
@@ -7,7 +7,7 @@ import type {
   TargetField,
   Transform,
 } from '../types';
-import { transformRow } from '../core/transformEngine';
+import { applyFieldMapping, transformRow } from '../core/transformEngine';
 import { importContextToRow } from '../core/importContext';
 import { fieldDisplayName, fieldOptionItems } from '../core/fieldMeta';
 
@@ -74,25 +74,27 @@ export function MappingEditor() {
         </div>
       )}
 
-      {target.fields.map((field) => {
-        const m =
-          mapping.fields.find((x) => x.targetKey === field.key) ??
-          ({
-            targetKey: field.key,
-            transform: { kind: 'empty' },
-            normalizers: [],
-            confidence: 0,
-          } as FieldMapping);
-        return (
-          <FieldEditorRow
-            key={field.key}
-            field={field}
-            mapping={m}
-            columnNames={columnNames}
-            onChange={(next) => update(field.key, next)}
-          />
-        );
-      })}
+      <div data-tour="tour-mapping-rows">
+        {target.fields.map((field) => {
+          const m =
+            mapping.fields.find((x) => x.targetKey === field.key) ??
+            ({
+              targetKey: field.key,
+              transform: { kind: 'empty' },
+              normalizers: [],
+              confidence: 0,
+            } as FieldMapping);
+          return (
+            <FieldEditorRow
+              key={field.key}
+              field={field}
+              mapping={m}
+              columnNames={columnNames}
+              onChange={(next) => update(field.key, next)}
+            />
+          );
+        })}
+      </div>
 
       <PreviewTable />
     </div>
@@ -132,12 +134,15 @@ function ImportContextPanel({
   };
 
   return (
-    <section className="import-context-panel">
+    <section className="import-context-panel" data-tour="tour-mapping-context">
       <div className="import-context-head">
         <div>
           <h3>今回の追加情報</h3>
           <p className="subtitle">
             元ファイルに無いイベント名やキャンペーン名を、この実行だけ式に渡せます。
+            効果があるのは、テンプレート管理でその項目に自動記入ルールを設定し、式に
+            {' {Import.キー} '}
+            を書いた場合だけです（式リファレンス参照）。
           </p>
         </div>
         <button type="button" className="ghost" onClick={addEntry}>
@@ -386,6 +391,8 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
         )}
       </div>
 
+      <FieldMiniPreview mapping={mapping} />
+
       {t.kind !== 'empty' && (
         <div className="norm-chips">
           {ALL_NORMALIZERS.map((n) => (
@@ -401,6 +408,40 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/** 項目1つ分のミニプレビュー。実データの先頭数行でどう変換されるかをその場で見せる */
+function FieldMiniPreview({ mapping }: { mapping: FieldMapping }) {
+  const source = useStore((s) => s.source);
+  const importContext = useStore((s) => s.importContext);
+  const contextRow = useMemo(
+    () => importContextToRow(importContext),
+    [importContext],
+  );
+
+  const values = useMemo(() => {
+    if (!source || mapping.transform.kind === 'empty') return [];
+    return source.rows
+      .slice(0, 3)
+      .map((row) => applyFieldMapping(row, mapping, contextRow));
+  }, [source, mapping, contextRow]);
+
+  if (values.length === 0) return null;
+
+  return (
+    <div className="mini-preview">
+      <span className="mini-preview-label">プレビュー:</span>
+      {values.map((v, i) => (
+        <span
+          key={i}
+          className={`mini-preview-chip${v.trim() === '' ? ' is-empty' : ''}`}
+          title={v}
+        >
+          {v.trim() === '' ? '（空欄）' : v.replace(/\n/g, ' ⏎ ')}
+        </span>
+      ))}
     </div>
   );
 }
@@ -496,8 +537,11 @@ function ConcatEditor({
     onChange({ ...transform, sources });
   };
 
+  // 「カスタム…」の選択を明示的に覚えておく。プリセット値と偶然一致する区切り文字
+  // (例: 初期値の " / ")を入力しても、プルダウンが「スラッシュ」に戻らないようにする。
+  const [customPicked, setCustomPicked] = useState(false);
   const preset = SEP_PRESETS.find((p) => p.value === transform.separator);
-  const isCustom = !preset;
+  const isCustom = customPicked || !preset;
 
   const setLabel = (col: string, value: string) => {
     const labels = { ...(transform.labels ?? {}) };
@@ -533,10 +577,12 @@ function ConcatEditor({
           value={isCustom ? '__custom__' : transform.separator}
           onChange={(e) => {
             const v = e.target.value;
-            onChange({
-              ...transform,
-              separator: v === '__custom__' ? ' / ' : v,
-            });
+            if (v === '__custom__') {
+              setCustomPicked(true);
+              return;
+            }
+            setCustomPicked(false);
+            onChange({ ...transform, separator: v });
           }}
         >
           {SEP_PRESETS.map((p) => (
@@ -730,16 +776,25 @@ function PreviewTable() {
   const target = useStore((s) => s.target);
   const mapping = useStore((s) => s.mapping);
   const importContext = useStore((s) => s.importContext);
+  const dropEmptyColumns = useStore((s) => s.dropEmptyColumns);
+  const setDropEmptyColumns = useStore((s) => s.setDropEmptyColumns);
   const contextRow = useMemo(
     () => importContextToRow(importContext),
     [importContext],
   );
 
+  const visibleFields = useMemo(() => {
+    if (!mapping) return [];
+    return dropEmptyColumns
+      ? mapping.fields.filter((m) => m.transform.kind !== 'empty')
+      : mapping.fields;
+  }, [mapping, dropEmptyColumns]);
+
   const preview = useMemo(() => {
     if (!source || !mapping) return [];
     return source.rows.slice(0, 8).map((row) => {
       const outRow = transformRow(row, mapping, contextRow);
-      return mapping.fields.map((m) => {
+      return visibleFields.map((m) => {
         const out = outRow[m.targetKey] ?? '';
         // 「変換された」= 単純な1列コピー以外、または正規化で値が変化
         const primarySource =
@@ -751,18 +806,30 @@ function PreviewTable() {
         return { out, changed, empty: out === '' };
       });
     });
-  }, [source, mapping, contextRow]);
+  }, [source, mapping, contextRow, visibleFields]);
 
   if (!source || !target || !mapping) return null;
 
   return (
-    <>
-      <h3>変換プレビュー（先頭{Math.min(8, source.rows.length)}行）</h3>
+    <div data-tour="tour-mapping-preview">
+      <div className="preview-bar">
+        <h3 style={{ margin: 0 }}>
+          変換プレビュー（先頭{Math.min(8, source.rows.length)}行）
+        </h3>
+        <label className="toggle">
+          <input
+            type="checkbox"
+            checked={!dropEmptyColumns}
+            onChange={(e) => setDropEmptyColumns(!e.target.checked)}
+          />
+          空欄の項目を表示（出力にも反映されます）
+        </label>
+      </div>
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
-              {mapping.fields.map((m) => (
+              {visibleFields.map((m) => (
                 <th key={m.targetKey}>{m.targetKey}</th>
               ))}
             </tr>
@@ -793,6 +860,6 @@ function PreviewTable() {
         </span>
         <span>— 空欄</span>
       </div>
-    </>
+    </div>
   );
 }

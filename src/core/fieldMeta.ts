@@ -1,4 +1,4 @@
-import type { FieldInputKind, TargetField } from '../types';
+import type { FieldInputKind, FieldMapping, TargetField } from '../types';
 
 export interface FieldOptionItem {
   value: string;
@@ -27,4 +27,20 @@ export function fieldOptionItems(field: TargetField): FieldOptionItem[] {
 
 export function fieldOptionLabel(field: TargetField, value: string): string {
   return field.optionLabels?.[value]?.trim() || value;
+}
+
+/**
+ * 出力に含める項目を絞り込む。dropEmpty が true のときは、
+ * 変換方法が「空（未割当）」の項目(未割当・マッピング無し含む)を除外する。
+ */
+export function visibleTargetFields(
+  fields: TargetField[],
+  mappingFields: FieldMapping[],
+  dropEmpty: boolean,
+): TargetField[] {
+  if (!dropEmpty) return fields;
+  return fields.filter((f) => {
+    const m = mappingFields.find((x) => x.targetKey === f.key);
+    return !!m && m.transform.kind !== 'empty';
+  });
 }

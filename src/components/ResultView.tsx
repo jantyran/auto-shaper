@@ -10,7 +10,7 @@ import type {
   TransformResponse,
 } from '../worker/transform.worker';
 import type { TargetField } from '../types';
-import { fieldDisplayName } from '../core/fieldMeta';
+import { fieldDisplayName, visibleTargetFields } from '../core/fieldMeta';
 
 /** ステップ4: 全件変換の実行と出力 */
 export function ResultView() {
@@ -26,6 +26,8 @@ export function ResultView() {
   const isTransforming = useStore((s) => s.isTransforming);
   const progress = useStore((s) => s.transformProgress);
   const setTransformState = useStore((s) => s.setTransformState);
+  const dropEmptyColumns = useStore((s) => s.dropEmptyColumns);
+  const setDropEmptyColumns = useStore((s) => s.setDropEmptyColumns);
 
   const workerRef = useRef<Worker | null>(null);
 
@@ -108,14 +110,20 @@ export function ResultView() {
 
   if (!source || !target || !mapping) return null;
 
+  const outputFields = visibleTargetFields(
+    target.fields,
+    mapping.fields,
+    dropEmptyColumns,
+  );
+
   const base = source.fileName.replace(/\.[^.]+$/, '');
   const handleExportCsv = () => {
     if (!transformedRows) return;
-    downloadCsv(toCsv(transformedRows, target.fields), `${base}_shaped.csv`);
+    downloadCsv(toCsv(transformedRows, outputFields), `${base}_shaped.csv`);
   };
   const handleExportXlsx = () => {
     if (!transformedRows) return;
-    void downloadXlsx(transformedRows, target.fields, `${base}_shaped.xlsx`);
+    void downloadXlsx(transformedRows, outputFields, `${base}_shaped.xlsx`);
   };
 
   return (
@@ -135,7 +143,7 @@ export function ResultView() {
 
       {transformedRows && (
         <>
-          <div className="stat-row">
+          <div className="stat-row" data-tour="tour-result-stats">
             <div className="stat">
               <span className="val">
                 {transformedRows.length.toLocaleString()}
@@ -143,7 +151,7 @@ export function ResultView() {
               <span className="lbl">変換した行数</span>
             </div>
             <div className="stat">
-              <span className="val">{target.fields.length}</span>
+              <span className="val">{outputFields.length}</span>
               <span className="lbl">出力フィールド数</span>
             </div>
             <div className="stat">
@@ -151,6 +159,18 @@ export function ResultView() {
               <span className="lbl">フォーマット</span>
             </div>
           </div>
+
+          <label
+            className="toggle"
+            style={{ marginBottom: 12, display: 'inline-flex' }}
+          >
+            <input
+              type="checkbox"
+              checked={!dropEmptyColumns}
+              onChange={(e) => setDropEmptyColumns(!e.target.checked)}
+            />
+            空（未割当）の項目も出力に含める
+          </label>
 
           <div className="security-note">
             変換はすべてこのブラウザ内で完結しました。データは外部サーバーを通過していません。
@@ -197,12 +217,12 @@ export function ResultView() {
 
           <ResultPreview
             rows={transformedRows}
-            fields={target.fields}
+            fields={outputFields}
             invalidRows={validation?.invalidRows ?? new Set()}
             issueCells={validation ? buildIssueCells(validation) : new Set()}
           />
 
-          <div className="btn-row">
+          <div className="btn-row" data-tour="tour-result-export">
             <button className="primary" onClick={handleExportCsv}>
               整形済みCSVをダウンロード
             </button>

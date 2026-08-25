@@ -51,6 +51,7 @@ import {
   type Recipe,
 } from '../core/recipes';
 import { findSchemaById } from '../core/schemaStore';
+import { hasSeenTour, markTourSeen } from '../core/tourState';
 
 export type Step = 'source' | 'target' | 'mapping' | 'result';
 export type View = 'app' | 'text' | 'admin' | 'formula' | 'settings';
@@ -84,6 +85,10 @@ interface AppState {
   isTransforming: boolean;
   transformProgress: number; // 0-1
   error?: string;
+  /** プレビュー/出力で「空（未割当）」の項目列を除外するか */
+  dropEmptyColumns: boolean;
+  /** 操作画面に重ねるガイドツアーを表示中か */
+  tourActive: boolean;
 
   // navigation
   setView: (view: View) => void;
@@ -109,6 +114,9 @@ interface AppState {
   loadUploadedTarget: (fileName: string, data: ArrayBuffer) => Promise<void>;
   updateFieldMapping: (targetKey: string, mapping: FieldMapping) => void;
   updateImportContext: (entries: ImportContextEntry[]) => void;
+  setDropEmptyColumns: (drop: boolean) => void;
+  startTour: () => void;
+  closeTour: () => void;
   setTransformState: (
     partial: Partial<
       Pick<
@@ -152,6 +160,8 @@ export const useStore = create<AppState>((set, get) => ({
   isTransforming: false,
   transformProgress: 0,
   importContext: [],
+  dropEmptyColumns: false,
+  tourActive: !hasSeenTour(),
 
   setView: (view) => set({ view, error: undefined }),
   goTo: (step) => set({ step }),
@@ -309,6 +319,14 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 
+  setDropEmptyColumns: (drop) => set({ dropEmptyColumns: drop }),
+
+  startTour: () => set({ tourActive: true }),
+  closeTour: () => {
+    markTourSeen();
+    set({ tourActive: false });
+  },
+
   setTransformState: (partial) => set(partial),
 
   reset: () =>
@@ -320,6 +338,7 @@ export const useStore = create<AppState>((set, get) => ({
       transformedRows: undefined,
       transformProgress: 0,
       importContext: [],
+      dropEmptyColumns: false,
       isTransforming: false,
       isSuggesting: false,
       error: undefined,

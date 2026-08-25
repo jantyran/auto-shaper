@@ -9,6 +9,7 @@ import { SettingsPage } from './components/Settings';
 import { TextShaper } from './components/TextShaper';
 import { AuthBadge } from './components/AuthBadge';
 import { FormulaReference } from './components/FormulaReference';
+import { GuidedTour } from './components/GuidedTour';
 
 const STEPS: { id: Step; label: string }[] = [
   { id: 'source', label: 'ソース投入' },
@@ -26,6 +27,7 @@ export function App() {
   const refreshRecipes = useStore((s) => s.refreshRecipes);
   const refreshLearning = useStore((s) => s.refreshLearning);
   const refreshAuth = useStore((s) => s.refreshAuth);
+  const startTour = useStore((s) => s.startTour);
 
   // 起動時: 先に認証状態を復元してから、保存先を判定してテンプレート/レシピ/学習辞書を同期
   useEffect(() => {
@@ -73,9 +75,13 @@ export function App() {
           >
             設定
           </button>
+          <button className="navbtn" onClick={() => startTour()}>
+            使い方
+          </button>
         </nav>
         <AuthBadge />
       </div>
+      <GuidedTour />
       <p className="subtitle">
         {view === 'app'
           ? '雑多なExcel/CSVを、AIがカラムを読み取ってインポート用フォーマットへ自動整形します。'
@@ -138,12 +144,14 @@ function SourceStep() {
       <p className="subtitle" style={{ marginBottom: 12 }}>
         代理店リスト、アンケート結果など、フォーマットがバラバラなファイルをそのまま投入してください。
       </p>
-      <FileDrop
-        title="ここにファイルをドロップ、またはクリックして選択"
-        hint="CSV / Excel (.xlsx, .xls) / TSV — 1行目をヘッダーとして読み取ります"
-        onFile={(name, data) => loadSource(name, data)}
-      />
-      <div className="security-note">
+      <div data-tour="tour-source-upload">
+        <FileDrop
+          title="ここにファイルをドロップ、またはクリックして選択"
+          hint="CSV / Excel (.xlsx, .xls) / TSV — 1行目をヘッダーとして読み取ります"
+          onFile={(name, data) => loadSource(name, data)}
+        />
+      </div>
+      <div className="security-note" data-tour="tour-source-security">
         アップロードしたファイルはブラウザ内でのみ処理されます。サーバーやAIへ実データを送信しません。
       </div>
     </div>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Auto Shaper">
+  <rect width="64" height="64" rx="14" fill="#1e2536" />
+  <path
+    d="M32 7 C34.5 23 41 29.5 57 32 C41 34.5 34.5 41 32 57 C29.5 41 23 34.5 7 32 C23 29.5 29.5 23 32 7 Z"
+    fill="#4f7cff"
+  />
+</svg>

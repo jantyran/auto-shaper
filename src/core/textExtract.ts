@@ -16,6 +16,7 @@ import type { TargetField, TargetSchema } from '../types';
 import { fieldDisplayName } from './fieldMeta';
 import type { LlmSettings } from './settings';
 import { apiUrl } from './apiBase';
+import { authHeaders } from './auth';
 
 /** 抽出結果（key = テンプレ項目キー, value = 値。まだマスクトークンを含みうる） */
 export type ExtractedRecord = Record<string, string>;
@@ -161,7 +162,7 @@ export async function llmTextExtract(
 ): Promise<ExtractedRecord> {
   const res = await fetch(apiUrl('/api/extract'), {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({
       provider: llm.provider,
       model: llm.model,
@@ -171,6 +172,9 @@ export async function llmTextExtract(
     }),
   });
   if (!res.ok) {
+    if (res.status === 401) {
+      throw new Error('LLM抽出を使うにはログインが必要です');
+    }
     const body = await res.text().catch(() => '');
     throw new Error(`抽出 API エラー (${res.status}): ${body.slice(0, 200)}`);
   }

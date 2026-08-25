@@ -27,8 +27,12 @@ export function resetStorageModeCache(): void {
   healthPromise = null;
 }
 
-/** バックエンドの有無を一度だけ判定してキャッシュ */
-function detectBackend(): Promise<boolean> {
+/**
+ * バックエンド(相対パス `/api`)の有無を一度だけ判定してキャッシュ。
+ * ログイン状態に関わらず判定するため、未ログイン時の「接続先の詳細設定」
+ * (`AccountPanel.tsx`)が「別オリジン配信の案内が必要か」を判断するのにも使う。
+ */
+export function detectBackend(): Promise<boolean> {
   if (!healthPromise) {
     healthPromise = (async () => {
       try {
@@ -59,7 +63,9 @@ function jsonHeaders(): Record<string, string> {
 export async function listSchemas(): Promise<TargetSchema[]> {
   if ((await detectStorageMode()) === 'api') {
     try {
-      const res = await fetch(apiUrl('/api/schemas'), { headers: authHeaders() });
+      const res = await fetch(apiUrl('/api/schemas'), {
+        headers: authHeaders(),
+      });
       if (res.ok) return (await res.json()) as TargetSchema[];
     } catch {
       /* fall through to local */
@@ -69,15 +75,20 @@ export async function listSchemas(): Promise<TargetSchema[]> {
 }
 
 /** 追加/更新。更新後の全一覧を返す */
-export async function persistSchema(schema: TargetSchema): Promise<TargetSchema[]> {
+export async function persistSchema(
+  schema: TargetSchema,
+): Promise<TargetSchema[]> {
   const next: TargetSchema = { ...schema, origin: 'custom' };
   if ((await detectStorageMode()) === 'api') {
     try {
-      const res = await fetch(apiUrl(`/api/schemas/${encodeURIComponent(next.id)}`), {
-        method: 'PUT',
-        headers: jsonHeaders(),
-        body: JSON.stringify(next),
-      });
+      const res = await fetch(
+        apiUrl(`/api/schemas/${encodeURIComponent(next.id)}`),
+        {
+          method: 'PUT',
+          headers: jsonHeaders(),
+          body: JSON.stringify(next),
+        },
+      );
       if (res.ok) return (await res.json()) as TargetSchema[];
     } catch {
       /* fall through to local */
@@ -87,13 +98,18 @@ export async function persistSchema(schema: TargetSchema): Promise<TargetSchema[
 }
 
 /** 削除。削除後の全一覧を返す */
-export async function removeSchemaFromRepo(id: string): Promise<TargetSchema[]> {
+export async function removeSchemaFromRepo(
+  id: string,
+): Promise<TargetSchema[]> {
   if ((await detectStorageMode()) === 'api') {
     try {
-      const res = await fetch(apiUrl(`/api/schemas/${encodeURIComponent(id)}`), {
-        method: 'DELETE',
-        headers: authHeaders(),
-      });
+      const res = await fetch(
+        apiUrl(`/api/schemas/${encodeURIComponent(id)}`),
+        {
+          method: 'DELETE',
+          headers: authHeaders(),
+        },
+      );
       if (res.ok) return (await res.json()) as TargetSchema[];
     } catch {
       /* fall through to local */

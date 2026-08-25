@@ -16,6 +16,7 @@ import type {
 } from '../../types';
 import type { LlmSettings } from '../settings';
 import { apiUrl } from '../apiBase';
+import { authHeaders } from '../auth';
 
 const VALID_KINDS = new Set([
   'direct',
@@ -44,7 +45,7 @@ export const llmSuggester = {
   async suggest(ctx: SuggestContext, llm: LlmSettings): Promise<MappingConfig> {
     const res = await fetch(apiUrl('/api/suggest'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       // 送るのはマスキング済みコンテキストと、接続情報のみ
       body: JSON.stringify({
         provider: llm.provider,
@@ -54,6 +55,9 @@ export const llmSuggester = {
       }),
     });
     if (!res.ok) {
+      if (res.status === 401) {
+        throw new Error('LLM推論を使うにはログインが必要です');
+      }
       const text = await res.text().catch(() => '');
       throw new Error(`LLM API エラー (${res.status}): ${text.slice(0, 200)}`);
     }

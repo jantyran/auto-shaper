@@ -36,6 +36,7 @@ const FEATURE_LABELS: Record<
 /** 設定ページ: 機能ON/OFF・AI接続・マスキング */
 export function SettingsPage() {
   const settings = useStore((s) => s.settings);
+  const user = useStore((s) => s.user);
   const update = useStore((s) => s.updateSettings);
   const refreshRecipes = useStore((s) => s.refreshRecipes);
   const recipes = useStore((s) => s.recipes);
@@ -79,7 +80,9 @@ export function SettingsPage() {
           <b>このブラウザにのみ保存</b>され、
           推論時は自前のバックエンド経由でプロバイダに送られます（送るのは
           <b>マスキング済みのカラム名とサンプルのみ</b>
-          で、実データは送りません）。
+          で、実データは送りません）。運営のサーバー費用を第三者の乱打から守るため、
+          <b>LLM推論・LLM抽出の利用にはログインが必要</b>
+          です（上の「アカウント」欄からログインしてください）。
         </p>
         <div className="settings-grid">
           <label className="field-label">
@@ -126,6 +129,11 @@ export function SettingsPage() {
         {settings.features.llm && !settings.llm.apiKey.trim() && (
           <div className="alert info" style={{ marginTop: 12 }}>
             LLM推論がONですがAPIキーが未入力です。キーが無い間はローカル推論で動作します。
+          </div>
+        )}
+        {settings.features.llm && settings.llm.apiKey.trim() && !user && (
+          <div className="alert info" style={{ marginTop: 12 }}>
+            LLM推論・LLM抽出の利用にはログインが必要です。未ログインの間はローカル推論・ローカル抽出で動作します。
           </div>
         )}
       </div>

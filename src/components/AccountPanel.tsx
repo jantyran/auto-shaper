@@ -6,11 +6,11 @@
  * ログイン済み: アカウント情報の表示とログアウト。ログイン中はテンプレート/
  *   レシピがサーバー(DB)に保存され、複数端末で共有できる。
  */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '../state/store';
 import { isValidEmail } from '../core/auth';
 import { getApiBase, setApiBase } from '../core/apiBase';
-import { resetStorageModeCache } from '../core/schemaRepository';
+import { detectBackend, resetStorageModeCache } from '../core/schemaRepository';
 
 type Mode = 'login' | 'signup';
 
@@ -183,6 +183,19 @@ export function AccountPanel() {
 function ConnectionField() {
   const [base, setBase] = useState(getApiBase());
   const [saved, setSaved] = useState(false);
+  // 相対パス /api が既に届いているか(同一オリジン配信/Firebase Hosting等)。
+  // 届いているなら「別オリジンのAPIサーバーを指定する」提案は不要かつ有害。
+  const [relativeApiOk, setRelativeApiOk] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void detectBackend().then((ok) => {
+      if (!cancelled) setRelativeApiOk(ok);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const commit = (value: string) => {
     setApiBase(value);
@@ -217,11 +230,13 @@ function ConnectionField() {
           </button>
         </div>
       </label>
-      <div style={{ margin: '6px 0 8px' }}>
-        <button type="button" className="ghost" onClick={useThisHost}>
-          このホストの :8787 を使う（{guessFromHost}）
-        </button>
-      </div>
+      {relativeApiOk === false && !base && (
+        <div style={{ margin: '6px 0 8px' }}>
+          <button type="button" className="ghost" onClick={useThisHost}>
+            このホストの :8787 を使う（{guessFromHost}）
+          </button>
+        </div>
+      )}
       <p className="subtitle" style={{ margin: '0 0 12px' }}>
         Vite開発サーバーや同一オリジン配信では空欄のままでOKです。Viteを使わない静的配信など、
         <code>/api</code>

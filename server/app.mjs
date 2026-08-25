@@ -24,11 +24,16 @@ import {
 } from './auth.mjs';
 import { runSuggest } from './suggest.mjs';
 import { runExtract } from './extract.mjs';
+import { rateLimit } from './rateLimit.mjs';
 
 export { storageDriver };
 
 export function createApp() {
   const app = express();
+
+  // Firebase Hosting / Cloud Functions のようなプロキシ配下では、これが無いと
+  // req.ip がプロキシ自身のIPになり、IPベースのレート制限が機能しない。
+  app.set('trust proxy', true);
 
   /**
    * CORS。フロントを別オリジン(例: Live Server の http://host:5502)で配信する場合に必要。
@@ -63,6 +68,21 @@ export function createApp() {
 
   const requireAuth = makeRequireAuth(store);
 
+  // ログイン試行のブルートフォース対策(IP単位)。
+  const authLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000,
+    max: 10,
+    keyFn: (req) => req.ip,
+    message: 'ログイン試行が多すぎます。5分ほど待ってから再試行してください。',
+  });
+  // LLM中継の乱打・スクリプト濫用対策(ユーザー単位。requireAuthの後に付ける)。
+  const llmLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000,
+    max: 30,
+    keyFn: (req) => req.userId ?? req.ip,
+    message: 'リクエストが多すぎます。5分ほど待ってから再試行してください。',
+  });
+
   const issueSession = async (userId) => {
     const token = newSessionToken();
     await store.createSession({ token, userId, expiresAt: sessionExpiry() });
@@ -76,7 +96,7 @@ export function createApp() {
 
   // ── 認証(メール + パスワード) ──
 
-  app.post('/api/auth/signup', async (req, res) => {
+  app.post('/api/auth/signup', authLimiter, async (req, res) => {
     try {
       const { email, password } = req.body ?? {};
       if (!isValidEmail(email)) {
@@ -109,7 +129,7 @@ export function createApp() {
     }
   });
 
-  app.post('/api/auth/login', async (req, res) => {
+  app.post('/api/auth/login', authLimiter, async (req, res) => {
     try {
       const { email, password } = req.body ?? {};
       const user = isValidEmail(email)
@@ -160,9 +180,10 @@ export function createApp() {
     }
   });
 
-  // ── LLM プロキシ(認証不要・ステートレス) ──
+  // ── LLM プロキシ(要ログイン。運営のサーバー費用を無関係な第三者の
+  //    連打から守るため、ログイン必須 + レート制限を付ける) ──
 
-  app.post('/api/suggest', async (req, res) => {
+  app.post('/api/suggest', requireAuth, llmLimiter, async (req, res) => {
     try {
       const { provider, model, apiKey, context } = req.body ?? {};
       const mapping = await runSuggest({ provider, model, apiKey, context });
@@ -173,7 +194,7 @@ export function createApp() {
     }
   });
 
-  app.post('/api/extract', async (req, res) => {
+  app.post('/api/extract', requireAuth, llmLimiter, async (req, res) => {
     try {
       const { provider, model, apiKey, text, target } = req.body ?? {};
       const result = await runExtract({

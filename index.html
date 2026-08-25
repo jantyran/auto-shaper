@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
     <!-- prettier-ignore -->
-    <title>Auto Shaper — 雑多なExcel/CSVをAIがインポート用フォーマットへ自動整形</title>
+    <title>Auto Shaper — Excel/CSVを取り込み用フォーマットへ整形・名寄せ</title>
     <meta
       name="description"
-      content="バラバラなExcel/CSVのカラムをAIが読み取り、Salesforce・HubSpotなどのインポート用フォーマットへ自動整形するブラウザ完結型ツール。全角半角の統一、(株)→株式会社、氏名の姓名分割、重複検出まで。実データはブラウザ内で処理され外部に送信されません。無料・オープンソース。"
+      content="毎回フォーマットが違うExcel/CSVを、Salesforce・HubSpotなどの取り込み用フォーマットに整えるブラウザツール。全角半角の統一、(株)→株式会社、電話番号の正規化、氏名の姓名分割、重複行の検出をまとめて処理。一度決めた対応付けは保存して次回ワンクリックで再適用できます。データはブラウザ内で処理され外部に送信されません。無料・オープンソース。"
     />
     <meta
       name="keywords"
-      content="CSV 整形,Excel 整形,データクレンジング,名寄せ,CRM インポート,Salesforce インポート,HubSpot,表記ゆれ,データ変換,AI"
+      content="CSV 変換,Excel 整形,データクレンジング,名寄せ,重複削除,表記ゆれ 修正,CRM インポート,Salesforce インポート,HubSpot,顧客リスト 整形,csv フォーマット 統一"
     />
     <link rel="canonical" href="https://auto-shaper.web.app/" />
     <meta name="robots" content="index, follow" />
@@ -27,28 +27,28 @@
     <meta property="og:url" content="https://auto-shaper.web.app/" />
     <meta
       property="og:title"
-      content="Auto Shaper — 雑多なExcel/CSVをAIがインポート用フォーマットへ自動整形"
+      content="Auto Shaper — Excel/CSVを取り込み用フォーマットへ整形・名寄せ"
     />
     <meta
       property="og:description"
-      content="バラバラなExcel/CSVのカラムをAIが読み取り、CRM等のインポート用フォーマットへ自動整形。表記ゆれの統一・姓名分割・重複検出まで、すべてブラウザ内で完結します。"
+      content="毎回フォーマットが違うExcel/CSVを、CRM等の取り込み用フォーマットに整えます。表記ゆれの統一・姓名分割・重複検出まで、すべてブラウザ内で完結。"
     />
     <meta property="og:image" content="https://auto-shaper.web.app/ogp.png" />
     <meta property="og:image:width" content="1280" />
     <meta property="og:image:height" content="670" />
     <meta
       property="og:image:alt"
-      content="Auto Shaper のマッピング画面。AIが提案した変換ルールを確信度つきで確認できる。"
+      content="Auto Shaper のマッピング画面。列の対応付けを確信度つきで確認し、変換前後をプレビューできる。"
     />
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta
       name="twitter:title"
-      content="Auto Shaper — 雑多なExcel/CSVをAIが自動整形"
+      content="Auto Shaper — Excel/CSVを取り込み用フォーマットへ整形"
     />
     <meta
       name="twitter:description"
-      content="バラバラなExcel/CSVのカラムをAIが読み取り、CRM等のインポート用フォーマットへ自動整形。すべてブラウザ内で完結します。"
+      content="毎回フォーマットが違うExcel/CSVを、CRM等の取り込み用フォーマットに整えます。すべてブラウザ内で完結。"
     />
     <meta name="twitter:image" content="https://auto-shaper.web.app/ogp.png" />
 
@@ -62,7 +62,7 @@
         "applicationCategory": "BusinessApplication",
         "operatingSystem": "Web ブラウザ",
         "inLanguage": "ja",
-        "description": "バラバラなExcel/CSVのカラムをAIが読み取り、CRM等のインポート用フォーマットへ自動整形するブラウザ完結型ツール。表記ゆれの統一・姓名分割・重複検出に対応。",
+        "description": "毎回フォーマットが違うExcel/CSVを、CRM等の取り込み用フォーマットに整えるブラウザツール。表記ゆれの統一・姓名分割・重複検出・マッピングの保存に対応。",
         "offers": {
           "@type": "Offer",
           "price": "0",
@@ -85,19 +85,20 @@
           max-width: 720px;
           margin: 0 auto;
           padding: 40px 20px;
-          color: #e6ebf5;
-          background: #0f1420;
+          color: #14211b;
+          background: #f5f8f6;
           font-family: system-ui, sans-serif;
           line-height: 1.7;
         "
       >
-        <h1>Auto Shaper — 雑多な Excel/CSV を AI が自動整形</h1>
+        <h1>Auto Shaper — Excel/CSV を取り込み用フォーマットへ整形</h1>
         <p>
-          バラバラな Excel/CSV のカラムを AI が読み取り、Salesforce・HubSpot
-          などのインポート用フォーマットへ自動整形するブラウザ完結型ツールです。
+          毎回フォーマットが違う Excel/CSV を、Salesforce・HubSpot
+          などの取り込み用フォーマットに整えるブラウザツールです。
           全角半角の統一、<code>(株)</code> → <code>株式会社</code>
-          の正規化、氏名の姓名分割、取り込み前の重複検出まで行えます。
-          実データはブラウザ内で処理され、外部に送信されません。
+          の正規化、電話番号の正規化、氏名の姓名分割、取り込み前の重複検出までまとめて処理できます。
+          一度決めた列の対応付けは保存でき、同じ形のファイルが来たら次回はワンクリックで再適用できます。
+          データはブラウザ内で処理され、外部に送信されません。
         </p>
         <p>
           <strong>
@@ -109,7 +110,7 @@
           ソースコード（MIT ライセンス）:
           <a
             href="https://github.com/jantyran/auto-shaper"
-            style="color: #4f7cff"
+            style="color: #10794a"
           >
             github.com/jantyran/auto-shaper
           </a>

@@ -39,6 +39,10 @@ export function MappingEditor() {
   const importContext = useStore((s) => s.importContext);
   const update = useStore((s) => s.updateFieldMapping);
   const updateImportContext = useStore((s) => s.updateImportContext);
+  const settings = useStore((s) => s.settings);
+  // LLM は任意機能。OFF のとき(既定)は外部へ一切送っていないので、
+  // 「AIに渡した」とは書かない。
+  const usedLlm = settings.features.llm && !!settings.llm.apiKey.trim();
 
   if (!source || !target || !mapping) return null;
 
@@ -54,12 +58,22 @@ export function MappingEditor() {
     <div className="panel">
       <h2>3. マッピングを確認・修正</h2>
       <p className="subtitle" style={{ marginBottom: 8 }}>
-        AIの提案です。確信度が低いものや違和感のある割り当てだけ直せばOKです。
+        列名とデータの形から自動で割り当てました。確信度が低いものや違和感のある箇所だけ直せばOKです。
       </p>
       <div className="security-note">
-        AIに渡したのはカラム名と匿名化した数行サンプルのみです。実データ（
-        {source.rows.length.toLocaleString()}
-        行）はこのブラウザから出ていません。
+        {usedLlm ? (
+          <>
+            AIに渡したのはカラム名と匿名化した数行サンプルのみです。実データ（
+            {source.rows.length.toLocaleString()}
+            行）はこのブラウザから出ていません。
+          </>
+        ) : (
+          <>
+            割り当ての判定も変換も、このブラウザ内で完結しています。実データ（
+            {source.rows.length.toLocaleString()}
+            行）はどこにも送信されていません。
+          </>
+        )}
       </div>
 
       <ImportContextPanel
@@ -856,7 +870,7 @@ function PreviewTable() {
       <div className="legend">
         <span>
           <span className="swatch" />
-          AIが整形・変換したセル
+          整形・変換されたセル
         </span>
         <span>— 空欄</span>
       </div>

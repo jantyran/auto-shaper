@@ -11,6 +11,8 @@ import { applyFieldMapping, transformRow } from '../core/transformEngine';
 import { importContextToRow } from '../core/importContext';
 import { fieldDisplayName, fieldOptionItems } from '../core/fieldMeta';
 import { ValueMapEditor } from './ValueMapEditor';
+import { RowFilterEditor } from './RowFilterEditor';
+import { applyRowFilter } from '../core/rowFilter';
 
 const NORMALIZER_LABELS: Record<Normalizer, string> = {
   trim: '前後空白除去',
@@ -41,6 +43,7 @@ export function MappingEditor() {
   const mapping = useStore((s) => s.mapping);
   const importContext = useStore((s) => s.importContext);
   const update = useStore((s) => s.updateFieldMapping);
+  const setRowFilter = useStore((s) => s.setRowFilter);
   const updateImportContext = useStore((s) => s.updateImportContext);
   const settings = useStore((s) => s.settings);
   // LLM は任意機能。OFF のとき(既定)は外部へ一切送っていないので、
@@ -82,6 +85,12 @@ export function MappingEditor() {
       <ImportContextPanel
         entries={importContext}
         onChange={updateImportContext}
+      />
+
+      <RowFilterEditor
+        filter={mapping.rowFilter}
+        columnNames={columnNames}
+        onChange={setRowFilter}
       />
 
       {missingRequired.length > 0 && (
@@ -436,6 +445,7 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
 /** 項目1つ分のミニプレビュー。実データの先頭数行でどう変換されるかをその場で見せる */
 function FieldMiniPreview({ mapping }: { mapping: FieldMapping }) {
   const source = useStore((s) => s.source);
+  const rowFilter = useStore((s) => s.mapping?.rowFilter);
   const importContext = useStore((s) => s.importContext);
   const contextRow = useMemo(
     () => importContextToRow(importContext),
@@ -444,10 +454,11 @@ function FieldMiniPreview({ mapping }: { mapping: FieldMapping }) {
 
   const values = useMemo(() => {
     if (!source || mapping.transform.kind === 'empty') return [];
-    return source.rows
+    // 絞り込みで残る行から採る(除外される行の値を見せても判断材料にならない)
+    return applyRowFilter(source.rows, rowFilter)
       .slice(0, 3)
       .map((row) => applyFieldMapping(row, mapping, contextRow));
-  }, [source, mapping, contextRow]);
+  }, [source, rowFilter, mapping, contextRow]);
 
   if (values.length === 0) return null;
 
@@ -813,20 +824,23 @@ function PreviewTable() {
 
   const preview = useMemo(() => {
     if (!source || !mapping) return [];
-    return source.rows.slice(0, 8).map((row) => {
-      const outRow = transformRow(row, mapping, contextRow);
-      return visibleFields.map((m) => {
-        const out = outRow[m.targetKey] ?? '';
-        // 「変換された」= 単純な1列コピー以外、または正規化で値が変化
-        const primarySource =
-          m.transform.kind === 'direct'
-            ? (row[m.transform.source] ?? '')
-            : undefined;
-        const changed =
-          m.transform.kind !== 'direct' || out !== (primarySource ?? '');
-        return { out, changed, empty: out === '' };
+    // 絞り込みで除外される行はプレビューにも出さない(実際の出力と食い違わせない)
+    return applyRowFilter(source.rows, mapping.rowFilter)
+      .slice(0, 8)
+      .map((row) => {
+        const outRow = transformRow(row, mapping, contextRow);
+        return visibleFields.map((m) => {
+          const out = outRow[m.targetKey] ?? '';
+          // 「変換された」= 単純な1列コピー以外、または正規化で値が変化
+          const primarySource =
+            m.transform.kind === 'direct'
+              ? (row[m.transform.source] ?? '')
+              : undefined;
+          const changed =
+            m.transform.kind !== 'direct' || out !== (primarySource ?? '');
+          return { out, changed, empty: out === '' };
+        });
       });
-    });
   }, [source, mapping, contextRow, visibleFields]);
 
   if (!source || !target || !mapping) return null;
@@ -834,9 +848,7 @@ function PreviewTable() {
   return (
     <div data-tour="tour-mapping-preview">
       <div className="preview-bar">
-        <h3 style={{ margin: 0 }}>
-          変換プレビュー（先頭{Math.min(8, source.rows.length)}行）
-        </h3>
+        <h3 style={{ margin: 0 }}>変換プレビュー（先頭{preview.length}行）</h3>
         <label className="toggle">
           <input
             type="checkbox"

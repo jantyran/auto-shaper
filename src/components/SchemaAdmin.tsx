@@ -597,6 +597,26 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
                     />
                     必須
                   </label>
+                  <label className="field-label">
+                    最大文字数
+                    <input
+                      type="number"
+                      min={1}
+                      placeholder="制限なし"
+                      value={f.maxLength ?? ''}
+                      onChange={(e) => {
+                        const n = Number(e.target.value);
+                        setField(i, {
+                          maxLength:
+                            e.target.value === '' ||
+                            !Number.isFinite(n) ||
+                            n < 1
+                              ? undefined
+                              : Math.floor(n),
+                        });
+                      }}
+                    />
+                  </label>
                 </div>
 
                 <div className="detail-section-title">補助設定</div>

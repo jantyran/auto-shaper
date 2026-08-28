@@ -107,6 +107,11 @@ export interface TargetField {
    * 自動で入る。ユーザーはマッピング画面で選択変更・上書きできる。
    */
   defaultValue?: string;
+  /**
+   * 取り込み先が受け付ける最大文字数。超えた行は検証で警告する。
+   * (Salesforce 等は項目ごとに上限があり、1件でも超えるとインポートが失敗する)
+   */
+  maxLength?: number;
   /** 他の出力項目を参照して自動記入するルール。 */
   autoFill?: FieldAutoFillRule;
 }
@@ -236,9 +241,28 @@ export interface FieldMapping {
 }
 
 /** 変換設定全体。これがAIの出力物であり、変換エンジンの入力 */
+/** 行の絞り込み条件1件分 */
+export interface RowFilterRule {
+  /** 判定に使う元データの列名 */
+  column: string;
+  op: ConditionOp;
+  value: string;
+}
+
+/** 変換にかける行を絞り込む設定 */
+export interface RowFilter {
+  /** 条件に合う行を残すか、除くか */
+  mode: 'include' | 'exclude';
+  /** 条件が複数あるときの結合方法 */
+  match: 'all' | 'any';
+  rules: RowFilterRule[];
+}
+
 export interface MappingConfig {
   targetSchemaId: string;
   fields: FieldMapping[];
+  /** 変換対象の行を絞り込む。未設定なら全行が対象。 */
+  rowFilter?: RowFilter;
 }
 
 // ─────────────────────────────────────────────────────────────

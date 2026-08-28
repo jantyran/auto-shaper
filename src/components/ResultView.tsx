@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../state/store';
 import { transformAll } from '../core/transformEngine';
+import { applyRowFilter } from '../core/rowFilter';
 import { importContextToRow } from '../core/importContext';
 import { toCsv, downloadCsv, downloadXlsx } from '../core/exportCsv';
 import { validateRows, ISSUE_LABELS } from '../core/validate';
@@ -31,6 +32,13 @@ export function ResultView() {
   const markExported = useStore((s) => s.markExported);
 
   const workerRef = useRef<Worker | null>(null);
+
+  // 絞り込み条件で残った行だけを変換にかける
+  const targetRows = useMemo(
+    () => (source ? applyRowFilter(source.rows, mapping?.rowFilter) : []),
+    [source, mapping?.rowFilter],
+  );
+  const removedRows = (source?.rows.length ?? 0) - targetRows.length;
 
   // 変換をまだ実行していなければ実行する
   useEffect(() => {
@@ -64,7 +72,7 @@ export function ResultView() {
       };
       worker.onerror = () => {
         // フォールバック: メインスレッドで同期実行
-        const rows = transformAll(source.rows, mapping, contextRow);
+        const rows = transformAll(targetRows, mapping, contextRow);
         setTransformState({
           transformedRows: rows,
           isTransforming: false,
@@ -73,13 +81,13 @@ export function ResultView() {
         worker?.terminate();
       };
       const req: TransformRequest = {
-        rows: source.rows,
+        rows: targetRows,
         config: mapping,
         context: contextRow,
       };
       worker.postMessage(req);
     } catch {
-      const rows = transformAll(source.rows, mapping, contextRow);
+      const rows = transformAll(targetRows, mapping, contextRow);
       setTransformState({
         transformedRows: rows,
         isTransforming: false,
@@ -91,7 +99,7 @@ export function ResultView() {
       worker?.terminate();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source, mapping, contextRow]);
+  }, [source, mapping, contextRow, targetRows]);
 
   const dedupeEnabled = useStore((s) => s.settings.features.duplicateDetection);
 
@@ -136,7 +144,7 @@ export function ResultView() {
       {isTransforming && (
         <>
           <div className="alert info">
-            全 {source.rows.length.toLocaleString()} 行をブラウザ内で変換中…
+            全 {targetRows.length.toLocaleString()} 行をブラウザ内で変換中…
           </div>
           <div className="progress">
             <div style={{ width: `${Math.round(progress * 100)}%` }} />
@@ -153,6 +161,12 @@ export function ResultView() {
               </span>
               <span className="lbl">変換した行数</span>
             </div>
+            {removedRows > 0 && (
+              <div className="stat">
+                <span className="val">{removedRows.toLocaleString()}</span>
+                <span className="lbl">絞り込みで除外</span>
+              </div>
+            )}
             <div className="stat">
               <span className="val">{outputFields.length}</span>
               <span className="lbl">出力フィールド数</span>

@@ -8,6 +8,7 @@ import type {
   FieldMapping,
   ImportContextEntry,
   MappingConfig,
+  RowFilter,
   SourceDataset,
   TargetSchema,
 } from '../types';
@@ -128,6 +129,8 @@ interface AppState {
   selectSchema: (id: string) => Promise<void>;
   loadUploadedTarget: (fileName: string, data: ArrayBuffer) => Promise<void>;
   updateFieldMapping: (targetKey: string, mapping: FieldMapping) => void;
+  /** 変換対象の行を絞り込む条件を設定する(undefined で解除) */
+  setRowFilter: (rowFilter: RowFilter | undefined) => void;
   updateImportContext: (entries: ImportContextEntry[]) => void;
   setDropEmptyColumns: (drop: boolean) => void;
   dismissEntrance: () => void;
@@ -398,6 +401,18 @@ export const useStore = create<AppState>((set, get) => ({
     // マッピングを変えたら既存の変換結果は無効化し、再実行させる
     set({
       mapping: { ...config, fields },
+      transformedRows: undefined,
+      exportedOnce: false,
+      transformProgress: 0,
+    });
+  },
+
+  setRowFilter: (rowFilter) => {
+    const config = get().mapping;
+    if (!config) return;
+    // 対象行が変われば変換結果も変わるので、必ず再実行させる
+    set({
+      mapping: { ...config, rowFilter },
       transformedRows: undefined,
       exportedOnce: false,
       transformProgress: 0,

@@ -26,7 +26,7 @@ function get(row: Row, key: string): string {
   return v == null ? '' : String(v);
 }
 
-function evalCondition(value: string, c: ConditionalCase): boolean {
+export function evalCondition(value: string, c: ConditionalCase): boolean {
   const v = value ?? '';
   switch (c.op) {
     case 'contains':

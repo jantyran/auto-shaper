@@ -336,6 +336,10 @@ function sanitizeSchema(s: TargetSchema): TargetSchema {
               f.defaultValue != null && f.defaultValue !== ''
                 ? String(f.defaultValue)
                 : undefined,
+            maxLength:
+              Number.isFinite(f.maxLength) && Number(f.maxLength) > 0
+                ? Math.floor(Number(f.maxLength))
+                : undefined,
             autoFill: sanitizeAutoFill(f.autoFill),
           };
         })

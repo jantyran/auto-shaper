@@ -2516,3 +2516,20 @@ td.rownum {
   width: 1.5em;
   text-align: center;
 }
+
+/* 行の絞り込み条件 */
+.row-filter-rule {
+  display: grid;
+  grid-template-columns:
+    minmax(120px, 1.2fr) minmax(110px, 0.9fr) minmax(120px, 1.4fr)
+    auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+@media (max-width: 700px) {
+  .row-filter-rule {
+    grid-template-columns: 1fr 1fr;
+  }
+}

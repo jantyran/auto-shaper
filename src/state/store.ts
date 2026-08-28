@@ -12,7 +12,7 @@ import type {
   SourceDataset,
   TargetSchema,
 } from '../types';
-import { parseWorkbook, type ParseOptions } from '../core/parse';
+import { mergeDatasets, parseWorkbook } from '../core/parse';
 import { buildSuggestContext } from '../core/anonymize';
 import { applyFieldDefaults } from '../core/mappingDefaults';
 import { heuristicSuggester } from '../core/inference/heuristic';
@@ -57,15 +57,46 @@ import { findSchemaById } from '../core/schemaStore';
 import { hasSeenEntrance, markEntranceSeen } from '../core/entranceState';
 import { DEMO_SOURCE_CSV, DEMO_SOURCE_FILE_NAME } from '../core/demoData';
 
+/** 画面から渡されるアップロード済みファイル */
+export interface UploadedFile {
+  fileName: string;
+  data: ArrayBuffer;
+}
+
+/** アップロードされた1ファイル(生データとシート一覧を保持する) */
+export interface SourceFile {
+  fileName: string;
+  data: ArrayBuffer;
+  /** そのブックの全シート名(CSV/TSVでも1件入る) */
+  sheetNames: string[];
+}
+
+/** 実際に読み込む「ファイルの、このシート」1件分 */
+export interface SourceUnit {
+  /** sourceFiles のインデックス */
+  fileIndex: number;
+  /** 読むシート名 */
+  sheet: string;
+  /** ヘッダー行の明示指定(未指定なら自動判定) */
+  headerRow?: number;
+}
+
 export type Step = 'source' | 'target' | 'mapping' | 'result';
 export type View = 'app' | 'text' | 'admin' | 'formula' | 'settings';
 
 interface AppState {
   view: View;
   step: Step;
+  /** 取り込み対象すべてを縦に結合した、整形の入力になるデータ */
   source?: SourceDataset;
-  /** シート切替のためにアップロード生データを保持 */
-  sourceRaw?: { fileName: string; data: ArrayBuffer };
+  /** 読み直し(シート追加・見出し行変更)のために保持しているアップロード生データ */
+  sourceFiles: SourceFile[];
+  /** 実際に読む (ファイル, シート) の組。この順に縦結合する。 */
+  sourceUnits: SourceUnit[];
+  /** sourceUnits と同じ並びのパース結果(見出し行の選び直しに使う) */
+  sourceUnitData: SourceDataset[];
+  /** 指定すると、取込元(ファイル名/シート名)をこの名前の列として足す */
+  originColumn?: string;
   target?: TargetSchema;
   mapping?: MappingConfig;
   transformedRows?: Record<string, string>[];
@@ -120,12 +151,20 @@ interface AppState {
   signOut: () => Promise<void>;
 
   // formatting process
-  loadSource: (fileName: string, data: ArrayBuffer) => void;
+  /** ファイルを読み込んで整形を始める(複数渡すと縦に結合する) */
+  loadSource: (files: UploadedFile | UploadedFile[]) => Promise<void>;
+  /** 読み込み済みのものを残したままファイルを追加する */
+  addSourceFiles: (files: UploadedFile[]) => Promise<void>;
+  /** 取り込み対象を1件外す(最後の1件を外すとアップロード画面に戻る) */
+  removeSourceUnit: (index: number) => Promise<void>;
+  /** 同じファイルの別シートを取り込み対象に足す/外す */
+  toggleSourceSheet: (fileIndex: number, sheet: string) => Promise<void>;
+  /** 取り込み対象1件のヘッダー行(1始まり)を指定して読み直す */
+  setUnitHeaderRow: (index: number, headerRow: number) => Promise<void>;
+  /** 取込元(ファイル名/シート名)を列として足す。undefined で足さない。 */
+  setOriginColumn: (originColumn: string | undefined) => Promise<void>;
   /** ガイドツアー用: 埋め込みサンプルCSVを実アップロードと同じ経路で読み込む */
   loadDemoSource: () => Promise<void>;
-  selectSheet: (sheetName: string) => Promise<void>;
-  /** ヘッダーとして扱う行(1始まり)を指定して読み直す */
-  setHeaderRow: (headerRow: number) => Promise<void>;
   selectSchema: (id: string) => Promise<void>;
   loadUploadedTarget: (fileName: string, data: ArrayBuffer) => Promise<void>;
   updateFieldMapping: (targetKey: string, mapping: FieldMapping) => void;
@@ -183,32 +222,71 @@ function initialEntranceActive(): boolean {
 }
 
 /**
- * 保持しているソースファイルを、別のシート/ヘッダー行で読み直す。
- * 列構成が変わるため、下流(ターゲット/マッピング/結果)は必ずリセットする。
+ * 取り込み対象(ファイル×シート)を全部読み直して、1つのデータセットに結合する。
+ *
+ * 列構成が変わりうるので、下流(ターゲット/マッピング/結果)は毎回リセットする。
+ * 取り込むものが1つも無くなったら、最初のアップロード画面に戻す。
  */
-async function reparseSource(
+async function rebuildSource(
   set: (partial: Partial<AppState>) => void,
   get: () => AppState,
-  options: ParseOptions,
+  next: { files: SourceFile[]; units: SourceUnit[] },
   failureMessage: string,
 ): Promise<void> {
-  const raw = get().sourceRaw;
-  if (!raw) return;
-  try {
-    const source = await parseWorkbook(raw.fileName, raw.data, options);
+  const downstream: Partial<AppState> = {
+    target: undefined,
+    mapping: undefined,
+    transformedRows: undefined,
+    exportedOnce: false,
+    importContext: [],
+    error: undefined,
+  };
+
+  if (next.units.length === 0) {
     set({
-      source,
-      target: undefined,
-      mapping: undefined,
-      transformedRows: undefined,
-      exportedOnce: false,
-      importContext: [],
+      ...downstream,
+      sourceFiles: [],
+      sourceUnits: [],
+      sourceUnitData: [],
+      source: undefined,
+      step: 'source',
+    });
+    return;
+  }
+
+  try {
+    const data: SourceDataset[] = [];
+    for (const unit of next.units) {
+      const file = next.files[unit.fileIndex];
+      if (!file) continue;
+      data.push(
+        await parseWorkbook(file.fileName, file.data, {
+          sheetName: unit.sheet,
+          headerRow: unit.headerRow,
+        }),
+      );
+    }
+    if (data.length === 0) throw new Error(failureMessage);
+    set({
+      ...downstream,
+      sourceFiles: next.files,
+      sourceUnits: next.units,
+      sourceUnitData: data,
+      source: mergeDatasets(data, get().originColumn),
       step: 'target',
-      error: undefined,
     });
   } catch (e) {
     set({ error: e instanceof Error ? e.message : failureMessage });
   }
+}
+
+/** アップロードされた1ファイルを読み、そのシート一覧を添えて返す */
+async function readSourceFile(
+  fileName: string,
+  data: ArrayBuffer,
+): Promise<SourceFile> {
+  const first = await parseWorkbook(fileName, data);
+  return { fileName, data, sheetNames: first.sheetNames ?? [] };
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -225,6 +303,9 @@ export const useStore = create<AppState>((set, get) => ({
   isTransforming: false,
   transformProgress: 0,
   importContext: [],
+  sourceFiles: [],
+  sourceUnits: [],
+  sourceUnitData: [],
   dropEmptyColumns: false,
   entranceActive: initialEntranceActive(),
   tourActive: false,
@@ -273,28 +354,30 @@ export const useStore = create<AppState>((set, get) => ({
     await Promise.all([get().refreshSchemas(), get().refreshRecipes()]);
   },
 
-  loadSource: async (fileName, data) => {
+  loadSource: async (files) => {
+    const list = Array.isArray(files) ? files : [files];
+    if (list.length === 0) return;
     try {
-      const source = await parseWorkbook(fileName, data);
-      if (source.columns.length === 0) {
+      const read: SourceFile[] = [];
+      for (const f of list) read.push(await readSourceFile(f.fileName, f.data));
+      // 既定は各ファイルの先頭シートのみ。他のシートは読み込み設定から足す。
+      const units = read.map((f, i) => ({
+        fileIndex: i,
+        sheet: f.sheetNames[0] ?? '',
+      }));
+      set({ demoActive: false });
+      await rebuildSource(
+        set,
+        get,
+        { files: read, units },
+        'ファイルの読み込みに失敗しました。',
+      );
+      if (get().source?.columns.length === 0) {
         set({
           error:
-            'カラムを検出できませんでした。ヘッダー行があるか確認してください。',
+            'カラムを検出できませんでした。見出し行が正しいか確認してください。',
         });
-        return;
       }
-      set({
-        source,
-        sourceRaw: { fileName, data },
-        target: undefined,
-        mapping: undefined,
-        transformedRows: undefined,
-        exportedOnce: false,
-        importContext: [],
-        step: 'target',
-        error: undefined,
-        demoActive: false,
-      });
     } catch (e) {
       set({
         error:
@@ -303,51 +386,109 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  loadDemoSource: async () => {
-    const data = new TextEncoder().encode(DEMO_SOURCE_CSV).buffer;
+  addSourceFiles: async (files) => {
+    if (files.length === 0) return;
+    const { sourceFiles, sourceUnits } = get();
     try {
-      const source = await parseWorkbook(DEMO_SOURCE_FILE_NAME, data);
-      set({
-        source,
-        sourceRaw: { fileName: DEMO_SOURCE_FILE_NAME, data },
-        target: undefined,
-        mapping: undefined,
-        transformedRows: undefined,
-        exportedOnce: false,
-        importContext: [],
-        step: 'target',
-        error: undefined,
-        demoActive: true,
-      });
+      const added: SourceFile[] = [];
+      for (const f of files)
+        added.push(await readSourceFile(f.fileName, f.data));
+      const nextFiles = [...sourceFiles, ...added];
+      const nextUnits = [
+        ...sourceUnits,
+        ...added.map((f, i) => ({
+          fileIndex: sourceFiles.length + i,
+          sheet: f.sheetNames[0] ?? '',
+        })),
+      ];
+      set({ demoActive: false });
+      await rebuildSource(
+        set,
+        get,
+        { files: nextFiles, units: nextUnits },
+        'ファイルの追加に失敗しました。',
+      );
     } catch (e) {
       set({
         error:
-          e instanceof Error
-            ? e.message
-            : 'デモデータの読み込みに失敗しました。',
+          e instanceof Error ? e.message : 'ファイルの追加に失敗しました。',
       });
     }
   },
 
-  selectSheet: async (sheetName) => {
-    // シートが変わればヘッダー位置も変わるので、行指定は持ち越さず自動判定に戻す
-    await reparseSource(
+  removeSourceUnit: async (index) => {
+    const { sourceFiles, sourceUnits } = get();
+    const units = sourceUnits.filter((_, i) => i !== index);
+    // どのユニットからも参照されなくなったファイルは捨て、参照を貼り直す
+    const keep = [...new Set(units.map((u) => u.fileIndex))].sort(
+      (a, b) => a - b,
+    );
+    const remap = new Map(keep.map((oldIndex, i) => [oldIndex, i]));
+    await rebuildSource(
       set,
       get,
-      { sheetName },
-      'シートの読み込みに失敗しました。',
+      {
+        files: keep.map((i) => sourceFiles[i]),
+        units: units.map((u) => ({
+          ...u,
+          fileIndex: remap.get(u.fileIndex) ?? 0,
+        })),
+      },
+      '取り込み対象の削除に失敗しました。',
     );
   },
 
-  setHeaderRow: async (headerRow) => {
-    const source = get().source;
-    if (!source) return;
-    await reparseSource(
+  toggleSourceSheet: async (fileIndex, sheet) => {
+    const { sourceFiles, sourceUnits } = get();
+    const at = sourceUnits.findIndex(
+      (u) => u.fileIndex === fileIndex && u.sheet === sheet,
+    );
+    if (at >= 0) {
+      await get().removeSourceUnit(at);
+      return;
+    }
+    await rebuildSource(
       set,
       get,
-      { sheetName: source.activeSheet, headerRow },
+      {
+        files: sourceFiles,
+        units: [...sourceUnits, { fileIndex, sheet }],
+      },
+      'シートの追加に失敗しました。',
+    );
+  },
+
+  setUnitHeaderRow: async (index, headerRow) => {
+    const { sourceFiles, sourceUnits } = get();
+    await rebuildSource(
+      set,
+      get,
+      {
+        files: sourceFiles,
+        units: sourceUnits.map((u, i) =>
+          i === index ? { ...u, headerRow } : u,
+        ),
+      },
       'ヘッダー行の変更に失敗しました。',
     );
+  },
+
+  setOriginColumn: async (originColumn) => {
+    const { sourceFiles, sourceUnits } = get();
+    set({ originColumn });
+    if (sourceUnits.length === 0) return;
+    await rebuildSource(
+      set,
+      get,
+      { files: sourceFiles, units: sourceUnits },
+      '取込元の列の設定に失敗しました。',
+    );
+  },
+
+  loadDemoSource: async () => {
+    const data = new TextEncoder().encode(DEMO_SOURCE_CSV).buffer;
+    await get().loadSource({ fileName: DEMO_SOURCE_FILE_NAME, data });
+    set({ demoActive: true });
   },
 
   selectSchema: async (id) => {
@@ -458,6 +599,10 @@ export const useStore = create<AppState>((set, get) => ({
     set({
       step: 'source',
       source: undefined,
+      sourceFiles: [],
+      sourceUnits: [],
+      sourceUnitData: [],
+      originColumn: undefined,
       target: undefined,
       mapping: undefined,
       transformedRows: undefined,

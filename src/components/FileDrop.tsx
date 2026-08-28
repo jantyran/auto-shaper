@@ -1,22 +1,35 @@
 import { useCallback, useRef, useState } from 'react';
 
 interface Props {
-  onFile: (fileName: string, data: ArrayBuffer) => void;
+  /** 単一ファイル用。`multiple` を付けない呼び出し側はこちらを使う。 */
+  onFile?: (fileName: string, data: ArrayBuffer) => void;
+  /** 複数ファイル用。`multiple` を付けたときはこちらが呼ばれる。 */
+  onFiles?: (files: { fileName: string; data: ArrayBuffer }[]) => void;
+  /** 複数ファイルの同時投入を許可するか */
+  multiple?: boolean;
   title: string;
   hint: string;
 }
 
 /** ドラッグ&ドロップ / クリックでファイルを受け取り、ArrayBufferを返す */
-export function FileDrop({ onFile, title, hint }: Props) {
+export function FileDrop({ onFile, onFiles, multiple, title, hint }: Props) {
   const [drag, setDrag] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handle = useCallback(
-    async (file: File) => {
-      const buf = await file.arrayBuffer();
-      onFile(file.name, buf);
+    async (list: FileList | null) => {
+      if (!list || list.length === 0) return;
+      const picked = multiple ? Array.from(list) : [list[0]];
+      const read = await Promise.all(
+        picked.map(async (f) => ({
+          fileName: f.name,
+          data: await f.arrayBuffer(),
+        })),
+      );
+      if (onFiles) onFiles(read);
+      else onFile?.(read[0].fileName, read[0].data);
     },
-    [onFile],
+    [multiple, onFile, onFiles],
   );
 
   return (
@@ -31,8 +44,7 @@ export function FileDrop({ onFile, title, hint }: Props) {
       onDrop={(e) => {
         e.preventDefault();
         setDrag(false);
-        const file = e.dataTransfer.files[0];
-        if (file) void handle(file);
+        void handle(e.dataTransfer.files);
       }}
     >
       <div className="big">{title}</div>
@@ -40,11 +52,11 @@ export function FileDrop({ onFile, title, hint }: Props) {
       <input
         ref={inputRef}
         type="file"
+        multiple={multiple}
         accept=".csv,.xlsx,.xls,.tsv"
         style={{ display: 'none' }}
         onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) void handle(file);
+          void handle(e.target.files);
           e.target.value = '';
         }}
       />

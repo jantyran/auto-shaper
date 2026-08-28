@@ -7,7 +7,12 @@
  * 上に載っていることが多い)。既定では自動判定し、外した場合はユーザーが
  * `headerRow` で明示できるようにしている。
  */
-import type { DataType, SourceColumn, SourceDataset } from '../types';
+import type {
+  DataType,
+  SourceColumn,
+  SourceDataset,
+  SourcePart,
+} from '../types';
 type XLSXModule = typeof import('xlsx');
 type WorkSheet = import('xlsx').WorkSheet;
 
@@ -93,6 +98,21 @@ function readMatrix(XLSX: XLSXModule, sheet: WorkSheet): string[][] {
       return v == null ? '' : String(v);
     }),
   );
+}
+
+/** 1列分のメタ情報(推定型・サンプル・充填率)をまとめる */
+function describeColumn(
+  name: string,
+  rows: Record<string, string>[],
+): SourceColumn {
+  const allValues = rows.map((r) => r[name] ?? '');
+  const nonEmpty = allValues.filter((v) => v.trim() !== '');
+  return {
+    name,
+    inferredType: inferColumnType(allValues.slice(0, 50)),
+    sampleValues: nonEmpty.slice(0, 5),
+    fillRate: rows.length === 0 ? 0 : nonEmpty.length / rows.length,
+  };
 }
 
 /** その行の、空でないセルの数 */
@@ -223,16 +243,9 @@ export async function parseWorkbook(
     rows.push(o);
   }
 
-  const columns: SourceColumn[] = columnNames.map((name) => {
-    const allValues = rows.map((r) => r[name] ?? '');
-    const nonEmpty = allValues.filter((v) => v.trim() !== '');
-    return {
-      name,
-      inferredType: inferColumnType(allValues.slice(0, 50)),
-      sampleValues: nonEmpty.slice(0, 5),
-      fillRate: rows.length === 0 ? 0 : nonEmpty.length / rows.length,
-    };
-  });
+  const columns: SourceColumn[] = columnNames.map((name) =>
+    describeColumn(name, rows),
+  );
 
   return {
     fileName,
@@ -245,4 +258,86 @@ export async function parseWorkbook(
     previewRows: matrix.slice(0, PREVIEW_ROW_COUNT),
     sheetRowCount: matrix.length,
   };
+}
+
+/**
+ * 複数のシート/ファイルを縦に結合して1つのデータセットにする。
+ *
+ * 「同じ形のファイルが月ごとに分かれている」「支店ごとにシートが分かれている」
+ * ケースを、1回の整形で処理できるようにするためのもの。
+ *
+ * 列は現れた順の和集合にする。片方にしか無い列は、持たない行では空欄になる。
+ * 列名が完全一致しない表記ゆれ(`会社名` と `企業名`)までは寄せない。
+ * 勝手に同一視すると別物の列を混ぜてしまうため、そこはマッピング側で扱う。
+ *
+ * @param originColumn 指定すると、その名前の列に取込元(ファイル名/シート名)を入れる
+ */
+export function mergeDatasets(
+  datasets: SourceDataset[],
+  originColumn?: string,
+): SourceDataset {
+  if (datasets.length === 0) {
+    throw new Error('結合するデータがありません。');
+  }
+  if (datasets.length === 1 && !originColumn) return datasets[0];
+
+  const columnNames: string[] = [];
+  const seen = new Set<string>();
+  for (const ds of datasets) {
+    for (const col of ds.columns) {
+      if (seen.has(col.name)) continue;
+      seen.add(col.name);
+      columnNames.push(col.name);
+    }
+  }
+  if (originColumn && !seen.has(originColumn)) columnNames.push(originColumn);
+
+  const rows: Record<string, string>[] = [];
+  const parts: SourcePart[] = [];
+  for (const ds of datasets) {
+    const label = partLabel(ds);
+    for (const row of ds.rows) {
+      const merged: Record<string, string> = {};
+      for (const name of columnNames) merged[name] = row[name] ?? '';
+      if (originColumn) merged[originColumn] = label;
+      rows.push(merged);
+    }
+    parts.push(...(ds.parts ?? [datasetToPart(ds)]));
+  }
+
+  const columns: SourceColumn[] = columnNames.map((name) =>
+    describeColumn(name, rows),
+  );
+
+  return {
+    fileName: summarizeNames(datasets),
+    columns,
+    rows,
+    parts,
+    // 結合後は「どの1シートを見ているか」が定まらないため、単体用の情報は持たない
+    sheetNames: undefined,
+    activeSheet: undefined,
+    previewRows: undefined,
+  };
+}
+
+/** 取込元を表す表示名(`売上.xlsx / 1月` のような形) */
+export function partLabel(ds: SourceDataset): string {
+  return ds.activeSheet ? `${ds.fileName} / ${ds.activeSheet}` : ds.fileName;
+}
+
+function datasetToPart(ds: SourceDataset): SourcePart {
+  return {
+    fileName: ds.fileName,
+    sheet: ds.activeSheet,
+    rowCount: ds.rows.length,
+    headerRow: ds.headerRow ?? 1,
+  };
+}
+
+/** 結合後の表示名。件数が多いときは省略する。 */
+function summarizeNames(datasets: SourceDataset[]): string {
+  const names = [...new Set(datasets.map((d) => d.fileName))];
+  if (names.length === 1) return names[0];
+  return `${names[0]} ほか${names.length - 1}件`;
 }

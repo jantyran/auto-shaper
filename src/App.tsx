@@ -181,13 +181,14 @@ function SourceStep() {
     <div className="panel">
       <h2>1. 整形前のデータをアップロード</h2>
       <p className="subtitle" style={{ marginBottom: 12 }}>
-        代理店リスト、アンケート結果など、フォーマットがバラバラなファイルをそのまま投入してください。
+        代理店リスト、アンケート結果など、フォーマットがバラバラなファイルをそのまま投入してください。月次で分かれたファイルや、支店ごとのシートは、まとめて投入すると1つの表として整形します。
       </p>
       <div data-tour="tour-source-upload">
         <FileDrop
           title="ここにファイルをドロップ、またはクリックして選択"
-          hint="CSV / Excel (.xlsx, .xls) / TSV — 見出し行は自動で判定します（上にタイトル行があってもOK）"
-          onFile={(name, data) => loadSource(name, data)}
+          hint="CSV / Excel (.xlsx, .xls) / TSV — 同じ形のファイルは複数まとめて投入できます。見出し行は自動で判定します（上にタイトル行があってもOK）"
+          multiple
+          onFiles={(files) => void loadSource(files)}
         />
       </div>
       <div className="security-note">

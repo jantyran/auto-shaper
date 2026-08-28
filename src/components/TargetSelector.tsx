@@ -52,13 +52,7 @@ export function TargetSelector() {
         整形後のデータをどのフォーマットに合わせるかを指定します。
       </p>
 
-      {source && (
-        <div className="alert info">
-          読み込み済みソース: <b>{source.fileName}</b>（{source.columns.length}
-          列 / {source.rows.length.toLocaleString()}行）
-        </div>
-      )}
-
+      {/* 読み込んだファイル・シートの一覧と件数は SourceReadOptions が出す */}
       {source && <SourceReadOptions />}
 
       {matchingRecipes.length > 0 && (

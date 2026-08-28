@@ -61,6 +61,17 @@ export interface FieldAutoFillRule {
   overwrite?: boolean;
 }
 
+/** 結合されたソースの、1つ分の取込元(ファイル or シート) */
+export interface SourcePart {
+  fileName: string;
+  /** Excelのシート名(CSV/TSVでは無し) */
+  sheet?: string;
+  /** この取込元から読み込んだ行数 */
+  rowCount: number;
+  /** ヘッダーとして使った行(1始まり) */
+  headerRow: number;
+}
+
 /** パース済みのソースデータ全体 */
 export interface SourceDataset {
   fileName: string;
@@ -79,6 +90,8 @@ export interface SourceDataset {
   previewRows?: string[][];
   /** シートの総行数(ヘッダー行の指定範囲の上限に使う) */
   sheetRowCount?: number;
+  /** 複数のファイル/シートを結合している場合の内訳 */
+  parts?: SourcePart[];
 }
 
 /** インポート先(整形後)の1フィールド定義 */

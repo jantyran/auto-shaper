@@ -2533,3 +2533,63 @@ td.rownum {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* 取り込み対象(ファイル×シート)の一覧 */
+.source-units {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.source-unit {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 8px 10px;
+}
+
+.source-unit.is-suspicious {
+  border-color: var(--amber);
+}
+
+.source-unit-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.source-unit-name {
+  font-size: 14px;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.source-unit-sheet {
+  margin-left: 8px;
+  font-weight: 500;
+  font-size: 14px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--muted);
+}
+
+.source-unit-meta {
+  font-size: 14px;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.source-unit-sheets {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}

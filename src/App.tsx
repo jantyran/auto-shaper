@@ -186,7 +186,7 @@ function SourceStep() {
       <div data-tour="tour-source-upload">
         <FileDrop
           title="ここにファイルをドロップ、またはクリックして選択"
-          hint="CSV / Excel (.xlsx, .xls) / TSV — 1行目をヘッダーとして読み取ります"
+          hint="CSV / Excel (.xlsx, .xls) / TSV — 見出し行は自動で判定します（上にタイトル行があってもOK）"
           onFile={(name, data) => loadSource(name, data)}
         />
       </div>

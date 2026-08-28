@@ -8,6 +8,7 @@ import {
 import { sortCustomSchemas } from '../core/schemaStore';
 import { findMatchingRecipes } from '../core/recipes';
 import { FileDrop } from './FileDrop';
+import { SourceReadOptions } from './SourceReadOptions';
 import type { SchemaCategory, TargetSchema } from '../types';
 
 /** ステップ2: インポート先フォーマット(ターゲットスキーマ)の選択 */
@@ -16,7 +17,6 @@ export function TargetSelector() {
   const loadUploadedTarget = useStore((s) => s.loadUploadedTarget);
   const isSuggesting = useStore((s) => s.isSuggesting);
   const source = useStore((s) => s.source);
-  const selectSheet = useStore((s) => s.selectSheet);
   const customSchemas = useStore((s) => s.customSchemas);
   const setView = useStore((s) => s.setView);
   const recipes = useStore((s) => s.recipes);
@@ -59,21 +59,7 @@ export function TargetSelector() {
         </div>
       )}
 
-      {source && source.sheetNames && source.sheetNames.length > 1 && (
-        <label className="field-label" style={{ marginBottom: 12 }}>
-          シートを選択（このExcelには複数シートがあります）
-          <select
-            value={source.activeSheet}
-            onChange={(e) => selectSheet(e.target.value)}
-          >
-            {source.sheetNames.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
+      {source && <SourceReadOptions />}
 
       {matchingRecipes.length > 0 && (
         <>
@@ -160,7 +146,7 @@ export function TargetSelector() {
 
       <h3>独自フォーマットをアップロード</h3>
       <p className="subtitle" style={{ marginBottom: 10 }}>
-        インポート用シート（1行目がヘッダー）をアップロードすると、その列構成を
+        インポート用シート（見出し行のあるもの）をアップロードすると、その列構成を
         ターゲットとして使います。繰り返し使うなら
         <button
           className="ghost"

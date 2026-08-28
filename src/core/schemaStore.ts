@@ -129,10 +129,45 @@ export function createEmptyField(): TargetField {
   };
 }
 
-/** インポートしたJSONを、新しいIDを振った安全なテンプレートに変換する */
-export function schemaFromImport(raw: unknown): TargetSchema {
+/**
+ * インポートしたJSONを、新しいIDを振った安全なテンプレートに変換する。
+ *
+ * ID を振り直すのは、既存テンプレートを ID 衝突で置き換えてしまわないため。
+ * インポートは常に「追加」であって「上書き」ではない。
+ *
+ * @param taken すでに使われているテンプレート名。渡すと重複しない名前に調整する。
+ */
+export function schemaFromImport(
+  raw: unknown,
+  taken?: Iterable<string>,
+): TargetSchema {
   const s = sanitizeSchema((raw ?? {}) as TargetSchema);
-  return { ...s, id: genId(), isDefault: false, sortOrder: undefined };
+  return {
+    ...s,
+    id: genId(),
+    name: taken ? uniqueSchemaName(s.name, taken) : s.name,
+    isDefault: false,
+    sortOrder: undefined,
+  };
+}
+
+/**
+ * 既存と重ならないテンプレート名を作る(`顧客マスタ` → `顧客マスタ (2)`)。
+ * 同名が並ぶと一覧で見分けられなくなるため、インポート時に付け替える。
+ */
+export function uniqueSchemaName(
+  name: string,
+  taken: Iterable<string>,
+): string {
+  const used = new Set(taken);
+  const base = name.trim() || '(無題)';
+  if (!used.has(base)) return base;
+  // すでに `名前 (2)` 形式なら、その数字部分を進める
+  const m = /^(.*) \((\d+)\)$/.exec(base);
+  const stem = m ? m[1] : base;
+  let n = m ? Number(m[2]) + 1 : 2;
+  while (used.has(`${stem} (${n})`)) n++;
+  return `${stem} (${n})`;
 }
 
 /** プリセットを複製して編集可能なユーザーテンプレートにする */

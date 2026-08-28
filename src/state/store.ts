@@ -11,7 +11,7 @@ import type {
   SourceDataset,
   TargetSchema,
 } from '../types';
-import { parseWorkbook } from '../core/parse';
+import { parseWorkbook, type ParseOptions } from '../core/parse';
 import { buildSuggestContext } from '../core/anonymize';
 import { applyFieldDefaults } from '../core/mappingDefaults';
 import { heuristicSuggester } from '../core/inference/heuristic';
@@ -122,7 +122,9 @@ interface AppState {
   loadSource: (fileName: string, data: ArrayBuffer) => void;
   /** ガイドツアー用: 埋め込みサンプルCSVを実アップロードと同じ経路で読み込む */
   loadDemoSource: () => Promise<void>;
-  selectSheet: (sheetName: string) => void;
+  selectSheet: (sheetName: string) => Promise<void>;
+  /** ヘッダーとして扱う行(1始まり)を指定して読み直す */
+  setHeaderRow: (headerRow: number) => Promise<void>;
   selectSchema: (id: string) => Promise<void>;
   loadUploadedTarget: (fileName: string, data: ArrayBuffer) => Promise<void>;
   updateFieldMapping: (targetKey: string, mapping: FieldMapping) => void;
@@ -175,6 +177,35 @@ function initialEntranceActive(): boolean {
   if (hasSeenEntrance()) return false;
   markEntranceSeen();
   return true;
+}
+
+/**
+ * 保持しているソースファイルを、別のシート/ヘッダー行で読み直す。
+ * 列構成が変わるため、下流(ターゲット/マッピング/結果)は必ずリセットする。
+ */
+async function reparseSource(
+  set: (partial: Partial<AppState>) => void,
+  get: () => AppState,
+  options: ParseOptions,
+  failureMessage: string,
+): Promise<void> {
+  const raw = get().sourceRaw;
+  if (!raw) return;
+  try {
+    const source = await parseWorkbook(raw.fileName, raw.data, options);
+    set({
+      source,
+      target: undefined,
+      mapping: undefined,
+      transformedRows: undefined,
+      exportedOnce: false,
+      importContext: [],
+      step: 'target',
+      error: undefined,
+    });
+  } catch (e) {
+    set({ error: e instanceof Error ? e.message : failureMessage });
+  }
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -296,27 +327,24 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   selectSheet: async (sheetName) => {
-    const raw = get().sourceRaw;
-    if (!raw) return;
-    try {
-      const source = await parseWorkbook(raw.fileName, raw.data, sheetName);
-      // シートが変わると列構成も変わるため、下流(ターゲット/マッピング/結果)をリセット
-      set({
-        source,
-        target: undefined,
-        mapping: undefined,
-        transformedRows: undefined,
-        exportedOnce: false,
-        importContext: [],
-        step: 'target',
-        error: undefined,
-      });
-    } catch (e) {
-      set({
-        error:
-          e instanceof Error ? e.message : 'シートの読み込みに失敗しました。',
-      });
-    }
+    // シートが変わればヘッダー位置も変わるので、行指定は持ち越さず自動判定に戻す
+    await reparseSource(
+      set,
+      get,
+      { sheetName },
+      'シートの読み込みに失敗しました。',
+    );
+  },
+
+  setHeaderRow: async (headerRow) => {
+    const source = get().source;
+    if (!source) return;
+    await reparseSource(
+      set,
+      get,
+      { sheetName: source.activeSheet, headerRow },
+      'ヘッダー行の変更に失敗しました。',
+    );
   },
 
   selectSchema: async (id) => {

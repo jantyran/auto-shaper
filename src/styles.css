@@ -1205,6 +1205,113 @@ td.empty-cell {
   color: var(--green-ink);
 }
 
+.alert.warn {
+  background: color-mix(in srgb, var(--amber) 12%, var(--panel));
+  border: 1px solid var(--amber);
+  color: var(--amber-ink);
+}
+
+/* 読み込み設定(シート / 見出し行) */
+.read-options {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.read-options-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.read-options-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.read-options-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.read-options-inline select {
+  width: auto;
+  min-width: 140px;
+}
+
+.read-options-auto {
+  font-size: 14px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.preview-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.preview-table {
+  border-collapse: collapse;
+  font-size: 14px;
+  width: max-content;
+  min-width: 100%;
+}
+
+.preview-table td,
+.preview-table th {
+  border-bottom: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
+  white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview-rowno {
+  position: sticky;
+  left: 0;
+  background: var(--panel);
+  color: var(--muted);
+  font-weight: 500;
+  border-right: 1px solid var(--border);
+}
+
+.preview-row {
+  cursor: pointer;
+}
+
+.preview-row:hover td,
+.preview-row:hover .preview-rowno {
+  background: var(--hover-tint);
+}
+
+.preview-row.is-skipped td {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.preview-row.is-header td,
+.preview-row.is-header .preview-rowno {
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+.preview-badge {
+  margin-left: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
 /* Validation panel */
 .validation {
   border: 1px solid var(--amber);
@@ -2249,4 +2356,89 @@ td.rownum {
 .app-footer a:hover {
   color: var(--text);
   border-bottom-color: var(--border-strong);
+}
+
+/* テンプレートのエクスポート / インポート選択ダイアログ */
+.tpl-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: var(--overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 20px;
+  overflow-y: auto;
+}
+
+.tpl-card {
+  width: min(620px, 100%);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px 26px 18px;
+  box-shadow: 0 24px 60px var(--shadow);
+}
+
+.tpl-pick-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 8px;
+}
+
+.tpl-pick-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.tpl-pick {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+
+.tpl-pick:last-child {
+  border-bottom: none;
+}
+
+.tpl-pick:hover {
+  background: var(--hover-tint);
+}
+
+.tpl-pick input {
+  margin-top: 3px;
+  width: auto;
+  flex-shrink: 0;
+}
+
+.tpl-pick-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tpl-pick-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.tpl-pick-meta {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.tpl-pick-note {
+  margin-left: 8px;
+  color: var(--amber-ink);
 }

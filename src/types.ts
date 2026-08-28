@@ -71,6 +71,14 @@ export interface SourceDataset {
   sheetNames?: string[];
   /** 現在読み込んでいるシート名 */
   activeSheet?: string;
+  /** ヘッダーとして解釈した行(1始まり)。上のタイトル行や空行を飛ばした位置。 */
+  headerRow?: number;
+  /** ヘッダー行を自動判定したか(false ならユーザーが明示指定した) */
+  headerRowAuto?: boolean;
+  /** ヘッダー行を選び直すUI用の、シート先頭の生データ */
+  previewRows?: string[][];
+  /** シートの総行数(ヘッダー行の指定範囲の上限に使う) */
+  sheetRowCount?: number;
 }
 
 /** インポート先(整形後)の1フィールド定義 */

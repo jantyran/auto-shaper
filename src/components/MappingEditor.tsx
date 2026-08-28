@@ -10,6 +10,7 @@ import type {
 import { applyFieldMapping, transformRow } from '../core/transformEngine';
 import { importContextToRow } from '../core/importContext';
 import { fieldDisplayName, fieldOptionItems } from '../core/fieldMeta';
+import { ValueMapEditor } from './ValueMapEditor';
 
 const NORMALIZER_LABELS: Record<Normalizer, string> = {
   trim: '前後空白除去',
@@ -18,6 +19,8 @@ const NORMALIZER_LABELS: Record<Normalizer, string> = {
   normalizeCompany: '(株)→株式会社',
   normalizePhone: '電話番号正規化',
   normalizeEmail: 'メール正規化',
+  normalizeDate: '日付を統一(2024-01-05)',
+  normalizeNumber: '数値を統一(¥1,000→1000)',
   upperCase: '大文字化',
   lowerCase: '小文字化',
   removeSpaces: '空白削除',
@@ -406,6 +409,10 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
       </div>
 
       <FieldMiniPreview mapping={mapping} />
+
+      {t.kind !== 'empty' && (
+        <ValueMapEditor field={field} mapping={mapping} onChange={onChange} />
+      )}
 
       {t.kind !== 'empty' && (
         <div className="norm-chips">

@@ -203,15 +203,32 @@ export type Normalizer =
   | 'normalizeCompany' // (株)→株式会社 など
   | 'normalizePhone' // ハイフン等の統一
   | 'normalizeEmail' // trim + 小文字化
+  | 'normalizeDate' // 2024/1/5・令和6年1月5日 → 2024-01-05
+  | 'normalizeNumber' // ¥1,000・１０００ → 1000
   | 'upperCase'
   | 'lowerCase'
   | 'removeSpaces';
 
 /** ターゲット1フィールドへのマッピング定義 */
+/** 値の置換表の1行(`東京都` → `13` のような対応) */
+export interface ValueMapEntry {
+  /** 元データに現れる値。空白・全角半角・英字の大小は無視して照合する。 */
+  from: string;
+  /** 置き換え後の値 */
+  to: string;
+}
+
 export interface FieldMapping {
   targetKey: string;
   transform: Transform;
   normalizers: Normalizer[];
+  /** 値の置換表。Transform と正規化のあとに適用する。 */
+  valueMap?: ValueMapEntry[];
+  /**
+   * 置換表のどれにも一致しなかった、空でない値の扱い。
+   * 未指定なら元の値をそのまま通す。空文字を指定すると空欄にする。
+   */
+  valueMapFallback?: string;
   /** サジェスト時の確信度(0-1)。人手で確定したら 1 */
   confidence: number;
   /** サジェスト根拠の説明(UI表示用) */

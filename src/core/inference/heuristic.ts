@@ -47,6 +47,10 @@ function defaultNormalizers(
       return ['normalizeEmail'];
     case 'phone':
       return ['normalizePhone'];
+    case 'date':
+      return ['normalizeDate'];
+    case 'number':
+      return ['normalizeNumber'];
     default:
       // 会社名系はカッコ略記の展開を既定にする
       if (/company|会社|企業|法人|account|組織|団体/i.test(targetKeyOrLabel)) {

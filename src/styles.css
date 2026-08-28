@@ -2442,3 +2442,77 @@ td.rownum {
   margin-left: 8px;
   color: var(--amber-ink);
 }
+
+/* 値の対応表 */
+.value-map-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.value-map {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+  padding: 10px 12px;
+}
+
+.value-map-head,
+.value-map-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.value-map-head {
+  margin-bottom: 8px;
+}
+
+.value-map-foot {
+  margin-top: 8px;
+}
+
+.value-map-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.value-map-count {
+  font-size: 14px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.value-map-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.value-map-table th {
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 500;
+  text-align: left;
+  padding: 0 6px 4px;
+}
+
+.value-map-table td {
+  padding: 2px 6px;
+  vertical-align: middle;
+}
+
+.value-map-table input {
+  width: 100%;
+}
+
+.value-map-arrow {
+  color: var(--muted);
+  width: 1.5em;
+  text-align: center;
+}

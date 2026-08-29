@@ -29,6 +29,7 @@ import {
   removeSchemaFromRepo,
   type StorageMode,
 } from '../core/schemaRepository';
+import { defaultDedupeConfig, type DedupeConfig } from '../core/dedupe';
 import { loadSettings, saveSettings, type Settings } from '../core/settings';
 import { applyTheme } from '../core/theme';
 import {
@@ -97,6 +98,11 @@ interface AppState {
   sourceUnitData: SourceDataset[];
   /** 指定すると、取込元(ファイル名/シート名)をこの名前の列として足す */
   originColumn?: string;
+  /**
+   * 重複の照合と処理の設定。ターゲットを選んだ時点で推定値を入れるため、
+   * 設定を触らないユーザーは従来どおり「検出のみ」で動く。
+   */
+  dedupeConfig?: DedupeConfig;
   target?: TargetSchema;
   mapping?: MappingConfig;
   transformedRows?: Record<string, string>[];
@@ -170,6 +176,8 @@ interface AppState {
   updateFieldMapping: (targetKey: string, mapping: FieldMapping) => void;
   /** 変換対象の行を絞り込む条件を設定する(undefined で解除) */
   setRowFilter: (rowFilter: RowFilter | undefined) => void;
+  /** 重複の照合キーと、見つけたときの処理を設定する */
+  setDedupeConfig: (config: DedupeConfig) => void;
   updateImportContext: (entries: ImportContextEntry[]) => void;
   setDropEmptyColumns: (drop: boolean) => void;
   dismissEntrance: () => void;
@@ -548,6 +556,12 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 
+  setDedupeConfig: (dedupeConfig) => {
+    // 重複処理は変換結果に対して後段でかけるので、変換のやり直しは要らない。
+    // ここで transformedRows を消すと、再変換の条件が揃わず結果が消えたままになる。
+    set({ dedupeConfig, exportedOnce: false });
+  },
+
   setRowFilter: (rowFilter) => {
     const config = get().mapping;
     if (!config) return;
@@ -706,7 +720,13 @@ async function runSuggestion(
 ) {
   const { source, settings } = get();
   if (!source) return;
-  set({ isSuggesting: true, target, error: undefined });
+  // ターゲットが変われば重複の照合キーも変わるので、そのつど推定し直す
+  set({
+    isSuggesting: true,
+    target,
+    dedupeConfig: defaultDedupeConfig(target),
+    error: undefined,
+  });
   try {
     // 実データは渡さず、設定に従ってマスキングしたコンテキストのみを推論器に渡す
     const ctx = buildSuggestContext(

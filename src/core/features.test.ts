@@ -1,19 +1,47 @@
 import { describe, it, expect } from 'vitest';
-import { findDuplicates } from './dedupe';
-import { sourceSignature, findMatchingRecipes, createRecipe, type Recipe } from './recipes';
+import { defaultDedupeConfig, findDuplicates } from './dedupe';
+import {
+  sourceSignature,
+  findMatchingRecipes,
+  createRecipe,
+  type Recipe,
+} from './recipes';
 import { learnedBoost } from './learning';
 import { isPersonalColumn, buildSuggestContext } from './anonymize';
 import { DEFAULT_SETTINGS } from './settings';
-import type { SourceColumn, SourceDataset, TargetSchema, MappingConfig } from '../types';
+import type {
+  SourceColumn,
+  SourceDataset,
+  TargetSchema,
+  MappingConfig,
+} from '../types';
 
 const target: TargetSchema = {
   id: 'sf',
   name: 'SF',
   origin: 'preset',
   fields: [
-    { key: 'Company', label: '会社名', required: true, type: 'string', aliases: [] },
-    { key: 'LastName', label: '姓', required: true, type: 'string', aliases: [] },
-    { key: 'Email', label: 'メール', required: false, type: 'email', aliases: [] },
+    {
+      key: 'Company',
+      label: '会社名',
+      required: true,
+      type: 'string',
+      aliases: [],
+    },
+    {
+      key: 'LastName',
+      label: '姓',
+      required: true,
+      type: 'string',
+      aliases: [],
+    },
+    {
+      key: 'Email',
+      label: 'メール',
+      required: false,
+      type: 'email',
+      aliases: [],
+    },
   ],
 };
 
@@ -24,7 +52,7 @@ describe('dedupe', () => {
       { Company: 'B社', LastName: '佐藤', Email: 'b@x.com' },
       { Company: 'A社', LastName: '山田', Email: 'A@X.com' }, // 大小・全半角違いでも同一
     ];
-    const r = findDuplicates(rows, target);
+    const r = findDuplicates(rows, defaultDedupeConfig(target));
     expect(r.keyFields).toEqual(['Email']);
     expect(r.groups.length).toBe(1);
     expect(r.duplicateRows.has(0)).toBe(true);
@@ -41,14 +69,19 @@ describe('dedupe', () => {
       { Company: '(株)A', LastName: '山田' },
       { Company: '株式会社A', LastName: '山田' }, // 正規化後は同じになりうるが列値そのまま比較
     ];
-    const r = findDuplicates(rows, noEmail);
+    const r = findDuplicates(rows, defaultDedupeConfig(noEmail));
     expect(r.keyFields).toEqual(['Company', 'LastName']);
   });
 });
 
 describe('recipes', () => {
   const cols = (names: string[]): SourceColumn[] =>
-    names.map((name) => ({ name, inferredType: 'string', sampleValues: [], fillRate: 1 }));
+    names.map((name) => ({
+      name,
+      inferredType: 'string',
+      sampleValues: [],
+      fillRate: 1,
+    }));
   const ds = (names: string[]): SourceDataset => ({
     fileName: 'f.csv',
     columns: cols(names),
@@ -63,8 +96,15 @@ describe('recipes', () => {
   });
 
   it('同じ列構成のレシピを一致として返す', () => {
-    const recipe: Recipe = createRecipe('月次代理店', ds(['氏名', '御社名', 'TEL']), mapping);
-    const matches = findMatchingRecipes([recipe], ds(['TEL', '御社名', '氏名']));
+    const recipe: Recipe = createRecipe(
+      '月次代理店',
+      ds(['氏名', '御社名', 'TEL']),
+      mapping,
+    );
+    const matches = findMatchingRecipes(
+      [recipe],
+      ds(['TEL', '御社名', '氏名']),
+    );
     expect(matches.length).toBe(1);
     expect(matches[0].name).toBe('月次代理店');
   });
@@ -78,7 +118,13 @@ describe('recipes', () => {
 
 describe('learning', () => {
   it('学習済みの対応にはボーナスが付く', () => {
-    const entries = [{ header: '御社名'.normalize('NFKC').toLowerCase(), targetKey: 'Company', count: 2 }];
+    const entries = [
+      {
+        header: '御社名'.normalize('NFKC').toLowerCase(),
+        targetKey: 'Company',
+        count: 2,
+      },
+    ];
     expect(learnedBoost('御社名', 'Company', entries)).toBeGreaterThan(0);
     expect(learnedBoost('御社名', 'Email', entries)).toBe(0);
   });
@@ -95,10 +141,25 @@ describe('masking (個人情報の自動判定)', () => {
 
   it('個人情報の列サンプルは伏字にし、非個人情報はそのまま送る', () => {
     const columns: SourceColumn[] = [
-      { name: '氏名', inferredType: 'string', sampleValues: ['山田太郎'], fillRate: 1 },
-      { name: '獲得経路', inferredType: 'string', sampleValues: ['展示会'], fillRate: 1 },
+      {
+        name: '氏名',
+        inferredType: 'string',
+        sampleValues: ['山田太郎'],
+        fillRate: 1,
+      },
+      {
+        name: '獲得経路',
+        inferredType: 'string',
+        sampleValues: ['展示会'],
+        fillRate: 1,
+      },
     ];
-    const ctx = buildSuggestContext(columns, target, DEFAULT_SETTINGS.masking, true);
+    const ctx = buildSuggestContext(
+      columns,
+      target,
+      DEFAULT_SETTINGS.masking,
+      true,
+    );
     const row = ctx.anonymizedSamples[0];
     expect(row['氏名']).not.toContain('山田'); // 伏字
     expect(row['獲得経路']).toBe('展示会'); // そのまま
@@ -106,7 +167,12 @@ describe('masking (個人情報の自動判定)', () => {
 
   it('サンプルを送らないモードでは anonymizedSamples が空', () => {
     const columns: SourceColumn[] = [
-      { name: '氏名', inferredType: 'string', sampleValues: ['山田太郎'], fillRate: 1 },
+      {
+        name: '氏名',
+        inferredType: 'string',
+        sampleValues: ['山田太郎'],
+        fillRate: 1,
+      },
     ];
     const masking = { ...DEFAULT_SETTINGS.masking, sendSampleValues: false };
     const ctx = buildSuggestContext(columns, target, masking, true);

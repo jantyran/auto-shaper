@@ -2593,3 +2593,104 @@ td.rownum {
   padding-top: 10px;
   border-top: 1px solid var(--border);
 }
+
+/* 重複の検出と処理 */
+.dedupe-panel {
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 14px 0;
+}
+
+.dedupe-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.dedupe-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.dedupe-removed {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.dedupe-config {
+  border-top: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  padding-top: 10px;
+}
+
+.dedupe-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.dedupe-row select {
+  width: auto;
+  min-width: 200px;
+}
+
+.dedupe-label {
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 6em;
+}
+
+.dedupe-keys,
+.dedupe-choices {
+  display: flex;
+  gap: 8px 14px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.dedupe-choices {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chip-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+  padding: 2px 10px 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  cursor: pointer;
+}
+
+.chip-check:has(input:checked) {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.chip-check input {
+  width: auto;
+}
+
+.linkish {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 14px;
+  color: var(--accent);
+  cursor: pointer;
+  text-align: left;
+}
+
+.linkish:hover {
+  text-decoration: underline;
+}

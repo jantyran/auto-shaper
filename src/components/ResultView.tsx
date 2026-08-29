@@ -5,13 +5,14 @@ import { applyRowFilter } from '../core/rowFilter';
 import { importContextToRow } from '../core/importContext';
 import { toCsv, downloadCsv, downloadXlsx } from '../core/exportCsv';
 import { validateRows, ISSUE_LABELS } from '../core/validate';
-import { findDuplicates } from '../core/dedupe';
+import { applyDedupe } from '../core/dedupe';
 import type {
   TransformRequest,
   TransformResponse,
 } from '../worker/transform.worker';
 import type { TargetField } from '../types';
 import { fieldDisplayName, visibleTargetFields } from '../core/fieldMeta';
+import { DedupePanel } from './DedupePanel';
 
 /** ステップ4: 全件変換の実行と出力 */
 export function ResultView() {
@@ -102,19 +103,24 @@ export function ResultView() {
   }, [source, mapping, contextRow, targetRows]);
 
   const dedupeEnabled = useStore((s) => s.settings.features.duplicateDetection);
+  const dedupeConfig = useStore((s) => s.dedupeConfig);
 
-  const validation = useMemo(
-    () =>
-      transformedRows && target ? validateRows(transformedRows, target) : null,
-    [transformedRows, target],
-  );
-
+  // 重複の処理は検証より前に走らせる。順番が逆だと、統合すれば埋まる項目が
+  // 「必須が空」として報告され、存在しない問題を追いかけることになる。
   const duplicates = useMemo(
     () =>
-      transformedRows && target && dedupeEnabled
-        ? findDuplicates(transformedRows, target)
+      transformedRows && dedupeEnabled && dedupeConfig
+        ? applyDedupe(transformedRows, dedupeConfig)
         : null,
-    [transformedRows, target, dedupeEnabled],
+    [transformedRows, dedupeEnabled, dedupeConfig],
+  );
+
+  /** 検証・プレビュー・出力の対象になる、重複処理まで済ませた行 */
+  const outputRows = duplicates?.rows ?? transformedRows;
+
+  const validation = useMemo(
+    () => (outputRows && target ? validateRows(outputRows, target) : null),
+    [outputRows, target],
   );
 
   if (!source || !target || !mapping) return null;
@@ -127,13 +133,13 @@ export function ResultView() {
 
   const base = source.fileName.replace(/\.[^.]+$/, '');
   const handleExportCsv = () => {
-    if (!transformedRows) return;
-    downloadCsv(toCsv(transformedRows, outputFields), `${base}_shaped.csv`);
+    if (!outputRows) return;
+    downloadCsv(toCsv(outputRows, outputFields), `${base}_shaped.csv`);
     markExported();
   };
   const handleExportXlsx = () => {
-    if (!transformedRows) return;
-    void downloadXlsx(transformedRows, outputFields, `${base}_shaped.xlsx`);
+    if (!outputRows) return;
+    void downloadXlsx(outputRows, outputFields, `${base}_shaped.xlsx`);
     markExported();
   };
 
@@ -152,13 +158,11 @@ export function ResultView() {
         </>
       )}
 
-      {transformedRows && (
+      {outputRows && (
         <>
           <div className="stat-row" data-tour="tour-result-stats">
             <div className="stat">
-              <span className="val">
-                {transformedRows.length.toLocaleString()}
-              </span>
+              <span className="val">{outputRows.length.toLocaleString()}</span>
               <span className="lbl">変換した行数</span>
             </div>
             {removedRows > 0 && (
@@ -196,44 +200,20 @@ export function ResultView() {
           {validation && (
             <ValidationPanel
               validation={validation}
-              total={transformedRows.length}
+              total={outputRows.length}
             />
           )}
 
-          {duplicates && duplicates.groups.length > 0 && (
-            <div
-              className="validation"
-              style={{
-                borderColor: 'var(--accent)',
-                background: 'var(--accent-soft)',
-              }}
-            >
-              <div className="validation-head">
-                <span className="v-title" style={{ color: 'var(--accent)' }}>
-                  🔎 重複の可能性: {duplicates.groups.length} グループ
-                </span>
-                <span className="v-sub">
-                  {duplicates.duplicateRows.size} 行が重複候補（照合キー:{' '}
-                  {duplicates.keyFields.join(' + ')}）
-                </span>
-              </div>
-              <ul className="v-list">
-                {duplicates.groups.slice(0, 6).map((g, i) => (
-                  <li key={i}>
-                    {g.rows.map((r) => `${r + 1}行目`).join('、')} が重複
-                  </li>
-                ))}
-                {duplicates.groups.length > 6 && (
-                  <li className="v-more">
-                    …ほか {duplicates.groups.length - 6} グループ
-                  </li>
-                )}
-              </ul>
-            </div>
+          {duplicates && transformedRows && (
+            <DedupePanel
+              outcome={duplicates}
+              sourceRows={transformedRows}
+              fields={outputFields}
+            />
           )}
 
           <ResultPreview
-            rows={transformedRows}
+            rows={outputRows}
             fields={outputFields}
             invalidRows={validation?.invalidRows ?? new Set()}
             issueCells={validation ? buildIssueCells(validation) : new Set()}

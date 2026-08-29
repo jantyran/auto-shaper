@@ -1145,6 +1145,22 @@ td {
   text-overflow: ellipsis;
 }
 
+/*
+ * 全文表示。既定は1行=1レコードで横に流し読みできる形を保ちたいので、
+ * 折り返しは切り替えで入れる。複数列の結合で長くなった値を、
+ * 途中で切らずに確認するためのもの。
+ */
+.table-wrap.wrap-cells td {
+  white-space: pre-wrap;
+  overflow: visible;
+  text-overflow: clip;
+  /* anywhere だと収まる語まで途中で割れる。入りきらないときだけ折る。 */
+  overflow-wrap: break-word;
+  vertical-align: top;
+  min-width: 180px;
+  max-width: 360px;
+}
+
 th {
   background: var(--panel-2);
   position: sticky;
@@ -1868,10 +1884,10 @@ td.rownum {
 }
 
 .mini-preview-chip {
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* 短い値だけをここに出す。切り詰めず、入りきらなければ折り返す。 */
+  max-width: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   padding: 3px 8px;
   border-radius: 6px;
   background: var(--panel-2);
@@ -1879,9 +1895,50 @@ td.rownum {
   font-size: 14px;
 }
 
-.mini-preview-chip.is-empty {
+.mini-preview-chip.is-empty,
+.mini-preview-val.is-empty {
   color: var(--muted);
   font-style: italic;
+}
+
+/* 長い値(複数列の結合など)は1行ずつ全文で見せる */
+.mini-preview.is-list {
+  display: block;
+}
+
+.mini-preview-rows {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+
+.mini-preview-rows li {
+  display: flex;
+  gap: 10px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.mini-preview-rows li:last-child {
+  border-bottom: none;
+}
+
+.mini-preview-no {
+  flex-shrink: 0;
+  min-width: 1.4em;
+  text-align: right;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.mini-preview-val {
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 /* Guided tour overlay */
@@ -2720,4 +2777,14 @@ td.rownum {
 .lookup-key-pair select {
   width: auto;
   min-width: 160px;
+}
+
+/* レシピから復元待ちの参照テーブル */
+.source-unit.is-pending {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.source-unit.is-pending .dropzone {
+  background: var(--panel);
 }

@@ -30,6 +30,9 @@ const NORMALIZER_LABELS: Record<Normalizer, string> = {
 
 const ALL_NORMALIZERS = Object.keys(NORMALIZER_LABELS) as Normalizer[];
 
+/** これより長い値は、横に並べず1行ずつ全文で見せる */
+const LONG_VALUE_CHARS = 24;
+
 function confidenceClass(c: number): string {
   if (c >= 0.75) return 'high';
   if (c >= 0.5) return 'mid';
@@ -462,6 +465,34 @@ function FieldMiniPreview({ mapping }: { mapping: FieldMapping }) {
 
   if (values.length === 0) return null;
 
+  // 複数列の結合などで値が長くなると、横並びのままでは途中で切れて
+  // 「結局どうなるのか」が読めない。長い値は1行ずつ全文を折り返して見せる。
+  const longest = values.reduce((max, v) => Math.max(max, v.length), 0);
+  const asList =
+    longest > LONG_VALUE_CHARS || values.some((v) => v.includes('\n'));
+
+  if (asList) {
+    return (
+      <div className="mini-preview is-list">
+        <span className="mini-preview-label">
+          プレビュー（先頭{values.length}行）
+        </span>
+        <ol className="mini-preview-rows">
+          {values.map((v, i) => (
+            <li key={i}>
+              <span className="mini-preview-no">{i + 1}</span>
+              <span
+                className={`mini-preview-val${v.trim() === '' ? ' is-empty' : ''}`}
+              >
+                {v.trim() === '' ? '（空欄）' : v}
+              </span>
+            </li>
+          ))}
+        </ol>
+      </div>
+    );
+  }
+
   return (
     <div className="mini-preview">
       <span className="mini-preview-label">プレビュー:</span>
@@ -469,9 +500,8 @@ function FieldMiniPreview({ mapping }: { mapping: FieldMapping }) {
         <span
           key={i}
           className={`mini-preview-chip${v.trim() === '' ? ' is-empty' : ''}`}
-          title={v}
         >
-          {v.trim() === '' ? '（空欄）' : v.replace(/\n/g, ' ⏎ ')}
+          {v.trim() === '' ? '（空欄）' : v}
         </span>
       ))}
     </div>
@@ -810,6 +840,7 @@ function PreviewTable() {
   const importContext = useStore((s) => s.importContext);
   const dropEmptyColumns = useStore((s) => s.dropEmptyColumns);
   const setDropEmptyColumns = useStore((s) => s.setDropEmptyColumns);
+  const [wrapCells, setWrapCells] = useState(false);
   const contextRow = useMemo(
     () => importContextToRow(importContext),
     [importContext],
@@ -857,8 +888,16 @@ function PreviewTable() {
           />
           空欄の項目を表示（出力にも反映されます）
         </label>
+        <label className="toggle">
+          <input
+            type="checkbox"
+            checked={wrapCells}
+            onChange={(e) => setWrapCells(e.target.checked)}
+          />
+          長い値を折り返して全文表示
+        </label>
       </div>
-      <div className="table-wrap">
+      <div className={`table-wrap${wrapCells ? ' wrap-cells' : ''}`}>
         <table>
           <thead>
             <tr>
@@ -878,7 +917,7 @@ function PreviewTable() {
                     }`}
                     title={cell.out}
                   >
-                    {cell.empty ? '—' : cell.out.replace(/\n/g, ' ⏎ ')}
+                    {cell.empty ? '—' : cell.out}
                   </td>
                 ))}
               </tr>

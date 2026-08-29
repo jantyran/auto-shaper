@@ -33,19 +33,43 @@ export function LookupPanel() {
   const source = useStore((s) => s.source);
   const tables = useStore((s) => s.lookupTables);
   const files = useStore((s) => s.lookupFiles);
+  const pending = useStore((s) => s.pendingLookups);
   const addLookupFile = useStore((s) => s.addLookupFile);
   const [adding, setAdding] = useState(false);
 
   if (!source) return null;
+  if (tables.length === 0 && pending.length === 0 && !adding) {
+    return (
+      <div className="read-options">
+        <div className="read-options-head">
+          <span className="read-options-title">参照テーブル（横引き）</span>
+          <span className="read-options-inline">
+            別ファイルの情報をキーで突き合わせて取り込みます（行数は増えません）
+          </span>
+          <div className="spacer" />
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => setAdding(true)}
+          >
+            + 参照テーブルを追加
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="read-options">
       <div className="read-options-head">
         <span className="read-options-title">参照テーブル（横引き）</span>
         <span className="read-options-inline">
-          {tables.length === 0
-            ? '別ファイルの情報をキーで突き合わせて取り込みます'
-            : `${tables.length} 件`}
+          {tables.length} 件
+          {pending.length > 0 && (
+            <span className="read-options-auto">
+              {pending.length} 件がファイル待ち
+            </span>
+          )}
         </span>
         <div className="spacer" />
         <button
@@ -71,6 +95,14 @@ export function LookupPanel() {
         </div>
       )}
 
+      {pending.length > 0 && (
+        <div className="source-units">
+          {pending.map((saved, i) => (
+            <PendingLookupRow key={`${saved.fileName}:${i}`} index={i} />
+          ))}
+        </div>
+      )}
+
       {tables.length > 0 && (
         <div className="source-units">
           {tables.map((table) => (
@@ -84,6 +116,46 @@ export function LookupPanel() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * レシピが覚えている参照設定のうち、ファイルがまだ無いもの。
+ * 実データは保存しない方針なので、ここで再投入してもらう。
+ */
+function PendingLookupRow({ index }: { index: number }) {
+  const saved = useStore((s) => s.pendingLookups[index]);
+  const attach = useStore((s) => s.attachPendingLookup);
+  const dismiss = useStore((s) => s.dismissPendingLookup);
+
+  if (!saved) return null;
+
+  const keys = saved.table.keys
+    .filter((k) => k.sourceColumn && k.lookupColumn)
+    .map((k) => `${k.sourceColumn} ↔ ${k.lookupColumn}`)
+    .join('、');
+  const columns = saved.table.columns.map((c) => c.as).join('、');
+
+  return (
+    <div className="source-unit is-pending">
+      <div className="source-unit-head">
+        <span className="source-unit-name">{saved.fileName}</span>
+        <span className="source-unit-meta">レシピの設定を復元します</span>
+        <div className="spacer" />
+        <button type="button" className="ghost" onClick={() => dismiss(index)}>
+          使わない
+        </button>
+      </div>
+      <p className="subtitle" style={{ margin: '6px 0 8px' }}>
+        突き合わせ: {keys || '（未設定）'}
+        {columns && ` / 持ってくる列: ${columns}`}
+      </p>
+      <FileDrop
+        title={`${saved.fileName} を投入してください`}
+        hint="レシピにはファイルの中身を保存していません（実データを保存しないため）。同じ内容のファイルを入れると、覚えていた設定のまま復元します。"
+        onFile={(fileName, data) => void attach(index, { fileName, data })}
+      />
     </div>
   );
 }

@@ -310,6 +310,7 @@ function ResultPreview({
   issueCells: Set<string>;
 }) {
   const [onlyIssues, setOnlyIssues] = useState(false);
+  const [wrapCells, setWrapCells] = useState(false);
 
   const indexed = rows.map((r, i) => ({ r, i }));
   const filtered = onlyIssues
@@ -337,8 +338,16 @@ function ResultPreview({
             問題のある行のみ表示
           </label>
         )}
+        <label className="toggle">
+          <input
+            type="checkbox"
+            checked={wrapCells}
+            onChange={(e) => setWrapCells(e.target.checked)}
+          />
+          長い値を折り返して全文表示
+        </label>
       </div>
-      <div className="table-wrap">
+      <div className={`table-wrap${wrapCells ? ' wrap-cells' : ''}`}>
         <table>
           <thead>
             <tr>

@@ -60,6 +60,7 @@ import {
   listRecipes,
   saveRecipe as persistRecipe,
   type Recipe,
+  type SavedLookup,
 } from '../core/recipes';
 import { findSchemaById } from '../core/schemaStore';
 import { hasSeenEntrance, markEntranceSeen } from '../core/entranceState';
@@ -113,6 +114,12 @@ interface AppState {
   lookupData: SourceDataset[];
   /** 参照テーブルごとの一致件数(id をキーにする) */
   lookupStats: Record<string, LookupStats>;
+  /**
+   * レシピから復元した参照テーブルの設定のうち、まだファイルが
+   * 与えられていないもの。ファイルの中身はレシピに保存しないため、
+   * 適用時はここに積んで再投入を促す。
+   */
+  pendingLookups: SavedLookup[];
   /** 上限に近いサイズを読み込んだときの注意書き(致命的でないもの) */
   sizeWarning?: string;
   /**
@@ -192,6 +199,10 @@ interface AppState {
   updateLookupTable: (id: string, patch: Partial<LookupTable>) => Promise<void>;
   /** 参照テーブルを外す */
   removeLookupTable: (id: string) => Promise<void>;
+  /** レシピから復元した参照設定に、再投入されたファイルを結びつける */
+  attachPendingLookup: (index: number, file: UploadedFile) => Promise<void>;
+  /** 再投入せずに、その参照設定を捨てる */
+  dismissPendingLookup: (index: number) => void;
   /** ガイドツアー用: 埋め込みサンプルCSVを実アップロードと同じ経路で読み込む */
   loadDemoSource: () => Promise<void>;
   selectSchema: (id: string) => Promise<void>;
@@ -453,6 +464,7 @@ export const useStore = create<AppState>((set, get) => ({
   lookupTables: [],
   lookupData: [],
   lookupStats: {},
+  pendingLookups: [],
   dropEmptyColumns: false,
   entranceActive: initialEntranceActive(),
   tourActive: false,
@@ -512,7 +524,7 @@ export const useStore = create<AppState>((set, get) => ({
         fileIndex: i,
         sheet: f.sheetNames[0] ?? '',
       }));
-      set({ demoActive: false });
+      set({ demoActive: false, pendingLookups: [] });
       // 新しく読み直すときは参照テーブルも捨てる。前のソースの列を前提に
       // 組んだ設定が、別の列構成のデータに残っていても意味がない。
       await rebuildSource(
@@ -685,6 +697,75 @@ export const useStore = create<AppState>((set, get) => ({
     );
   },
 
+  attachPendingLookup: async (index, file) => {
+    const pending = get().pendingLookups[index];
+    if (!pending) return;
+    const { sourceFiles, sourceUnits, lookupFiles, lookupTables } = get();
+    try {
+      const read = await readSourceFile(file.fileName, file.data);
+      // レシピが覚えているシートが無ければ先頭シートに落とす
+      const sheet = read.sheetNames.includes(pending.table.sheet)
+        ? pending.table.sheet
+        : (read.sheetNames[0] ?? '');
+      const probe = await parseWorkbook(read.fileName, read.data, {
+        sheetName: sheet,
+        headerRow: pending.table.headerRow,
+      });
+      const size = checkDatasetSize(
+        probe.rows.length,
+        probe.columns.length,
+        `参照テーブル「${read.fileName}」`,
+      );
+      if (size.level === 'over') {
+        set({ error: size.message });
+        return;
+      }
+      // 覚えていた列がこのファイルに無ければ、そのまま当てても
+      // 「全部未一致」になるだけなので、理由を添えて知らせる
+      const names = new Set(probe.columns.map((c) => c.name));
+      const missing = [
+        ...pending.table.keys.map((k) => k.lookupColumn),
+        ...pending.table.columns.map((c) => c.from),
+      ].filter((n) => n.trim() !== '' && !names.has(n));
+
+      set({
+        pendingLookups: get().pendingLookups.filter((_, i) => i !== index),
+      });
+      await rebuildSource(
+        set,
+        get,
+        {
+          files: sourceFiles,
+          units: sourceUnits,
+          lookupFiles: [...lookupFiles, read],
+          lookupTables: [
+            ...lookupTables,
+            { ...pending.table, fileIndex: lookupFiles.length, sheet },
+          ],
+        },
+        '参照テーブルの復元に失敗しました。',
+      );
+      if (missing.length > 0) {
+        set({
+          sizeWarning: `「${read.fileName}」に ${[...new Set(missing)].join('、')} の列が見つかりませんでした。参照テーブルの設定を確認してください。`,
+        });
+      } else if (size.level === 'warn') {
+        set({ sizeWarning: size.message });
+      }
+    } catch (e) {
+      set({
+        error:
+          e instanceof Error ? e.message : '参照テーブルの復元に失敗しました。',
+      });
+    }
+  },
+
+  dismissPendingLookup: (index) => {
+    set({
+      pendingLookups: get().pendingLookups.filter((_, i) => i !== index),
+    });
+  },
+
   removeLookupTable: async (id) => {
     const { sourceFiles, sourceUnits, lookupFiles, lookupTables } = get();
     const kept = lookupTables.filter((t) => t.id !== id);
@@ -849,6 +930,7 @@ export const useStore = create<AppState>((set, get) => ({
       lookupTables: [],
       lookupData: [],
       lookupStats: {},
+      pendingLookups: [],
       sizeWarning: undefined,
       target: undefined,
       mapping: undefined,
@@ -906,9 +988,17 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   saveCurrentAsRecipe: async (name) => {
-    const { source, mapping } = get();
+    const { source, mapping, lookupTables, lookupFiles, dedupeConfig } = get();
     if (!source || !mapping) return;
-    const recipes = await persistRecipe(createRecipe(name, source, mapping));
+    // 参照テーブルは「どのファイルの、どの列を、どう突き合わせるか」だけ覚える。
+    // ファイルの中身は実データなので保存しない。
+    const lookups = lookupTables.map((table) => ({
+      fileName: lookupFiles[table.fileIndex]?.fileName ?? '',
+      table,
+    }));
+    const recipes = await persistRecipe(
+      createRecipe(name, source, mapping, { lookups, dedupe: dedupeConfig }),
+    );
     set({ recipes });
   },
 
@@ -930,11 +1020,20 @@ export const useStore = create<AppState>((set, get) => ({
   applyRecipe: (recipe) => {
     const { customSchemas } = get();
     const target = findSchemaById(recipe.targetSchemaId, customSchemas);
+    // 参照テーブルはファイルの中身を保存していないので、設定だけ待たせておく。
+    // 画面がファイルの再投入を促し、入れた時点で元の設定のまま復元する。
+    const pendingLookups = (recipe.lookups ?? []).map((saved) => ({
+      ...saved,
+    }));
     // レシピのマッピングをそのまま適用(確定済みなので確信度は1扱い)
     set({
       target,
       mapping: recipe.mapping,
-      step: 'mapping',
+      dedupeConfig:
+        recipe.dedupe ??
+        (target ? defaultDedupeConfig(target) : get().dedupeConfig),
+      pendingLookups,
+      step: pendingLookups.length > 0 ? 'target' : 'mapping',
       transformedRows: undefined,
       exportedOnce: false,
       transformProgress: 0,

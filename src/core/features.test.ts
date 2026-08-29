@@ -180,3 +180,83 @@ describe('masking (個人情報の自動判定)', () => {
     expect(ctx.columns.length).toBe(1);
   });
 });
+
+describe('レシピが参照テーブルの設定を覚える', () => {
+  const lookupTable = {
+    id: 'L1',
+    fileIndex: 0,
+    sheet: 'Sheet1',
+    keys: [{ sourceColumn: '部署コード', lookupColumn: '部署コード' }],
+    columns: [{ from: '部署名', as: '部署名' }],
+    multiple: 'first' as const,
+    notFound: '',
+    loose: true,
+    matchAction: 'none' as const,
+  };
+
+  const withLookupColumn = (): SourceDataset => ({
+    fileName: 'x.csv',
+    columns: ['会社名', '部署コード', '部署名'].map((name) => ({
+      name,
+      inferredType: 'string' as const,
+      sampleValues: [],
+      fillRate: 1,
+    })),
+    rows: [],
+  });
+
+  const mapping: MappingConfig = { targetSchemaId: 't', fields: [] };
+
+  it('参照テーブルの設定を保存する(ファイルの中身は持たない)', () => {
+    const r = createRecipe('月次', withLookupColumn(), mapping, {
+      lookups: [{ fileName: 'dept.csv', table: lookupTable }],
+    });
+    expect(r.lookups?.length).toBe(1);
+    expect(r.lookups?.[0].fileName).toBe('dept.csv');
+    expect(JSON.stringify(r)).not.toContain('ArrayBuffer');
+  });
+
+  it('参照テーブルが足した列はシグネチャから除く', () => {
+    const r = createRecipe('月次', withLookupColumn(), mapping, {
+      lookups: [{ fileName: 'dept.csv', table: lookupTable }],
+    });
+    // 「部署名」は参照テーブルが足した列なので、素のファイルの構成に含めない
+    expect(r.sourceColumns).toEqual(['会社名', '部署コード']);
+  });
+
+  it('参照テーブル適用後のソースからでも、素のファイルにレシピが一致する', () => {
+    const r = createRecipe('月次', withLookupColumn(), mapping, {
+      lookups: [{ fileName: 'dept.csv', table: lookupTable }],
+    });
+    const plain: SourceDataset = {
+      fileName: 'y.csv',
+      columns: ['会社名', '部署コード'].map((name) => ({
+        name,
+        inferredType: 'string' as const,
+        sampleValues: [],
+        fillRate: 1,
+      })),
+      rows: [],
+    };
+    expect(findMatchingRecipes([r], plain).length).toBe(1);
+  });
+
+  it('一致状況の列もシグネチャから除く', () => {
+    const r = createRecipe('月次', withLookupColumn(), mapping, {
+      lookups: [
+        {
+          fileName: 'crm.csv',
+          table: { ...lookupTable, columns: [], statusColumn: '部署名' },
+        },
+      ],
+    });
+    expect(r.sourceColumns).toEqual(['会社名', '部署コード']);
+  });
+
+  it('参照テーブルが無ければ lookups は持たない', () => {
+    const r = createRecipe('月次', withLookupColumn(), mapping, {
+      lookups: [],
+    });
+    expect(r.lookups).toBeUndefined();
+  });
+});

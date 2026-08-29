@@ -9,6 +9,7 @@ import { sortCustomSchemas } from '../core/schemaStore';
 import { findMatchingRecipes } from '../core/recipes';
 import { FileDrop } from './FileDrop';
 import { SourceReadOptions } from './SourceReadOptions';
+import { LookupPanel } from './LookupPanel';
 import type { SchemaCategory, TargetSchema } from '../types';
 
 /** ステップ2: インポート先フォーマット(ターゲットスキーマ)の選択 */
@@ -54,6 +55,7 @@ export function TargetSelector() {
 
       {/* 読み込んだファイル・シートの一覧と件数は SourceReadOptions が出す */}
       {source && <SourceReadOptions />}
+      {source && <LookupPanel />}
 
       {matchingRecipes.length > 0 && (
         <>

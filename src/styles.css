@@ -2694,3 +2694,30 @@ td.rownum {
 .linkish:hover {
   text-decoration: underline;
 }
+
+/* 参照テーブル(横引き) */
+.lookup-body {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.lookup-keys {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  flex: 1;
+}
+
+.lookup-key-pair {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.lookup-key-pair select {
+  width: auto;
+  min-width: 160px;
+}

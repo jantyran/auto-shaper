@@ -44,6 +44,10 @@ export function SourceReadOptions() {
   if (!source) return null;
 
   const combined = units.length > 1;
+  // 参照テーブルで行を絞ると、読み込んだ合計と実際の対象行数がずれる。
+  // 「ファイルは4行なのに2行と出ている」と見えるので、差分の理由を添える。
+  const readTotal = unitData.reduce((sum, d) => sum + (d?.rows.length ?? 0), 0);
+  const filteredOut = readTotal - source.rows.length;
 
   return (
     <div className="read-options">
@@ -53,6 +57,11 @@ export function SourceReadOptions() {
           {source.columns.length} 列 / {source.rows.length.toLocaleString()} 行
           {combined && (
             <span className="read-options-auto">{units.length}件を結合</span>
+          )}
+          {filteredOut > 0 && (
+            <span className="read-options-auto">
+              参照テーブルで {filteredOut.toLocaleString()} 行を除外
+            </span>
           )}
         </span>
         <div className="spacer" />

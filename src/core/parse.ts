@@ -101,7 +101,7 @@ function readMatrix(XLSX: XLSXModule, sheet: WorkSheet): string[][] {
 }
 
 /** 1列分のメタ情報(推定型・サンプル・充填率)をまとめる */
-function describeColumn(
+export function describeColumn(
   name: string,
   rows: Record<string, string>[],
 ): SourceColumn {

@@ -25,6 +25,7 @@ export function App() {
   const setView = useStore((s) => s.setView);
   const step = useStore((s) => s.step);
   const error = useStore((s) => s.error);
+  const sizeWarning = useStore((s) => s.sizeWarning);
   const refreshSchemas = useStore((s) => s.refreshSchemas);
   const refreshRecipes = useStore((s) => s.refreshRecipes);
   const refreshLearning = useStore((s) => s.refreshLearning);
@@ -122,6 +123,7 @@ export function App() {
       </p>
 
       {error && <div className="alert error">{error}</div>}
+      {sizeWarning && <div className="alert warn">{sizeWarning}</div>}
 
       {view === 'text' ? (
         <TextShaper />

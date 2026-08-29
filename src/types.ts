@@ -254,6 +254,57 @@ export interface FieldMapping {
 }
 
 /** 変換設定全体。これがAIの出力物であり、変換エンジンの入力 */
+/** 参照テーブルの突き合わせに使う、元データ側と参照側の列の組 */
+export interface LookupKeyPair {
+  /** 元データ側の列名 */
+  sourceColumn: string;
+  /** 参照表側の列名 */
+  lookupColumn: string;
+}
+
+/** 参照表から持ってくる列1つ分 */
+export interface LookupColumn {
+  /** 参照表側の列名 */
+  from: string;
+  /** 元データに足すときの列名 */
+  as: string;
+}
+
+/** 複数の行が一致したときにどれを採るか */
+export type LookupMultiple = 'first' | 'last' | 'joinAll';
+
+/** 一致した行そのものをどう扱うか(差分抽出はこれで実現する) */
+export type LookupMatchAction = 'none' | 'excludeMatched' | 'keepMatched';
+
+/**
+ * 参照テーブル(横引き)の設定。
+ *
+ * SQL の JOIN ではなく XLOOKUP と同じ意味論にしている。1行につき必ず1件を
+ * 返すので、行数は増えない。増えるのは列だけ。業務データの整形では行が
+ * 勝手に増える方が事故になりやすいため、この制約を仕様として選んでいる。
+ */
+export interface LookupTable {
+  id: string;
+  /** lookupFiles のインデックス */
+  fileIndex: number;
+  /** 参照するシート名 */
+  sheet: string;
+  /** 見出し行の明示指定(未指定なら自動判定) */
+  headerRow?: number;
+  /** 突き合わせるキー。複数指定するとすべて一致した行を採る。 */
+  keys: LookupKeyPair[];
+  /** 元データに持ってくる列 */
+  columns: LookupColumn[];
+  multiple: LookupMultiple;
+  /** 見つからなかったときに入れる値 */
+  notFound: string;
+  /** 空白・全角半角・英字の大小を無視して照合するか */
+  loose: boolean;
+  /** 一致状況を残す列名。空なら残さない。 */
+  statusColumn?: string;
+  matchAction: LookupMatchAction;
+}
+
 /** 行の絞り込み条件1件分 */
 export interface RowFilterRule {
   /** 判定に使う元データの列名 */

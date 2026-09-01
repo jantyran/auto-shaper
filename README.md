@@ -217,7 +217,8 @@ MIT ライセンスの OSS です。[公開版](https://auto-shaper.web.app)を�
 **LLM 推論・LLM 抽出を有効にすると、入力した API キーはリクエストごとに API サーバーへ
 送信されます。** ブラウザから各プロバイダを直接叩くのではなく、`/api/suggest`・`/api/extract`
 がキーを受け取ってサーバー側から Anthropic / OpenAI / Gemini へ中継する構成のためです
-（`src/core/inference/llm.ts` → `server/suggest.mjs` / `server/extract.mjs`）。
+（推論は `src/core/inference/llm.ts` → `server/suggest.mjs`、テキスト抽出は
+`src/core/textExtract.ts` → `server/extract.mjs`）。
 
 - サーバーはキーを**保存しません**（DB にもファイルにも書かず、リクエスト処理中のみメモリ上に
   存在します）。ログにも出力しません。

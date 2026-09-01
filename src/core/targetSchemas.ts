@@ -72,6 +72,7 @@ const SALESFORCE_LEAD: TargetSchema = {
       label: '姓',
       required: true,
       type: 'string',
+      maxLength: 80,
       aliases: ['姓', '苗字', '名字', 'lastname', 'last name', 'family name'],
     },
     {
@@ -79,6 +80,7 @@ const SALESFORCE_LEAD: TargetSchema = {
       label: '名',
       required: false,
       type: 'string',
+      maxLength: 40,
       aliases: ['名', 'firstname', 'first name', 'given name'],
     },
     {
@@ -86,6 +88,7 @@ const SALESFORCE_LEAD: TargetSchema = {
       label: '会社名',
       required: true,
       type: 'string',
+      maxLength: 255,
       aliases: [
         '会社名',
         '会社',
@@ -103,6 +106,7 @@ const SALESFORCE_LEAD: TargetSchema = {
       label: '役職',
       required: false,
       type: 'string',
+      maxLength: 128,
       aliases: ['役職', '肩書', '職位', 'title', 'position', 'job title'],
     },
     {
@@ -110,6 +114,7 @@ const SALESFORCE_LEAD: TargetSchema = {
       label: 'メール',
       required: false,
       type: 'email',
+      maxLength: 80,
       aliases: ['メール', 'メールアドレス', 'email', 'e-mail', 'mail'],
     },
     {
@@ -117,6 +122,7 @@ const SALESFORCE_LEAD: TargetSchema = {
       label: '電話番号',
       required: false,
       type: 'phone',
+      maxLength: 40,
       aliases: ['電話', '電話番号', 'tel', 'phone', 'telephone', '連絡先'],
     },
     {
@@ -124,6 +130,7 @@ const SALESFORCE_LEAD: TargetSchema = {
       label: '携帯電話',
       required: false,
       type: 'phone',
+      maxLength: 40,
       aliases: ['携帯', '携帯電話', 'mobile', 'cell', 'ケータイ'],
     },
     {
@@ -131,13 +138,23 @@ const SALESFORCE_LEAD: TargetSchema = {
       label: '町名・番地',
       required: false,
       type: 'string',
+      maxLength: 255,
       aliases: ['住所', '町名', '番地', 'street', 'address'],
+    },
+    {
+      key: 'City',
+      label: '市区町村',
+      required: false,
+      type: 'string',
+      maxLength: 40,
+      aliases: ['市区町村', '市', '区', '町村', 'city', '住所2'],
     },
     {
       key: 'State',
       label: '都道府県',
       required: false,
       type: 'string',
+      maxLength: 80,
       aliases: ['都道府県', '県', 'state', 'prefecture'],
     },
     {
@@ -145,13 +162,23 @@ const SALESFORCE_LEAD: TargetSchema = {
       label: '郵便番号',
       required: false,
       type: 'string',
+      maxLength: 20,
       aliases: ['郵便番号', '〒', 'zip', 'postal', 'postalcode', 'post code'],
+    },
+    {
+      key: 'Country',
+      label: '国',
+      required: false,
+      type: 'string',
+      maxLength: 80,
+      aliases: ['国', '国名', 'country', '国・地域'],
     },
     {
       key: 'Website',
       label: 'Webサイト',
       required: false,
       type: 'url',
+      maxLength: 255,
       aliases: ['url', 'website', 'web', 'ホームページ', 'サイト', 'hp'],
     },
     {
@@ -198,7 +225,11 @@ const SALESFORCE_LEAD: TargetSchema = {
   ],
 };
 
-/** HubSpot コンタクトの代表的な項目 */
+/**
+ * HubSpot コンタクトの代表的な項目。
+ * キーは HubSpot の内部プロパティ名(インポートCSVの列見出しに使える)。
+ * 新規作成に必須なのは email(一意キー)だけで、姓名は任意。
+ */
 const HUBSPOT_CONTACT: TargetSchema = {
   id: 'hubspot-contact',
   name: 'HubSpot — コンタクト(Contact)',
@@ -206,25 +237,25 @@ const HUBSPOT_CONTACT: TargetSchema = {
   category: 'crm',
   fields: [
     {
-      key: 'firstname',
-      label: '名(First name)',
-      required: false,
-      type: 'string',
-      aliases: ['名', 'firstname', 'first name', 'given name'],
-    },
-    {
-      key: 'lastname',
-      label: '姓(Last name)',
-      required: true,
-      type: 'string',
-      aliases: ['姓', '苗字', '名字', 'lastname', 'last name'],
-    },
-    {
       key: 'email',
       label: 'Email',
       required: true,
       type: 'email',
       aliases: ['メール', 'メールアドレス', 'email', 'e-mail', 'mail'],
+    },
+    {
+      key: 'lastname',
+      label: '姓(Last name)',
+      required: false,
+      type: 'string',
+      aliases: ['姓', '苗字', '名字', 'lastname', 'last name'],
+    },
+    {
+      key: 'firstname',
+      label: '名(First name)',
+      required: false,
+      type: 'string',
+      aliases: ['名', 'firstname', 'first name', 'given name'],
     },
     {
       key: 'company',
@@ -255,11 +286,93 @@ const HUBSPOT_CONTACT: TargetSchema = {
       aliases: ['電話', '電話番号', 'tel', 'phone', '連絡先'],
     },
     {
+      key: 'mobilephone',
+      label: 'Mobile phone number',
+      required: false,
+      type: 'phone',
+      aliases: ['携帯', '携帯電話', 'mobile', 'mobilephone', 'cell'],
+    },
+    {
       key: 'website',
       label: 'Website URL',
       required: false,
       type: 'url',
       aliases: ['url', 'website', 'web', 'ホームページ', 'サイト'],
+    },
+    {
+      key: 'address',
+      label: 'Street address',
+      required: false,
+      type: 'string',
+      aliases: ['住所', '町名', '番地', 'address', 'street'],
+    },
+    {
+      key: 'city',
+      label: 'City',
+      required: false,
+      type: 'string',
+      aliases: ['市区町村', '市', 'city', '住所2'],
+    },
+    {
+      key: 'state',
+      label: 'State/Region',
+      required: false,
+      type: 'string',
+      aliases: ['都道府県', '県', 'state', 'prefecture', 'region'],
+    },
+    {
+      key: 'zip',
+      label: 'Postal code',
+      required: false,
+      type: 'string',
+      aliases: ['郵便番号', '〒', 'zip', 'postal', 'postalcode'],
+    },
+    {
+      key: 'country',
+      label: 'Country/Region',
+      required: false,
+      type: 'string',
+      aliases: ['国', '国名', 'country', '国・地域'],
+    },
+    {
+      key: 'industry',
+      label: 'Industry',
+      required: false,
+      type: 'string',
+      aliases: ['業種', '業界', 'industry'],
+    },
+    {
+      key: 'lifecyclestage',
+      label: 'Lifecycle stage',
+      required: false,
+      type: 'string',
+      aliases: [
+        'ライフサイクル',
+        'ライフサイクルステージ',
+        'lifecycle',
+        'lifecycle stage',
+        'ステージ',
+      ],
+      options: [
+        'subscriber',
+        'lead',
+        'marketingqualifiedlead',
+        'salesqualifiedlead',
+        'opportunity',
+        'customer',
+        'evangelist',
+        'other',
+      ],
+      optionLabels: {
+        subscriber: 'Subscriber(購読者)',
+        lead: 'Lead(リード)',
+        marketingqualifiedlead: 'MQL',
+        salesqualifiedlead: 'SQL',
+        opportunity: 'Opportunity(商談)',
+        customer: 'Customer(顧客)',
+        evangelist: 'Evangelist',
+        other: 'Other',
+      },
     },
     {
       key: 'hs_lead_status',
@@ -275,6 +388,14 @@ const HUBSPOT_CONTACT: TargetSchema = {
         'UNQUALIFIED',
         'CONNECTED',
       ],
+      optionLabels: {
+        NEW: 'New(新規)',
+        OPEN: 'Open(対応中)',
+        IN_PROGRESS: 'In progress(進行中)',
+        OPEN_DEAL: 'Open deal(商談化)',
+        UNQUALIFIED: 'Unqualified(対象外)',
+        CONNECTED: 'Connected(接触済み)',
+      },
     },
   ],
 };
@@ -791,6 +912,246 @@ const MA_CONTACT_LIST: TargetSchema = {
   ],
 };
 
+/**
+ * Adobe Marketo Engage のリスト取り込み(Import a List of People)用。
+ *
+ * キーは Marketo の REST API 名。リスト取り込みでは CSV の1行目に
+ * REST API 名を並べると、そのまま人物フィールドへ割り当てられる。
+ * 必須は email のみで、これが重複判定(dedupe)のキーになる。
+ * 参考: Adobe Experience League「Import a List of People」/
+ *       「List of Standard Fields」
+ *
+ * 注意:
+ *  - leadStatus の選択肢は購読(インスタンス)ごとに異なるため、
+ *    ここでは候補を固定せず自由入力にしている。
+ *  - unsubscribed には既定値を入れていない。未割当のまま取り込むと
+ *    既存の配信停止(オプトアウト)を一括で上書きしてしまうため、
+ *    意図して列を割り当てたときだけ値が入るようにしている。
+ */
+const MARKETO_LEAD: TargetSchema = {
+  id: 'marketo-lead',
+  name: 'Marketo Engage — 人物リスト取り込み',
+  origin: 'preset',
+  category: 'ma',
+  fields: [
+    {
+      key: 'email',
+      label: 'メールアドレス(Email Address)',
+      required: true,
+      type: 'email',
+      aliases: [
+        'メール',
+        'メールアドレス',
+        'email',
+        'e-mail',
+        'mail',
+        'email address',
+      ],
+    },
+    {
+      key: 'lastName',
+      label: '姓(Last Name)',
+      required: false,
+      type: 'string',
+      aliases: ['姓', '苗字', '名字', 'lastname', 'last name', 'family name'],
+    },
+    {
+      key: 'firstName',
+      label: '名(First Name)',
+      required: false,
+      type: 'string',
+      aliases: ['名', 'firstname', 'first name', 'given name'],
+    },
+    {
+      key: 'company',
+      label: '会社名(Company Name)',
+      required: false,
+      type: 'string',
+      aliases: [
+        '会社名',
+        '会社',
+        '企業名',
+        '法人名',
+        '団体名',
+        'company',
+        'organization',
+        '組織名',
+      ],
+    },
+    {
+      key: 'title',
+      label: '役職(Job Title)',
+      required: false,
+      type: 'string',
+      aliases: ['役職', '肩書', '職位', 'title', 'job title', 'position'],
+    },
+    {
+      key: 'department',
+      label: '部署(Department)',
+      required: false,
+      type: 'string',
+      aliases: ['部署', '部門', '所属', 'department', 'division'],
+    },
+    {
+      key: 'phone',
+      label: '電話番号(Phone Number)',
+      required: false,
+      type: 'phone',
+      aliases: ['電話', '電話番号', 'tel', 'phone', 'telephone', '連絡先'],
+    },
+    {
+      key: 'mobilePhone',
+      label: '携帯電話(Mobile Phone Number)',
+      required: false,
+      type: 'phone',
+      aliases: [
+        '携帯',
+        '携帯電話',
+        'mobile',
+        'mobilephone',
+        'cell',
+        'ケータイ',
+      ],
+    },
+    {
+      key: 'address',
+      label: '住所(Address)',
+      required: false,
+      type: 'string',
+      aliases: ['住所', '町名', '番地', '建物名', 'address', 'street'],
+    },
+    {
+      key: 'city',
+      label: '市区町村(City)',
+      required: false,
+      type: 'string',
+      aliases: ['市区町村', '市', '区', '町村', 'city', '住所2'],
+    },
+    {
+      key: 'state',
+      label: '都道府県(State)',
+      required: false,
+      type: 'string',
+      aliases: ['都道府県', '県', 'state', 'prefecture', 'region'],
+    },
+    {
+      key: 'postalCode',
+      label: '郵便番号(Postal Code)',
+      required: false,
+      type: 'string',
+      aliases: ['郵便番号', '〒', 'zip', 'postal', 'postalcode', 'post code'],
+    },
+    {
+      key: 'country',
+      label: '国(Country)',
+      required: false,
+      type: 'string',
+      aliases: ['国', '国名', 'country', '国・地域'],
+    },
+    {
+      key: 'website',
+      label: 'Webサイト(Website)',
+      required: false,
+      type: 'url',
+      aliases: ['url', 'website', 'web', 'ホームページ', 'サイト', 'hp'],
+    },
+    {
+      key: 'industry',
+      label: '業種(Industry)',
+      required: false,
+      type: 'string',
+      aliases: ['業種', '業界', 'industry'],
+    },
+    {
+      key: 'numberOfEmployees',
+      label: '従業員数(Number of Employees)',
+      required: false,
+      type: 'number',
+      aliases: ['従業員数', '社員数', '人数', '規模', 'employees', 'headcount'],
+    },
+    {
+      key: 'annualRevenue',
+      label: '年間売上(Annual Revenue)',
+      required: false,
+      type: 'number',
+      aliases: ['売上', '年商', '年間売上', 'revenue', 'annual revenue'],
+    },
+    {
+      key: 'leadSource',
+      label: 'リードソース(Lead Source)',
+      required: false,
+      type: 'string',
+      aliases: [
+        'リードソース',
+        '流入元',
+        '流入経路',
+        '獲得経路',
+        '経路',
+        'source',
+        'leadsource',
+        'utm_source',
+      ],
+    },
+    {
+      key: 'leadStatus',
+      label: 'リードステータス(Lead Status)',
+      required: false,
+      type: 'string',
+      aliases: [
+        'ステータス',
+        'リードステータス',
+        '状態',
+        'status',
+        'lead status',
+      ],
+    },
+    {
+      key: 'leadScore',
+      label: 'リードスコア(Lead Score)',
+      required: false,
+      type: 'number',
+      aliases: ['スコア', 'リードスコア', 'score', 'lead score', '点数'],
+    },
+    {
+      key: 'unsubscribed',
+      label: '配信停止(Unsubscribed)',
+      required: false,
+      type: 'boolean',
+      aliases: [
+        '配信停止',
+        '停止',
+        '解除',
+        'unsubscribe',
+        'unsubscribed',
+        'opt-out',
+        'optout',
+      ],
+      options: ['false', 'true'],
+      optionLabels: { false: '配信する', true: '配信しない' },
+    },
+    {
+      key: 'unsubscribedReason',
+      label: '配信停止の理由(Unsubscribed Reason)',
+      required: false,
+      type: 'string',
+      aliases: [
+        '配信停止理由',
+        '停止理由',
+        '解除理由',
+        'unsubscribed reason',
+        'opt-out reason',
+      ],
+    },
+    {
+      key: 'mktoPersonNotes',
+      label: 'メモ(Person Notes)',
+      required: false,
+      type: 'string',
+      aliases: ['メモ', '備考', 'ノート', 'note', 'notes', 'remarks'],
+    },
+  ],
+};
+
 /** 最小構成のメルマガ配信リスト(とにかく送れればよい用) */
 const NEWSLETTER_LIST: TargetSchema = {
   id: 'newsletter-list',
@@ -1128,6 +1489,20 @@ const INVOICE_LINE: TargetSchema = {
       ],
     },
     {
+      key: 'RegistrationNumber',
+      label: 'インボイス登録番号',
+      required: false,
+      type: 'string',
+      aliases: [
+        'インボイス登録番号',
+        '登録番号',
+        '適格請求書発行事業者登録番号',
+        '事業者登録番号',
+        'invoice registration number',
+        'T番号',
+      ],
+    },
+    {
       key: 'Description',
       label: '摘要',
       required: false,
@@ -1136,7 +1511,7 @@ const INVOICE_LINE: TargetSchema = {
     },
     {
       key: 'Amount',
-      label: '金額',
+      label: '金額(税抜)',
       required: true,
       type: 'number',
       aliases: ['金額', '価格', '合計', '税抜金額', 'amount', 'price', 'total'],
@@ -1150,6 +1525,13 @@ const INVOICE_LINE: TargetSchema = {
       options: ['10', '8', '0'],
       optionLabels: { '10': '10%', '8': '8%(軽減)', '0': '非課税・対象外' },
       defaultValue: '10',
+    },
+    {
+      key: 'TaxAmount',
+      label: '消費税額',
+      required: false,
+      type: 'number',
+      aliases: ['消費税額', '消費税', '税額', 'tax amount', 'vat'],
     },
     {
       key: 'AccountItem',
@@ -1775,6 +2157,7 @@ export const PRESET_SCHEMAS: TargetSchema[] = [
   DYNAMICS_ACCOUNT,
   // MA・メール配信
   MA_CONTACT_LIST,
+  MARKETO_LEAD,
   NEWSLETTER_LIST,
   // 名刺・人脈
   BUSINESS_CARD,

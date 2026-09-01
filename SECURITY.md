@@ -27,6 +27,11 @@ Vulnerability Reporting）から報告してください。内容は報告者と
 [README「公開ネットワークに `npm run server` を晒す場合の注意」](README.md#公開ネットワークに-npm-run-server-を晒す場合の注意)
 を参照してください。
 
+- **LLM の API キーは API サーバーを経由する**。ブラウザから各プロバイダを直接呼ぶのではなく、
+  `/api/suggest`・`/api/extract` がキーを受け取ってサーバー側から中継する構成のため、LLM 推論・
+  LLM 抽出を有効にしている間はリクエストごとにキーがサーバーへ送信される(保存もログ出力もしないが、
+  サーバー運用者を信頼する必要はある)。詳細と回避策は
+  [README「LLM の API キーが通る経路」](README.md#llm-の-api-キーが通る経路)を参照
 - `/api/suggest`・`/api/extract`(LLM 中継)はログイン必須、`/api/auth/login`・
   `/api/auth/signup`・LLM 中継とも簡易レート制限あり(`server/rateLimit.mjs`)。ただし
   プロセス内メモリでの実装のため、Cloud Functions のように複数インスタンスに増える

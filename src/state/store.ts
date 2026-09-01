@@ -7,11 +7,19 @@ import { create } from 'zustand';
 import type {
   FieldMapping,
   ImportContextEntry,
+  LookupTable,
   MappingConfig,
+  RowFilter,
   SourceDataset,
   TargetSchema,
 } from '../types';
-import { parseWorkbook } from '../core/parse';
+import { describeColumn, mergeDatasets, parseWorkbook } from '../core/parse';
+import {
+  applyLookup,
+  createLookupTable,
+  type LookupStats,
+} from '../core/lookup';
+import { checkDatasetSize, checkRowCount } from '../core/limits';
 import { buildSuggestContext } from '../core/anonymize';
 import { applyFieldDefaults } from '../core/mappingDefaults';
 import { heuristicSuggester } from '../core/inference/heuristic';
@@ -28,6 +36,7 @@ import {
   removeSchemaFromRepo,
   type StorageMode,
 } from '../core/schemaRepository';
+import { defaultDedupeConfig, type DedupeConfig } from '../core/dedupe';
 import { loadSettings, saveSettings, type Settings } from '../core/settings';
 import { applyTheme } from '../core/theme';
 import {
@@ -51,10 +60,35 @@ import {
   listRecipes,
   saveRecipe as persistRecipe,
   type Recipe,
+  type SavedLookup,
 } from '../core/recipes';
 import { findSchemaById } from '../core/schemaStore';
 import { hasSeenEntrance, markEntranceSeen } from '../core/entranceState';
 import { DEMO_SOURCE_CSV, DEMO_SOURCE_FILE_NAME } from '../core/demoData';
+
+/** 画面から渡されるアップロード済みファイル */
+export interface UploadedFile {
+  fileName: string;
+  data: ArrayBuffer;
+}
+
+/** アップロードされた1ファイル(生データとシート一覧を保持する) */
+export interface SourceFile {
+  fileName: string;
+  data: ArrayBuffer;
+  /** そのブックの全シート名(CSV/TSVでも1件入る) */
+  sheetNames: string[];
+}
+
+/** 実際に読み込む「ファイルの、このシート」1件分 */
+export interface SourceUnit {
+  /** sourceFiles のインデックス */
+  fileIndex: number;
+  /** 読むシート名 */
+  sheet: string;
+  /** ヘッダー行の明示指定(未指定なら自動判定) */
+  headerRow?: number;
+}
 
 export type Step = 'source' | 'target' | 'mapping' | 'result';
 export type View = 'app' | 'text' | 'admin' | 'formula' | 'settings';
@@ -62,9 +96,37 @@ export type View = 'app' | 'text' | 'admin' | 'formula' | 'settings';
 interface AppState {
   view: View;
   step: Step;
+  /** 取り込み対象すべてを縦に結合した、整形の入力になるデータ */
   source?: SourceDataset;
-  /** シート切替のためにアップロード生データを保持 */
-  sourceRaw?: { fileName: string; data: ArrayBuffer };
+  /** 読み直し(シート追加・見出し行変更)のために保持しているアップロード生データ */
+  sourceFiles: SourceFile[];
+  /** 実際に読む (ファイル, シート) の組。この順に縦結合する。 */
+  sourceUnits: SourceUnit[];
+  /** sourceUnits と同じ並びのパース結果(見出し行の選び直しに使う) */
+  sourceUnitData: SourceDataset[];
+  /** 指定すると、取込元(ファイル名/シート名)をこの名前の列として足す */
+  originColumn?: string;
+  /** 参照テーブル(横引き)のアップロード生データ */
+  lookupFiles: SourceFile[];
+  /** 参照テーブルの設定。上から順に適用する。 */
+  lookupTables: LookupTable[];
+  /** lookupTables と同じ並びのパース結果(列の選択肢と見出し行の調整に使う) */
+  lookupData: SourceDataset[];
+  /** 参照テーブルごとの一致件数(id をキーにする) */
+  lookupStats: Record<string, LookupStats>;
+  /**
+   * レシピから復元した参照テーブルの設定のうち、まだファイルが
+   * 与えられていないもの。ファイルの中身はレシピに保存しないため、
+   * 適用時はここに積んで再投入を促す。
+   */
+  pendingLookups: SavedLookup[];
+  /** 上限に近いサイズを読み込んだときの注意書き(致命的でないもの) */
+  sizeWarning?: string;
+  /**
+   * 重複の照合と処理の設定。ターゲットを選んだ時点で推定値を入れるため、
+   * 設定を触らないユーザーは従来どおり「検出のみ」で動く。
+   */
+  dedupeConfig?: DedupeConfig;
   target?: TargetSchema;
   mapping?: MappingConfig;
   transformedRows?: Record<string, string>[];
@@ -119,13 +181,37 @@ interface AppState {
   signOut: () => Promise<void>;
 
   // formatting process
-  loadSource: (fileName: string, data: ArrayBuffer) => void;
+  /** ファイルを読み込んで整形を始める(複数渡すと縦に結合する) */
+  loadSource: (files: UploadedFile | UploadedFile[]) => Promise<void>;
+  /** 読み込み済みのものを残したままファイルを追加する */
+  addSourceFiles: (files: UploadedFile[]) => Promise<void>;
+  /** 取り込み対象を1件外す(最後の1件を外すとアップロード画面に戻る) */
+  removeSourceUnit: (index: number) => Promise<void>;
+  /** 同じファイルの別シートを取り込み対象に足す/外す */
+  toggleSourceSheet: (fileIndex: number, sheet: string) => Promise<void>;
+  /** 取り込み対象1件のヘッダー行(1始まり)を指定して読み直す */
+  setUnitHeaderRow: (index: number, headerRow: number) => Promise<void>;
+  /** 取込元(ファイル名/シート名)を列として足す。undefined で足さない。 */
+  setOriginColumn: (originColumn: string | undefined) => Promise<void>;
+  /** 参照テーブル(横引き)にするファイルを追加する */
+  addLookupFile: (file: UploadedFile) => Promise<void>;
+  /** 参照テーブルの設定を書き換える */
+  updateLookupTable: (id: string, patch: Partial<LookupTable>) => Promise<void>;
+  /** 参照テーブルを外す */
+  removeLookupTable: (id: string) => Promise<void>;
+  /** レシピから復元した参照設定に、再投入されたファイルを結びつける */
+  attachPendingLookup: (index: number, file: UploadedFile) => Promise<void>;
+  /** 再投入せずに、その参照設定を捨てる */
+  dismissPendingLookup: (index: number) => void;
   /** ガイドツアー用: 埋め込みサンプルCSVを実アップロードと同じ経路で読み込む */
   loadDemoSource: () => Promise<void>;
-  selectSheet: (sheetName: string) => void;
   selectSchema: (id: string) => Promise<void>;
   loadUploadedTarget: (fileName: string, data: ArrayBuffer) => Promise<void>;
   updateFieldMapping: (targetKey: string, mapping: FieldMapping) => void;
+  /** 変換対象の行を絞り込む条件を設定する(undefined で解除) */
+  setRowFilter: (rowFilter: RowFilter | undefined) => void;
+  /** 重複の照合キーと、見つけたときの処理を設定する */
+  setDedupeConfig: (config: DedupeConfig) => void;
   updateImportContext: (entries: ImportContextEntry[]) => void;
   setDropEmptyColumns: (drop: boolean) => void;
   dismissEntrance: () => void;
@@ -177,6 +263,186 @@ function initialEntranceActive(): boolean {
   return true;
 }
 
+/**
+ * 取り込み対象(ファイル×シート)を全部読み直して、1つのデータセットに結合する。
+ *
+ * 列構成が変わりうるので、下流(ターゲット/マッピング/結果)は毎回リセットする。
+ * 取り込むものが1つも無くなったら、最初のアップロード画面に戻す。
+ */
+async function rebuildSource(
+  set: (partial: Partial<AppState>) => void,
+  get: () => AppState,
+  next: {
+    files: SourceFile[];
+    units: SourceUnit[];
+    lookupFiles?: SourceFile[];
+    lookupTables?: LookupTable[];
+  },
+  failureMessage: string,
+): Promise<void> {
+  const downstream: Partial<AppState> = {
+    target: undefined,
+    mapping: undefined,
+    transformedRows: undefined,
+    exportedOnce: false,
+    importContext: [],
+    error: undefined,
+    sizeWarning: undefined,
+  };
+
+  if (next.units.length === 0) {
+    set({
+      ...downstream,
+      sourceFiles: [],
+      sourceUnits: [],
+      sourceUnitData: [],
+      source: undefined,
+      step: 'source',
+    });
+    return;
+  }
+
+  const lookupFiles = next.lookupFiles ?? get().lookupFiles;
+  const lookupTables = next.lookupTables ?? get().lookupTables;
+
+  try {
+    const data: SourceDataset[] = [];
+    for (const unit of next.units) {
+      const file = next.files[unit.fileIndex];
+      if (!file) continue;
+      const parsed = await parseWorkbook(file.fileName, file.data, {
+        sheetName: unit.sheet,
+        headerRow: unit.headerRow,
+      });
+      // シート名は複数シートのブックでだけ添える。CSV に SheetJS が付ける
+      // 「Sheet1」を見せても、ユーザーには意味が通らない。
+      const label =
+        file.sheetNames.length > 1
+          ? `${file.fileName} / ${unit.sheet}`
+          : file.fileName;
+      const size = checkDatasetSize(
+        parsed.rows.length,
+        parsed.columns.length,
+        label,
+      );
+      if (size.level === 'over') throw new Error(size.message);
+      data.push(parsed);
+    }
+    if (data.length === 0) throw new Error(failureMessage);
+
+    const merged = mergeDatasets(data, get().originColumn);
+    // 結合後の合計でも上限を見る。1つ1つは収まっていても足すと超えることがある。
+    const total = checkRowCount(merged.rows.length, '結合後のデータ');
+    if (total.level === 'over') throw new Error(total.message);
+
+    // 参照テーブルは行の絞り込みより前に当てる。そうしないと
+    // 「一致状況」で絞り込む(= 差分抽出)ができない。
+    const { dataset, lookupData, lookupStats } = await applyLookupTables(
+      merged,
+      lookupFiles,
+      lookupTables,
+    );
+
+    set({
+      ...downstream,
+      sourceFiles: next.files,
+      sourceUnits: next.units,
+      sourceUnitData: data,
+      lookupFiles,
+      lookupTables,
+      lookupData,
+      lookupStats,
+      source: dataset,
+      sizeWarning: total.message,
+      step: 'target',
+    });
+  } catch (e) {
+    set({ error: e instanceof Error ? e.message : failureMessage });
+  }
+}
+
+/**
+ * 参照テーブルを順に当てて、列を足した(必要なら行を絞った)データを作る。
+ * 参照表のパース結果と一致件数も返す。設定画面が「142行が一致」と
+ * 出せないと、キーの選び間違いに気づけないため。
+ */
+async function applyLookupTables(
+  merged: SourceDataset,
+  lookupFiles: SourceFile[],
+  lookupTables: LookupTable[],
+): Promise<{
+  dataset: SourceDataset;
+  lookupData: SourceDataset[];
+  lookupStats: Record<string, LookupStats>;
+}> {
+  const lookupData: SourceDataset[] = [];
+  const lookupStats: Record<string, LookupStats> = {};
+  let rows = merged.rows;
+
+  for (const table of lookupTables) {
+    const file = lookupFiles[table.fileIndex];
+    if (!file) {
+      lookupData.push(emptyDataset());
+      continue;
+    }
+    const parsed = await parseWorkbook(file.fileName, file.data, {
+      sheetName: table.sheet,
+      headerRow: table.headerRow,
+    });
+    lookupData.push(parsed);
+    const outcome = applyLookup(rows, parsed.rows, table);
+    lookupStats[table.id] = outcome.stats;
+    rows = outcome.rows;
+  }
+
+  if (rows === merged.rows) {
+    return { dataset: merged, lookupData, lookupStats };
+  }
+  return {
+    dataset: withRows(merged, rows),
+    lookupData,
+    lookupStats,
+  };
+}
+
+/** 参照ファイルが失われている場合の空データ(添字を lookupTables と揃えるため) */
+function emptyDataset(): SourceDataset {
+  return { fileName: '', columns: [], rows: [] };
+}
+
+/** 行を差し替えたデータセットを作る(列のメタ情報も引き直す) */
+function withRows(
+  base: SourceDataset,
+  rows: Record<string, string>[],
+): SourceDataset {
+  const names: string[] = [];
+  const seen = new Set<string>();
+  for (const row of rows) {
+    for (const name of Object.keys(row)) {
+      if (seen.has(name)) continue;
+      seen.add(name);
+      names.push(name);
+    }
+  }
+  // 行が0件になった場合でも、元の列構成は残して画面が壊れないようにする
+  const columnNames =
+    names.length > 0 ? names : base.columns.map((c) => c.name);
+  return {
+    ...base,
+    rows,
+    columns: columnNames.map((name) => describeColumn(name, rows)),
+  };
+}
+
+/** アップロードされた1ファイルを読み、そのシート一覧を添えて返す */
+async function readSourceFile(
+  fileName: string,
+  data: ArrayBuffer,
+): Promise<SourceFile> {
+  const first = await parseWorkbook(fileName, data);
+  return { fileName, data, sheetNames: first.sheetNames ?? [] };
+}
+
 export const useStore = create<AppState>((set, get) => ({
   view: 'app',
   step: 'source',
@@ -191,6 +457,14 @@ export const useStore = create<AppState>((set, get) => ({
   isTransforming: false,
   transformProgress: 0,
   importContext: [],
+  sourceFiles: [],
+  sourceUnits: [],
+  sourceUnitData: [],
+  lookupFiles: [],
+  lookupTables: [],
+  lookupData: [],
+  lookupStats: {},
+  pendingLookups: [],
   dropEmptyColumns: false,
   entranceActive: initialEntranceActive(),
   tourActive: false,
@@ -239,28 +513,32 @@ export const useStore = create<AppState>((set, get) => ({
     await Promise.all([get().refreshSchemas(), get().refreshRecipes()]);
   },
 
-  loadSource: async (fileName, data) => {
+  loadSource: async (files) => {
+    const list = Array.isArray(files) ? files : [files];
+    if (list.length === 0) return;
     try {
-      const source = await parseWorkbook(fileName, data);
-      if (source.columns.length === 0) {
+      const read: SourceFile[] = [];
+      for (const f of list) read.push(await readSourceFile(f.fileName, f.data));
+      // 既定は各ファイルの先頭シートのみ。他のシートは読み込み設定から足す。
+      const units = read.map((f, i) => ({
+        fileIndex: i,
+        sheet: f.sheetNames[0] ?? '',
+      }));
+      set({ demoActive: false, pendingLookups: [] });
+      // 新しく読み直すときは参照テーブルも捨てる。前のソースの列を前提に
+      // 組んだ設定が、別の列構成のデータに残っていても意味がない。
+      await rebuildSource(
+        set,
+        get,
+        { files: read, units, lookupFiles: [], lookupTables: [] },
+        'ファイルの読み込みに失敗しました。',
+      );
+      if (get().source?.columns.length === 0) {
         set({
           error:
-            'カラムを検出できませんでした。ヘッダー行があるか確認してください。',
+            'カラムを検出できませんでした。見出し行が正しいか確認してください。',
         });
-        return;
       }
-      set({
-        source,
-        sourceRaw: { fileName, data },
-        target: undefined,
-        mapping: undefined,
-        transformedRows: undefined,
-        exportedOnce: false,
-        importContext: [],
-        step: 'target',
-        error: undefined,
-        demoActive: false,
-      });
     } catch (e) {
       set({
         error:
@@ -269,54 +547,265 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  loadDemoSource: async () => {
-    const data = new TextEncoder().encode(DEMO_SOURCE_CSV).buffer;
+  addSourceFiles: async (files) => {
+    if (files.length === 0) return;
+    const { sourceFiles, sourceUnits } = get();
     try {
-      const source = await parseWorkbook(DEMO_SOURCE_FILE_NAME, data);
+      const added: SourceFile[] = [];
+      for (const f of files)
+        added.push(await readSourceFile(f.fileName, f.data));
+      const nextFiles = [...sourceFiles, ...added];
+      const nextUnits = [
+        ...sourceUnits,
+        ...added.map((f, i) => ({
+          fileIndex: sourceFiles.length + i,
+          sheet: f.sheetNames[0] ?? '',
+        })),
+      ];
+      set({ demoActive: false });
+      await rebuildSource(
+        set,
+        get,
+        { files: nextFiles, units: nextUnits },
+        'ファイルの追加に失敗しました。',
+      );
+    } catch (e) {
       set({
-        source,
-        sourceRaw: { fileName: DEMO_SOURCE_FILE_NAME, data },
-        target: undefined,
-        mapping: undefined,
-        transformedRows: undefined,
-        exportedOnce: false,
-        importContext: [],
-        step: 'target',
-        error: undefined,
-        demoActive: true,
+        error:
+          e instanceof Error ? e.message : 'ファイルの追加に失敗しました。',
       });
+    }
+  },
+
+  removeSourceUnit: async (index) => {
+    const { sourceFiles, sourceUnits } = get();
+    const units = sourceUnits.filter((_, i) => i !== index);
+    // どのユニットからも参照されなくなったファイルは捨て、参照を貼り直す
+    const keep = [...new Set(units.map((u) => u.fileIndex))].sort(
+      (a, b) => a - b,
+    );
+    const remap = new Map(keep.map((oldIndex, i) => [oldIndex, i]));
+    await rebuildSource(
+      set,
+      get,
+      {
+        files: keep.map((i) => sourceFiles[i]),
+        units: units.map((u) => ({
+          ...u,
+          fileIndex: remap.get(u.fileIndex) ?? 0,
+        })),
+      },
+      '取り込み対象の削除に失敗しました。',
+    );
+  },
+
+  toggleSourceSheet: async (fileIndex, sheet) => {
+    const { sourceFiles, sourceUnits } = get();
+    const at = sourceUnits.findIndex(
+      (u) => u.fileIndex === fileIndex && u.sheet === sheet,
+    );
+    if (at >= 0) {
+      await get().removeSourceUnit(at);
+      return;
+    }
+    await rebuildSource(
+      set,
+      get,
+      {
+        files: sourceFiles,
+        units: [...sourceUnits, { fileIndex, sheet }],
+      },
+      'シートの追加に失敗しました。',
+    );
+  },
+
+  setUnitHeaderRow: async (index, headerRow) => {
+    const { sourceFiles, sourceUnits } = get();
+    await rebuildSource(
+      set,
+      get,
+      {
+        files: sourceFiles,
+        units: sourceUnits.map((u, i) =>
+          i === index ? { ...u, headerRow } : u,
+        ),
+      },
+      'ヘッダー行の変更に失敗しました。',
+    );
+  },
+
+  addLookupFile: async (file) => {
+    const { sourceFiles, sourceUnits, lookupFiles, lookupTables } = get();
+    try {
+      const read = await readSourceFile(file.fileName, file.data);
+      const sheet = read.sheetNames[0] ?? '';
+      // 参照表そのもののサイズをここで弾く。設定を作ったあとで
+      // 「大きすぎます」と言われるより、置く前に断る方が親切。
+      const probe = await parseWorkbook(read.fileName, read.data, {
+        sheetName: sheet,
+      });
+      const size = checkDatasetSize(
+        probe.rows.length,
+        probe.columns.length,
+        `参照テーブル「${read.fileName}」`,
+      );
+      if (size.level === 'over') {
+        set({ error: size.message });
+        return;
+      }
+      const table = createLookupTable(
+        `lookup-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        lookupFiles.length,
+        sheet,
+      );
+      await rebuildSource(
+        set,
+        get,
+        {
+          files: sourceFiles,
+          units: sourceUnits,
+          lookupFiles: [...lookupFiles, read],
+          lookupTables: [...lookupTables, table],
+        },
+        '参照テーブルの読み込みに失敗しました。',
+      );
+      if (size.level === 'warn') set({ sizeWarning: size.message });
     } catch (e) {
       set({
         error:
           e instanceof Error
             ? e.message
-            : 'デモデータの読み込みに失敗しました。',
+            : '参照テーブルの読み込みに失敗しました。',
       });
     }
   },
 
-  selectSheet: async (sheetName) => {
-    const raw = get().sourceRaw;
-    if (!raw) return;
+  updateLookupTable: async (id, patch) => {
+    const { sourceFiles, sourceUnits, lookupFiles, lookupTables } = get();
+    await rebuildSource(
+      set,
+      get,
+      {
+        files: sourceFiles,
+        units: sourceUnits,
+        lookupFiles,
+        lookupTables: lookupTables.map((t) =>
+          t.id === id ? { ...t, ...patch } : t,
+        ),
+      },
+      '参照テーブルの設定に失敗しました。',
+    );
+  },
+
+  attachPendingLookup: async (index, file) => {
+    const pending = get().pendingLookups[index];
+    if (!pending) return;
+    const { sourceFiles, sourceUnits, lookupFiles, lookupTables } = get();
     try {
-      const source = await parseWorkbook(raw.fileName, raw.data, sheetName);
-      // シートが変わると列構成も変わるため、下流(ターゲット/マッピング/結果)をリセット
-      set({
-        source,
-        target: undefined,
-        mapping: undefined,
-        transformedRows: undefined,
-        exportedOnce: false,
-        importContext: [],
-        step: 'target',
-        error: undefined,
+      const read = await readSourceFile(file.fileName, file.data);
+      // レシピが覚えているシートが無ければ先頭シートに落とす
+      const sheet = read.sheetNames.includes(pending.table.sheet)
+        ? pending.table.sheet
+        : (read.sheetNames[0] ?? '');
+      const probe = await parseWorkbook(read.fileName, read.data, {
+        sheetName: sheet,
+        headerRow: pending.table.headerRow,
       });
+      const size = checkDatasetSize(
+        probe.rows.length,
+        probe.columns.length,
+        `参照テーブル「${read.fileName}」`,
+      );
+      if (size.level === 'over') {
+        set({ error: size.message });
+        return;
+      }
+      // 覚えていた列がこのファイルに無ければ、そのまま当てても
+      // 「全部未一致」になるだけなので、理由を添えて知らせる
+      const names = new Set(probe.columns.map((c) => c.name));
+      const missing = [
+        ...pending.table.keys.map((k) => k.lookupColumn),
+        ...pending.table.columns.map((c) => c.from),
+      ].filter((n) => n.trim() !== '' && !names.has(n));
+
+      set({
+        pendingLookups: get().pendingLookups.filter((_, i) => i !== index),
+      });
+      await rebuildSource(
+        set,
+        get,
+        {
+          files: sourceFiles,
+          units: sourceUnits,
+          lookupFiles: [...lookupFiles, read],
+          lookupTables: [
+            ...lookupTables,
+            { ...pending.table, fileIndex: lookupFiles.length, sheet },
+          ],
+        },
+        '参照テーブルの復元に失敗しました。',
+      );
+      if (missing.length > 0) {
+        set({
+          sizeWarning: `「${read.fileName}」に ${[...new Set(missing)].join('、')} の列が見つかりませんでした。参照テーブルの設定を確認してください。`,
+        });
+      } else if (size.level === 'warn') {
+        set({ sizeWarning: size.message });
+      }
     } catch (e) {
       set({
         error:
-          e instanceof Error ? e.message : 'シートの読み込みに失敗しました。',
+          e instanceof Error ? e.message : '参照テーブルの復元に失敗しました。',
       });
     }
+  },
+
+  dismissPendingLookup: (index) => {
+    set({
+      pendingLookups: get().pendingLookups.filter((_, i) => i !== index),
+    });
+  },
+
+  removeLookupTable: async (id) => {
+    const { sourceFiles, sourceUnits, lookupFiles, lookupTables } = get();
+    const kept = lookupTables.filter((t) => t.id !== id);
+    // どの設定からも参照されなくなったファイルは捨て、添字を貼り直す
+    const used = [...new Set(kept.map((t) => t.fileIndex))].sort(
+      (a, b) => a - b,
+    );
+    const remap = new Map(used.map((oldIndex, i) => [oldIndex, i]));
+    await rebuildSource(
+      set,
+      get,
+      {
+        files: sourceFiles,
+        units: sourceUnits,
+        lookupFiles: used.map((i) => lookupFiles[i]),
+        lookupTables: kept.map((t) => ({
+          ...t,
+          fileIndex: remap.get(t.fileIndex) ?? 0,
+        })),
+      },
+      '参照テーブルの削除に失敗しました。',
+    );
+  },
+
+  setOriginColumn: async (originColumn) => {
+    const { sourceFiles, sourceUnits } = get();
+    set({ originColumn });
+    if (sourceUnits.length === 0) return;
+    await rebuildSource(
+      set,
+      get,
+      { files: sourceFiles, units: sourceUnits },
+      '取込元の列の設定に失敗しました。',
+    );
+  },
+
+  loadDemoSource: async () => {
+    const data = new TextEncoder().encode(DEMO_SOURCE_CSV).buffer;
+    await get().loadSource({ fileName: DEMO_SOURCE_FILE_NAME, data });
+    set({ demoActive: true });
   },
 
   selectSchema: async (id) => {
@@ -376,6 +865,24 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 
+  setDedupeConfig: (dedupeConfig) => {
+    // 重複処理は変換結果に対して後段でかけるので、変換のやり直しは要らない。
+    // ここで transformedRows を消すと、再変換の条件が揃わず結果が消えたままになる。
+    set({ dedupeConfig, exportedOnce: false });
+  },
+
+  setRowFilter: (rowFilter) => {
+    const config = get().mapping;
+    if (!config) return;
+    // 対象行が変われば変換結果も変わるので、必ず再実行させる
+    set({
+      mapping: { ...config, rowFilter },
+      transformedRows: undefined,
+      exportedOnce: false,
+      transformProgress: 0,
+    });
+  },
+
   updateImportContext: (entries) => {
     set({
       importContext: entries,
@@ -415,6 +922,16 @@ export const useStore = create<AppState>((set, get) => ({
     set({
       step: 'source',
       source: undefined,
+      sourceFiles: [],
+      sourceUnits: [],
+      sourceUnitData: [],
+      originColumn: undefined,
+      lookupFiles: [],
+      lookupTables: [],
+      lookupData: [],
+      lookupStats: {},
+      pendingLookups: [],
+      sizeWarning: undefined,
       target: undefined,
       mapping: undefined,
       transformedRows: undefined,
@@ -471,9 +988,17 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   saveCurrentAsRecipe: async (name) => {
-    const { source, mapping } = get();
+    const { source, mapping, lookupTables, lookupFiles, dedupeConfig } = get();
     if (!source || !mapping) return;
-    const recipes = await persistRecipe(createRecipe(name, source, mapping));
+    // 参照テーブルは「どのファイルの、どの列を、どう突き合わせるか」だけ覚える。
+    // ファイルの中身は実データなので保存しない。
+    const lookups = lookupTables.map((table) => ({
+      fileName: lookupFiles[table.fileIndex]?.fileName ?? '',
+      table,
+    }));
+    const recipes = await persistRecipe(
+      createRecipe(name, source, mapping, { lookups, dedupe: dedupeConfig }),
+    );
     set({ recipes });
   },
 
@@ -495,11 +1020,20 @@ export const useStore = create<AppState>((set, get) => ({
   applyRecipe: (recipe) => {
     const { customSchemas } = get();
     const target = findSchemaById(recipe.targetSchemaId, customSchemas);
+    // 参照テーブルはファイルの中身を保存していないので、設定だけ待たせておく。
+    // 画面がファイルの再投入を促し、入れた時点で元の設定のまま復元する。
+    const pendingLookups = (recipe.lookups ?? []).map((saved) => ({
+      ...saved,
+    }));
     // レシピのマッピングをそのまま適用(確定済みなので確信度は1扱い)
     set({
       target,
       mapping: recipe.mapping,
-      step: 'mapping',
+      dedupeConfig:
+        recipe.dedupe ??
+        (target ? defaultDedupeConfig(target) : get().dedupeConfig),
+      pendingLookups,
+      step: pendingLookups.length > 0 ? 'target' : 'mapping',
       transformedRows: undefined,
       exportedOnce: false,
       transformProgress: 0,
@@ -518,7 +1052,13 @@ async function runSuggestion(
 ) {
   const { source, settings } = get();
   if (!source) return;
-  set({ isSuggesting: true, target, error: undefined });
+  // ターゲットが変われば重複の照合キーも変わるので、そのつど推定し直す
+  set({
+    isSuggesting: true,
+    target,
+    dedupeConfig: defaultDedupeConfig(target),
+    error: undefined,
+  });
   try {
     // 実データは渡さず、設定に従ってマスキングしたコンテキストのみを推論器に渡す
     const ctx = buildSuggestContext(

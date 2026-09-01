@@ -1145,6 +1145,22 @@ td {
   text-overflow: ellipsis;
 }
 
+/*
+ * 全文表示。既定は1行=1レコードで横に流し読みできる形を保ちたいので、
+ * 折り返しは切り替えで入れる。複数列の結合で長くなった値を、
+ * 途中で切らずに確認するためのもの。
+ */
+.table-wrap.wrap-cells td {
+  white-space: pre-wrap;
+  overflow: visible;
+  text-overflow: clip;
+  /* anywhere だと収まる語まで途中で割れる。入りきらないときだけ折る。 */
+  overflow-wrap: break-word;
+  vertical-align: top;
+  min-width: 180px;
+  max-width: 360px;
+}
+
 th {
   background: var(--panel-2);
   position: sticky;
@@ -1203,6 +1219,113 @@ td.empty-cell {
   background: color-mix(in srgb, var(--green) 12%, var(--panel));
   border: 1px solid var(--green);
   color: var(--green-ink);
+}
+
+.alert.warn {
+  background: color-mix(in srgb, var(--amber) 12%, var(--panel));
+  border: 1px solid var(--amber);
+  color: var(--amber-ink);
+}
+
+/* 読み込み設定(シート / 見出し行) */
+.read-options {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel-2);
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.read-options-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.read-options-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.read-options-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.read-options-inline select {
+  width: auto;
+  min-width: 140px;
+}
+
+.read-options-auto {
+  font-size: 14px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.preview-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.preview-table {
+  border-collapse: collapse;
+  font-size: 14px;
+  width: max-content;
+  min-width: 100%;
+}
+
+.preview-table td,
+.preview-table th {
+  border-bottom: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
+  white-space: nowrap;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.preview-rowno {
+  position: sticky;
+  left: 0;
+  background: var(--panel);
+  color: var(--muted);
+  font-weight: 500;
+  border-right: 1px solid var(--border);
+}
+
+.preview-row {
+  cursor: pointer;
+}
+
+.preview-row:hover td,
+.preview-row:hover .preview-rowno {
+  background: var(--hover-tint);
+}
+
+.preview-row.is-skipped td {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.preview-row.is-header td,
+.preview-row.is-header .preview-rowno {
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+.preview-badge {
+  margin-left: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
 }
 
 /* Validation panel */
@@ -1761,10 +1884,10 @@ td.rownum {
 }
 
 .mini-preview-chip {
-  max-width: 220px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* 短い値だけをここに出す。切り詰めず、入りきらなければ折り返す。 */
+  max-width: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   padding: 3px 8px;
   border-radius: 6px;
   background: var(--panel-2);
@@ -1772,9 +1895,50 @@ td.rownum {
   font-size: 14px;
 }
 
-.mini-preview-chip.is-empty {
+.mini-preview-chip.is-empty,
+.mini-preview-val.is-empty {
   color: var(--muted);
   font-style: italic;
+}
+
+/* 長い値(複数列の結合など)は1行ずつ全文で見せる */
+.mini-preview.is-list {
+  display: block;
+}
+
+.mini-preview-rows {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+  overflow: hidden;
+}
+
+.mini-preview-rows li {
+  display: flex;
+  gap: 10px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.mini-preview-rows li:last-child {
+  border-bottom: none;
+}
+
+.mini-preview-no {
+  flex-shrink: 0;
+  min-width: 1.4em;
+  text-align: right;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.mini-preview-val {
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 /* Guided tour overlay */
@@ -2249,4 +2413,378 @@ td.rownum {
 .app-footer a:hover {
   color: var(--text);
   border-bottom-color: var(--border-strong);
+}
+
+/* テンプレートのエクスポート / インポート選択ダイアログ */
+.tpl-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: var(--overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 20px;
+  overflow-y: auto;
+}
+
+.tpl-card {
+  width: min(620px, 100%);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px 26px 18px;
+  box-shadow: 0 24px 60px var(--shadow);
+}
+
+.tpl-pick-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 8px;
+}
+
+.tpl-pick-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.tpl-pick {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+}
+
+.tpl-pick:last-child {
+  border-bottom: none;
+}
+
+.tpl-pick:hover {
+  background: var(--hover-tint);
+}
+
+.tpl-pick input {
+  margin-top: 3px;
+  width: auto;
+  flex-shrink: 0;
+}
+
+.tpl-pick-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tpl-pick-name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.tpl-pick-meta {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.tpl-pick-note {
+  margin-left: 8px;
+  color: var(--amber-ink);
+}
+
+/* 値の対応表 */
+.value-map-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.value-map {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+  padding: 10px 12px;
+}
+
+.value-map-head,
+.value-map-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.value-map-head {
+  margin-bottom: 8px;
+}
+
+.value-map-foot {
+  margin-top: 8px;
+}
+
+.value-map-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.value-map-count {
+  font-size: 14px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.value-map-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.value-map-table th {
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 500;
+  text-align: left;
+  padding: 0 6px 4px;
+}
+
+.value-map-table td {
+  padding: 2px 6px;
+  vertical-align: middle;
+}
+
+.value-map-table input {
+  width: 100%;
+}
+
+.value-map-arrow {
+  color: var(--muted);
+  width: 1.5em;
+  text-align: center;
+}
+
+/* 行の絞り込み条件 */
+.row-filter-rule {
+  display: grid;
+  grid-template-columns:
+    minmax(120px, 1.2fr) minmax(110px, 0.9fr) minmax(120px, 1.4fr)
+    auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+@media (max-width: 700px) {
+  .row-filter-rule {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* 取り込み対象(ファイル×シート)の一覧 */
+.source-units {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.source-unit {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 8px 10px;
+}
+
+.source-unit.is-suspicious {
+  border-color: var(--amber);
+}
+
+.source-unit-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.source-unit-name {
+  font-size: 14px;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.source-unit-sheet {
+  margin-left: 8px;
+  font-weight: 500;
+  font-size: 14px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--muted);
+}
+
+.source-unit-meta {
+  font-size: 14px;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.source-unit-sheets {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+/* 重複の検出と処理 */
+.dedupe-panel {
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 14px 0;
+}
+
+.dedupe-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.dedupe-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.dedupe-removed {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.dedupe-config {
+  border-top: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  padding-top: 10px;
+}
+
+.dedupe-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.dedupe-row select {
+  width: auto;
+  min-width: 200px;
+}
+
+.dedupe-label {
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 6em;
+}
+
+.dedupe-keys,
+.dedupe-choices {
+  display: flex;
+  gap: 8px 14px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.dedupe-choices {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chip-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+  padding: 2px 10px 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  cursor: pointer;
+}
+
+.chip-check:has(input:checked) {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.chip-check input {
+  width: auto;
+}
+
+.linkish {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 14px;
+  color: var(--accent);
+  cursor: pointer;
+  text-align: left;
+}
+
+.linkish:hover {
+  text-decoration: underline;
+}
+
+/* 参照テーブル(横引き) */
+.lookup-body {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.lookup-keys {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  flex: 1;
+}
+
+.lookup-key-pair {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.lookup-key-pair select {
+  width: auto;
+  min-width: 160px;
+}
+
+/* レシピから復元待ちの参照テーブル */
+.source-unit.is-pending {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.source-unit.is-pending .dropzone {
+  background: var(--panel);
 }

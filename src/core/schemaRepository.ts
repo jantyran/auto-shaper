@@ -37,7 +37,10 @@ export function detectBackend(): Promise<boolean> {
     healthPromise = (async () => {
       try {
         const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 1500);
+        // サーバーレス(Cloud Functions等)のコールドスタートは数秒かかるため、
+        // 1.5秒では「バックエンド無し」と誤判定してログイン中でも localStorage に
+        // フォールバックしてしまう。余裕を持たせる。
+        const timer = setTimeout(() => ctrl.abort(), 6000);
         const res = await fetch(apiUrl('/api/health'), { signal: ctrl.signal });
         clearTimeout(timer);
         return res.ok;

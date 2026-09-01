@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../state/store';
 import { transformAll } from '../core/transformEngine';
+import { applyRowFilter } from '../core/rowFilter';
 import { importContextToRow } from '../core/importContext';
 import { toCsv, downloadCsv, downloadXlsx } from '../core/exportCsv';
 import { validateRows, ISSUE_LABELS } from '../core/validate';
-import { findDuplicates } from '../core/dedupe';
+import { applyDedupe } from '../core/dedupe';
 import type {
   TransformRequest,
   TransformResponse,
 } from '../worker/transform.worker';
 import type { TargetField } from '../types';
 import { fieldDisplayName, visibleTargetFields } from '../core/fieldMeta';
+import { DedupePanel } from './DedupePanel';
 
 /** ステップ4: 全件変換の実行と出力 */
 export function ResultView() {
@@ -31,6 +33,13 @@ export function ResultView() {
   const markExported = useStore((s) => s.markExported);
 
   const workerRef = useRef<Worker | null>(null);
+
+  // 絞り込み条件で残った行だけを変換にかける
+  const targetRows = useMemo(
+    () => (source ? applyRowFilter(source.rows, mapping?.rowFilter) : []),
+    [source, mapping?.rowFilter],
+  );
+  const removedRows = (source?.rows.length ?? 0) - targetRows.length;
 
   // 変換をまだ実行していなければ実行する
   useEffect(() => {
@@ -64,7 +73,7 @@ export function ResultView() {
       };
       worker.onerror = () => {
         // フォールバック: メインスレッドで同期実行
-        const rows = transformAll(source.rows, mapping, contextRow);
+        const rows = transformAll(targetRows, mapping, contextRow);
         setTransformState({
           transformedRows: rows,
           isTransforming: false,
@@ -73,13 +82,13 @@ export function ResultView() {
         worker?.terminate();
       };
       const req: TransformRequest = {
-        rows: source.rows,
+        rows: targetRows,
         config: mapping,
         context: contextRow,
       };
       worker.postMessage(req);
     } catch {
-      const rows = transformAll(source.rows, mapping, contextRow);
+      const rows = transformAll(targetRows, mapping, contextRow);
       setTransformState({
         transformedRows: rows,
         isTransforming: false,
@@ -91,22 +100,27 @@ export function ResultView() {
       worker?.terminate();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source, mapping, contextRow]);
+  }, [source, mapping, contextRow, targetRows]);
 
   const dedupeEnabled = useStore((s) => s.settings.features.duplicateDetection);
+  const dedupeConfig = useStore((s) => s.dedupeConfig);
 
-  const validation = useMemo(
-    () =>
-      transformedRows && target ? validateRows(transformedRows, target) : null,
-    [transformedRows, target],
-  );
-
+  // 重複の処理は検証より前に走らせる。順番が逆だと、統合すれば埋まる項目が
+  // 「必須が空」として報告され、存在しない問題を追いかけることになる。
   const duplicates = useMemo(
     () =>
-      transformedRows && target && dedupeEnabled
-        ? findDuplicates(transformedRows, target)
+      transformedRows && dedupeEnabled && dedupeConfig
+        ? applyDedupe(transformedRows, dedupeConfig)
         : null,
-    [transformedRows, target, dedupeEnabled],
+    [transformedRows, dedupeEnabled, dedupeConfig],
+  );
+
+  /** 検証・プレビュー・出力の対象になる、重複処理まで済ませた行 */
+  const outputRows = duplicates?.rows ?? transformedRows;
+
+  const validation = useMemo(
+    () => (outputRows && target ? validateRows(outputRows, target) : null),
+    [outputRows, target],
   );
 
   if (!source || !target || !mapping) return null;
@@ -119,13 +133,13 @@ export function ResultView() {
 
   const base = source.fileName.replace(/\.[^.]+$/, '');
   const handleExportCsv = () => {
-    if (!transformedRows) return;
-    downloadCsv(toCsv(transformedRows, outputFields), `${base}_shaped.csv`);
+    if (!outputRows) return;
+    downloadCsv(toCsv(outputRows, outputFields), `${base}_shaped.csv`);
     markExported();
   };
   const handleExportXlsx = () => {
-    if (!transformedRows) return;
-    void downloadXlsx(transformedRows, outputFields, `${base}_shaped.xlsx`);
+    if (!outputRows) return;
+    void downloadXlsx(outputRows, outputFields, `${base}_shaped.xlsx`);
     markExported();
   };
 
@@ -136,7 +150,7 @@ export function ResultView() {
       {isTransforming && (
         <>
           <div className="alert info">
-            全 {source.rows.length.toLocaleString()} 行をブラウザ内で変換中…
+            全 {targetRows.length.toLocaleString()} 行をブラウザ内で変換中…
           </div>
           <div className="progress">
             <div style={{ width: `${Math.round(progress * 100)}%` }} />
@@ -144,15 +158,19 @@ export function ResultView() {
         </>
       )}
 
-      {transformedRows && (
+      {outputRows && (
         <>
           <div className="stat-row" data-tour="tour-result-stats">
             <div className="stat">
-              <span className="val">
-                {transformedRows.length.toLocaleString()}
-              </span>
+              <span className="val">{outputRows.length.toLocaleString()}</span>
               <span className="lbl">変換した行数</span>
             </div>
+            {removedRows > 0 && (
+              <div className="stat">
+                <span className="val">{removedRows.toLocaleString()}</span>
+                <span className="lbl">絞り込みで除外</span>
+              </div>
+            )}
             <div className="stat">
               <span className="val">{outputFields.length}</span>
               <span className="lbl">出力フィールド数</span>
@@ -182,44 +200,20 @@ export function ResultView() {
           {validation && (
             <ValidationPanel
               validation={validation}
-              total={transformedRows.length}
+              total={outputRows.length}
             />
           )}
 
-          {duplicates && duplicates.groups.length > 0 && (
-            <div
-              className="validation"
-              style={{
-                borderColor: 'var(--accent)',
-                background: 'var(--accent-soft)',
-              }}
-            >
-              <div className="validation-head">
-                <span className="v-title" style={{ color: 'var(--accent)' }}>
-                  🔎 重複の可能性: {duplicates.groups.length} グループ
-                </span>
-                <span className="v-sub">
-                  {duplicates.duplicateRows.size} 行が重複候補（照合キー:{' '}
-                  {duplicates.keyFields.join(' + ')}）
-                </span>
-              </div>
-              <ul className="v-list">
-                {duplicates.groups.slice(0, 6).map((g, i) => (
-                  <li key={i}>
-                    {g.rows.map((r) => `${r + 1}行目`).join('、')} が重複
-                  </li>
-                ))}
-                {duplicates.groups.length > 6 && (
-                  <li className="v-more">
-                    …ほか {duplicates.groups.length - 6} グループ
-                  </li>
-                )}
-              </ul>
-            </div>
+          {duplicates && transformedRows && (
+            <DedupePanel
+              outcome={duplicates}
+              sourceRows={transformedRows}
+              fields={outputFields}
+            />
           )}
 
           <ResultPreview
-            rows={transformedRows}
+            rows={outputRows}
             fields={outputFields}
             invalidRows={validation?.invalidRows ?? new Set()}
             issueCells={validation ? buildIssueCells(validation) : new Set()}
@@ -316,6 +310,7 @@ function ResultPreview({
   issueCells: Set<string>;
 }) {
   const [onlyIssues, setOnlyIssues] = useState(false);
+  const [wrapCells, setWrapCells] = useState(false);
 
   const indexed = rows.map((r, i) => ({ r, i }));
   const filtered = onlyIssues
@@ -343,8 +338,16 @@ function ResultPreview({
             問題のある行のみ表示
           </label>
         )}
+        <label className="toggle">
+          <input
+            type="checkbox"
+            checked={wrapCells}
+            onChange={(e) => setWrapCells(e.target.checked)}
+          />
+          長い値を折り返して全文表示
+        </label>
       </div>
-      <div className="table-wrap">
+      <div className={`table-wrap${wrapCells ? ' wrap-cells' : ''}`}>
         <table>
           <thead>
             <tr>

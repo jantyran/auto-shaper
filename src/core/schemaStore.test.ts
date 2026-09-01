@@ -8,6 +8,7 @@ import {
   normalizeCustomSchemas,
   schemaFromImport,
   sortCustomSchemas,
+  uniqueSchemaName,
 } from './schemaStore';
 import { PRESET_SCHEMAS } from './targetSchemas';
 import type { TargetSchema } from '../types';
@@ -113,4 +114,62 @@ it('旧形式のoptions付きフィールドは選択式として読み込む', 
   expect(s.fields[0].inputKind).toBe('select');
   expect(s.fields[0].options).toEqual(['A, Bを含む候補', 'C']);
   expect(s.fields[1].inputKind).toBe('textarea');
+});
+
+describe('uniqueSchemaName', () => {
+  it('重複が無ければそのまま返す', () => {
+    expect(uniqueSchemaName('顧客マスタ', ['取引先'])).toBe('顧客マスタ');
+  });
+
+  it('重複したら連番を付ける', () => {
+    expect(uniqueSchemaName('顧客マスタ', ['顧客マスタ'])).toBe(
+      '顧客マスタ (2)',
+    );
+  });
+
+  it('連番が埋まっていれば空いている番号まで進める', () => {
+    expect(
+      uniqueSchemaName('顧客マスタ', [
+        '顧客マスタ',
+        '顧客マスタ (2)',
+        '顧客マスタ (3)',
+      ]),
+    ).toBe('顧客マスタ (4)');
+  });
+
+  it('すでに連番付きの名前は番号を進める(入れ子にしない)', () => {
+    expect(uniqueSchemaName('顧客マスタ (2)', ['顧客マスタ (2)'])).toBe(
+      '顧客マスタ (3)',
+    );
+  });
+
+  it('空名は (無題) として扱う', () => {
+    expect(uniqueSchemaName('   ', [])).toBe('(無題)');
+  });
+});
+
+describe('schemaFromImport は上書きせず追加する', () => {
+  const src = { id: 'fixed-id', name: '顧客マスタ', fields: [] } as unknown;
+
+  it('元のIDを引き継がない(既存を置き換えない)', () => {
+    const a = schemaFromImport(src);
+    expect(a.id).not.toBe('fixed-id');
+    expect(a.id).toMatch(/^custom-/);
+  });
+
+  it('同じ入力を2回取り込んでも別テンプレートになる', () => {
+    const a = schemaFromImport(src);
+    const b = schemaFromImport(src);
+    expect(a.id).not.toBe(b.id);
+  });
+
+  it('既存名を渡すと重複しない名前に付け替える', () => {
+    const a = schemaFromImport(src, ['顧客マスタ']);
+    expect(a.name).toBe('顧客マスタ (2)');
+  });
+
+  it('既定テンプレート指定は引き継がない', () => {
+    const a = schemaFromImport({ ...(src as object), isDefault: true });
+    expect(a.isDefault).toBe(false);
+  });
 });

@@ -10,6 +10,9 @@ import type {
 import { applyFieldMapping, transformRow } from '../core/transformEngine';
 import { importContextToRow } from '../core/importContext';
 import { fieldDisplayName, fieldOptionItems } from '../core/fieldMeta';
+import { ValueMapEditor } from './ValueMapEditor';
+import { RowFilterEditor } from './RowFilterEditor';
+import { applyRowFilter } from '../core/rowFilter';
 
 const NORMALIZER_LABELS: Record<Normalizer, string> = {
   trim: '前後空白除去',
@@ -18,12 +21,17 @@ const NORMALIZER_LABELS: Record<Normalizer, string> = {
   normalizeCompany: '(株)→株式会社',
   normalizePhone: '電話番号正規化',
   normalizeEmail: 'メール正規化',
+  normalizeDate: '日付を統一(2024-01-05)',
+  normalizeNumber: '数値を統一(¥1,000→1000)',
   upperCase: '大文字化',
   lowerCase: '小文字化',
   removeSpaces: '空白削除',
 };
 
 const ALL_NORMALIZERS = Object.keys(NORMALIZER_LABELS) as Normalizer[];
+
+/** これより長い値は、横に並べず1行ずつ全文で見せる */
+const LONG_VALUE_CHARS = 24;
 
 function confidenceClass(c: number): string {
   if (c >= 0.75) return 'high';
@@ -38,6 +46,7 @@ export function MappingEditor() {
   const mapping = useStore((s) => s.mapping);
   const importContext = useStore((s) => s.importContext);
   const update = useStore((s) => s.updateFieldMapping);
+  const setRowFilter = useStore((s) => s.setRowFilter);
   const updateImportContext = useStore((s) => s.updateImportContext);
   const settings = useStore((s) => s.settings);
   // LLM は任意機能。OFF のとき(既定)は外部へ一切送っていないので、
@@ -79,6 +88,12 @@ export function MappingEditor() {
       <ImportContextPanel
         entries={importContext}
         onChange={updateImportContext}
+      />
+
+      <RowFilterEditor
+        filter={mapping.rowFilter}
+        columnNames={columnNames}
+        onChange={setRowFilter}
       />
 
       {missingRequired.length > 0 && (
@@ -408,6 +423,10 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
       <FieldMiniPreview mapping={mapping} />
 
       {t.kind !== 'empty' && (
+        <ValueMapEditor field={field} mapping={mapping} onChange={onChange} />
+      )}
+
+      {t.kind !== 'empty' && (
         <div className="norm-chips">
           {ALL_NORMALIZERS.map((n) => (
             <button
@@ -429,6 +448,7 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
 /** 項目1つ分のミニプレビュー。実データの先頭数行でどう変換されるかをその場で見せる */
 function FieldMiniPreview({ mapping }: { mapping: FieldMapping }) {
   const source = useStore((s) => s.source);
+  const rowFilter = useStore((s) => s.mapping?.rowFilter);
   const importContext = useStore((s) => s.importContext);
   const contextRow = useMemo(
     () => importContextToRow(importContext),
@@ -437,12 +457,41 @@ function FieldMiniPreview({ mapping }: { mapping: FieldMapping }) {
 
   const values = useMemo(() => {
     if (!source || mapping.transform.kind === 'empty') return [];
-    return source.rows
+    // 絞り込みで残る行から採る(除外される行の値を見せても判断材料にならない)
+    return applyRowFilter(source.rows, rowFilter)
       .slice(0, 3)
       .map((row) => applyFieldMapping(row, mapping, contextRow));
-  }, [source, mapping, contextRow]);
+  }, [source, rowFilter, mapping, contextRow]);
 
   if (values.length === 0) return null;
+
+  // 複数列の結合などで値が長くなると、横並びのままでは途中で切れて
+  // 「結局どうなるのか」が読めない。長い値は1行ずつ全文を折り返して見せる。
+  const longest = values.reduce((max, v) => Math.max(max, v.length), 0);
+  const asList =
+    longest > LONG_VALUE_CHARS || values.some((v) => v.includes('\n'));
+
+  if (asList) {
+    return (
+      <div className="mini-preview is-list">
+        <span className="mini-preview-label">
+          プレビュー（先頭{values.length}行）
+        </span>
+        <ol className="mini-preview-rows">
+          {values.map((v, i) => (
+            <li key={i}>
+              <span className="mini-preview-no">{i + 1}</span>
+              <span
+                className={`mini-preview-val${v.trim() === '' ? ' is-empty' : ''}`}
+              >
+                {v.trim() === '' ? '（空欄）' : v}
+              </span>
+            </li>
+          ))}
+        </ol>
+      </div>
+    );
+  }
 
   return (
     <div className="mini-preview">
@@ -451,9 +500,8 @@ function FieldMiniPreview({ mapping }: { mapping: FieldMapping }) {
         <span
           key={i}
           className={`mini-preview-chip${v.trim() === '' ? ' is-empty' : ''}`}
-          title={v}
         >
-          {v.trim() === '' ? '（空欄）' : v.replace(/\n/g, ' ⏎ ')}
+          {v.trim() === '' ? '（空欄）' : v}
         </span>
       ))}
     </div>
@@ -792,6 +840,7 @@ function PreviewTable() {
   const importContext = useStore((s) => s.importContext);
   const dropEmptyColumns = useStore((s) => s.dropEmptyColumns);
   const setDropEmptyColumns = useStore((s) => s.setDropEmptyColumns);
+  const [wrapCells, setWrapCells] = useState(false);
   const contextRow = useMemo(
     () => importContextToRow(importContext),
     [importContext],
@@ -806,20 +855,23 @@ function PreviewTable() {
 
   const preview = useMemo(() => {
     if (!source || !mapping) return [];
-    return source.rows.slice(0, 8).map((row) => {
-      const outRow = transformRow(row, mapping, contextRow);
-      return visibleFields.map((m) => {
-        const out = outRow[m.targetKey] ?? '';
-        // 「変換された」= 単純な1列コピー以外、または正規化で値が変化
-        const primarySource =
-          m.transform.kind === 'direct'
-            ? (row[m.transform.source] ?? '')
-            : undefined;
-        const changed =
-          m.transform.kind !== 'direct' || out !== (primarySource ?? '');
-        return { out, changed, empty: out === '' };
+    // 絞り込みで除外される行はプレビューにも出さない(実際の出力と食い違わせない)
+    return applyRowFilter(source.rows, mapping.rowFilter)
+      .slice(0, 8)
+      .map((row) => {
+        const outRow = transformRow(row, mapping, contextRow);
+        return visibleFields.map((m) => {
+          const out = outRow[m.targetKey] ?? '';
+          // 「変換された」= 単純な1列コピー以外、または正規化で値が変化
+          const primarySource =
+            m.transform.kind === 'direct'
+              ? (row[m.transform.source] ?? '')
+              : undefined;
+          const changed =
+            m.transform.kind !== 'direct' || out !== (primarySource ?? '');
+          return { out, changed, empty: out === '' };
+        });
       });
-    });
   }, [source, mapping, contextRow, visibleFields]);
 
   if (!source || !target || !mapping) return null;
@@ -827,9 +879,7 @@ function PreviewTable() {
   return (
     <div data-tour="tour-mapping-preview">
       <div className="preview-bar">
-        <h3 style={{ margin: 0 }}>
-          変換プレビュー（先頭{Math.min(8, source.rows.length)}行）
-        </h3>
+        <h3 style={{ margin: 0 }}>変換プレビュー（先頭{preview.length}行）</h3>
         <label className="toggle">
           <input
             type="checkbox"
@@ -838,8 +888,16 @@ function PreviewTable() {
           />
           空欄の項目を表示（出力にも反映されます）
         </label>
+        <label className="toggle">
+          <input
+            type="checkbox"
+            checked={wrapCells}
+            onChange={(e) => setWrapCells(e.target.checked)}
+          />
+          長い値を折り返して全文表示
+        </label>
       </div>
-      <div className="table-wrap">
+      <div className={`table-wrap${wrapCells ? ' wrap-cells' : ''}`}>
         <table>
           <thead>
             <tr>
@@ -859,7 +917,7 @@ function PreviewTable() {
                     }`}
                     title={cell.out}
                   >
-                    {cell.empty ? '—' : cell.out.replace(/\n/g, ' ⏎ ')}
+                    {cell.empty ? '—' : cell.out}
                   </td>
                 ))}
               </tr>

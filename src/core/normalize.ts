@@ -4,16 +4,21 @@
  * すべて純粋関数なので、メインスレッドのプレビューでもWeb Worker内でも共有できる。
  */
 import type { Normalizer } from '../types';
+import { normalizeDate, normalizeNumber } from './normalizeValue';
 
 /** 全角英数記号 → 半角 */
 export function toHalfWidth(input: string): string {
-  return input
-    .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (ch) =>
-      String.fromCharCode(ch.charCodeAt(0) - 0xfee0),
-    )
-    // 全角記号の一部
-    .replace(/　/g, ' ')
-    .replace(/[！-～]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0));
+  return (
+    input
+      .replace(/[Ａ-Ｚａ-ｚ０-９]/g, (ch) =>
+        String.fromCharCode(ch.charCodeAt(0) - 0xfee0),
+      )
+      // 全角記号の一部
+      .replace(/　/g, ' ')
+      .replace(/[！-～]/g, (ch) =>
+        String.fromCharCode(ch.charCodeAt(0) - 0xfee0),
+      )
+  );
 }
 
 /** 半角英数記号 → 全角 */
@@ -79,6 +84,10 @@ export function applyNormalizer(value: string, normalizer: Normalizer): string {
       return normalizePhone(value);
     case 'normalizeEmail':
       return normalizeEmail(value);
+    case 'normalizeDate':
+      return normalizeDate(value);
+    case 'normalizeNumber':
+      return normalizeNumber(value);
     case 'upperCase':
       return value.toUpperCase();
     case 'lowerCase':

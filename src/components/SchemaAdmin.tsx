@@ -22,6 +22,7 @@ import {
   sortCustomSchemas,
 } from '../core/schemaStore';
 import { fieldDisplayName, fieldInputKind } from '../core/fieldMeta';
+import { TemplateExportDialog, TemplateImportDialog } from './TemplateTransfer';
 import {
   expressionHelpText,
   validateAutoFillExpression,
@@ -85,6 +86,12 @@ export function SchemaAdmin() {
 
   // 編集中スキーマ(ドラフト)。null なら一覧表示。
   const [draft, setDraft] = useState<TargetSchema | null>(null);
+  // JSONから読み取って、まだ追加していないテンプレート(選択ダイアログ用)
+  const [pending, setPending] = useState<{
+    fileName: string;
+    candidates: TargetSchema[];
+  } | null>(null);
+  const [exporting, setExporting] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
   const sortedCustomSchemas = sortCustomSchemas(customSchemas);
 
@@ -108,38 +115,30 @@ export function SchemaAdmin() {
     }
   };
 
-  const handleExport = () => {
-    const blob = new Blob([JSON.stringify(sortedCustomSchemas, null, 2)], {
-      type: 'application/json',
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'auto-shaper-templates.json';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  };
-
   const handleImport = async (file: File) => {
-    // .json はエクスポートしたテンプレート定義として取り込む。
+    // .json はエクスポートしたテンプレート定義として取り込む。中身を一覧で
+    // 見せてから選ばせるため、ここでは読み取るだけで保存はしない。
     // それ以外(CSV/TSV/Excel)はヘッダー行から列を読み取り、型を推定して
     // 「編集画面」を開く → ユーザーが確認・調整してから保存する。
     const isJson = /\.json$/i.test(file.name);
     try {
       if (isJson) {
         const parsed = JSON.parse(await file.text());
-        const list = Array.isArray(parsed) ? parsed : [parsed];
-        for (const raw of list) {
-          await saveSchema(schemaFromImport(raw));
+        const list = (Array.isArray(parsed) ? parsed : [parsed]) as unknown[];
+        const candidates = list
+          .filter((raw) => raw && typeof raw === 'object')
+          .map((raw) => schemaFromImport(raw));
+        if (candidates.length === 0) {
+          alert('テンプレートが見つかりませんでした。');
+          return;
         }
+        setPending({ fileName: file.name, candidates });
       } else {
         const buf = await file.arrayBuffer();
         const dataset = await parseWorkbook(file.name, buf);
         if (dataset.columns.length === 0) {
           alert(
-            '列が読み取れませんでした。1行目にヘッダーがあるCSV/Excelを選んでください。',
+            '列が読み取れませんでした。見出し行のあるCSV/Excelを選んでください。',
           );
           return;
         }
@@ -190,8 +189,11 @@ export function SchemaAdmin() {
               : '保存先を確認中…'}
         </span>
         <div className="spacer" />
-        <button onClick={handleExport} disabled={customSchemas.length === 0}>
-          エクスポート
+        <button
+          onClick={() => setExporting(true)}
+          disabled={customSchemas.length === 0}
+        >
+          エクスポート（選択）
         </button>
         <button onClick={() => importRef.current?.click()}>
           インポート（JSON / CSV / Excel）
@@ -214,6 +216,27 @@ export function SchemaAdmin() {
           + 新規テンプレートを作成
         </button>
       </div>
+
+      {exporting && (
+        <TemplateExportDialog
+          schemas={sortedCustomSchemas}
+          onClose={() => setExporting(false)}
+        />
+      )}
+      {pending && (
+        <TemplateImportDialog
+          fileName={pending.fileName}
+          candidates={pending.candidates}
+          existingNames={customSchemas.map((s) => s.name)}
+          onCancel={() => setPending(null)}
+          onConfirm={async (schemas) => {
+            setPending(null);
+            for (const schema of schemas) {
+              await saveSchema(schema);
+            }
+          }}
+        />
+      )}
       <p className="subtitle" style={{ marginTop: 8 }}>
         整形後（インポート先）のフォーマットをここで管理します。エクスポートしたJSONに加え、
         <b>CSV / Excel のヘッダー行からもテンプレートを作成</b>
@@ -573,6 +596,26 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
                       }
                     />
                     必須
+                  </label>
+                  <label className="field-label">
+                    最大文字数
+                    <input
+                      type="number"
+                      min={1}
+                      placeholder="制限なし"
+                      value={f.maxLength ?? ''}
+                      onChange={(e) => {
+                        const n = Number(e.target.value);
+                        setField(i, {
+                          maxLength:
+                            e.target.value === '' ||
+                            !Number.isFinite(n) ||
+                            n < 1
+                              ? undefined
+                              : Math.floor(n),
+                        });
+                      }}
+                    />
                   </label>
                 </div>
 

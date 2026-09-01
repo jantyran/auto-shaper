@@ -9,7 +9,7 @@ import type { TargetSchema } from '../types';
 import { fieldDisplayName } from './fieldMeta';
 
 export type IssueKind =
-  'required' | 'email' | 'phone' | 'number' | 'url' | 'option';
+  'required' | 'email' | 'phone' | 'number' | 'url' | 'option' | 'maxLength';
 
 export interface RowIssue {
   /** 0始まりの行インデックス(表示は +1) */
@@ -66,6 +66,7 @@ export function validateRows(
     number: 0,
     url: 0,
     option: 0,
+    maxLength: 0,
   };
 
   // 選択肢(picklist)の正規化集合を事前に作る
@@ -98,6 +99,8 @@ export function validateRows(
       const opts = optionSets.get(field.key);
       if (opts && value.trim() !== '' && !opts.has(value.trim()))
         push('option');
+      // 取り込み先の桁あふれ。1件でも超えるとインポート全体が失敗することがある。
+      if (field.maxLength && value.length > field.maxLength) push('maxLength');
     }
   });
 
@@ -111,4 +114,5 @@ export const ISSUE_LABELS: Record<IssueKind, string> = {
   number: '数値でない',
   url: 'URL形式が不正',
   option: '選択肢に無い値',
+  maxLength: '文字数が上限を超過',
 };

@@ -15,6 +15,7 @@ import type {
   Transform,
 } from '../types';
 import { applyNormalizers } from './normalize';
+import { applyValueMap } from './valueMap';
 import { renderAutoFillTemplate } from './autoFillRules';
 import { evaluateAutoFillExpression } from './autoFillExpression';
 
@@ -25,7 +26,7 @@ function get(row: Row, key: string): string {
   return v == null ? '' : String(v);
 }
 
-function evalCondition(value: string, c: ConditionalCase): boolean {
+export function evalCondition(value: string, c: ConditionalCase): boolean {
   const v = value ?? '';
   switch (c.op) {
     case 'contains':
@@ -121,14 +122,22 @@ export function evalTransform(
   }
 }
 
-/** 1フィールド分のマッピングを適用(Transform → 正規化) */
+/** 1フィールド分のマッピングを適用(Transform → 正規化 → 値の置換) */
 export function applyFieldMapping(
   row: Row,
   mapping: FieldMapping,
   context: Row = {},
 ): string {
   const raw = evalTransform(row, mapping.transform, context);
-  return applyNormalizers(raw, mapping.normalizers);
+  return finishValue(applyNormalizers(raw, mapping.normalizers), mapping);
+}
+
+/**
+ * 正規化のあとに値の置換表を当てる。
+ * 表記ゆれを正規化で潰してから照合したいので、必ずこの順番で呼ぶ。
+ */
+function finishValue(value: string, mapping: FieldMapping): string {
+  return applyValueMap(value, mapping.valueMap, mapping.valueMapFallback);
 }
 
 function fieldLabelsFromTemplateMappings(config: MappingConfig): TargetField[] {
@@ -201,9 +210,12 @@ export function transformRow(
     if (!transform.overwrite && get(out, mapping.targetKey).trim() !== '') {
       continue;
     }
-    out[mapping.targetKey] = applyNormalizers(
-      evalTemplateMapping(out, mapping, fields, context),
-      mapping.normalizers,
+    out[mapping.targetKey] = finishValue(
+      applyNormalizers(
+        evalTemplateMapping(out, mapping, fields, context),
+        mapping.normalizers,
+      ),
+      mapping,
     );
   }
   return out;

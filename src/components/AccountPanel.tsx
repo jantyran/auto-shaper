@@ -211,6 +211,16 @@ function ConnectionField() {
     commit(guessFromHost);
   };
 
+  // この提案は http 配信(ローカル開発 / LAN内の自前ホスト)でのみ意味がある。
+  // 公開HTTPSサイトでは `npm run server` は http でしか待ち受けないため
+  // https://<host>:8787 は必ず失敗し、押した人のアプリを壊すだけになる。
+  const canGuessHost = window.location.protocol === 'http:';
+
+  // https ページから http の API を叩くとブラウザに混在コンテンツとして
+  // 遮断されるため、保存しても全リクエストが失敗する。
+  const mixedContent =
+    window.location.protocol === 'https:' && base.trim().startsWith('http://');
+
   return (
     <details className="conn-field">
       <summary>接続先の詳細設定</summary>
@@ -230,7 +240,13 @@ function ConnectionField() {
           </button>
         </div>
       </label>
-      {relativeApiOk === false && !base && (
+      {mixedContent && (
+        <div className="alert error" style={{ margin: '6px 0 8px' }}>
+          このページは https で配信されています。http://
+          で始まるAPIサーバーを指定するとブラウザに遮断され、通信できません。
+        </div>
+      )}
+      {canGuessHost && relativeApiOk === false && !base && (
         <div style={{ margin: '6px 0 8px' }}>
           <button type="button" className="ghost" onClick={useThisHost}>
             このホストの :8787 を使う（{guessFromHost}）

@@ -33,6 +33,8 @@ const VALID_NORMALIZERS: Normalizer[] = [
   'normalizeCompany',
   'normalizePhone',
   'normalizeEmail',
+  'normalizeDate',
+  'normalizeNumber',
   'upperCase',
   'lowerCase',
   'removeSpaces',

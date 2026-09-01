@@ -7,9 +7,27 @@ const target: TargetSchema = {
   name: 'T',
   origin: 'preset',
   fields: [
-    { key: 'Company', label: '会社名', required: true, type: 'string', aliases: [] },
-    { key: 'Email', label: 'メール', required: false, type: 'email', aliases: [] },
-    { key: 'Phone', label: '電話', required: false, type: 'phone', aliases: [] },
+    {
+      key: 'Company',
+      label: '会社名',
+      required: true,
+      type: 'string',
+      aliases: [],
+    },
+    {
+      key: 'Email',
+      label: 'メール',
+      required: false,
+      type: 'email',
+      aliases: [],
+    },
+    {
+      key: 'Phone',
+      label: '電話',
+      required: false,
+      type: 'phone',
+      aliases: [],
+    },
   ],
 };
 
@@ -41,8 +59,20 @@ describe('validateRows', () => {
       name: 'T2',
       origin: 'preset',
       fields: [
-        { key: 'Emp', label: '従業員数', required: false, type: 'number', aliases: [] },
-        { key: 'Web', label: 'サイト', required: false, type: 'url', aliases: [] },
+        {
+          key: 'Emp',
+          label: '従業員数',
+          required: false,
+          type: 'number',
+          aliases: [],
+        },
+        {
+          key: 'Web',
+          label: 'サイト',
+          required: false,
+          type: 'url',
+          aliases: [],
+        },
         {
           key: 'Rank',
           label: 'ランク',
@@ -63,5 +93,49 @@ describe('validateRows', () => {
     expect(r.counts.option).toBe(1);
     expect(r.invalidRows.has(0)).toBe(false);
     expect(r.invalidRows.has(1)).toBe(true);
+  });
+});
+
+describe('文字数上限(maxLength)', () => {
+  const schema: TargetSchema = {
+    id: 's',
+    name: '上限つき',
+    origin: 'custom',
+    fields: [
+      {
+        key: 'Company',
+        label: '会社名',
+        required: false,
+        type: 'string' as const,
+        aliases: [],
+        maxLength: 5,
+      },
+    ],
+  };
+
+  it('上限を超えた行を検出する', () => {
+    const r = validateRows([{ Company: 'あいうえおか' }], schema);
+    expect(r.counts.maxLength).toBe(1);
+    expect(r.invalidRows.has(0)).toBe(true);
+    expect(r.issues[0].kind).toBe('maxLength');
+  });
+
+  it('ちょうど上限なら通す', () => {
+    const r = validateRows([{ Company: 'あいうえお' }], schema);
+    expect(r.counts.maxLength).toBe(0);
+  });
+
+  it('上限が未設定なら何文字でも通す', () => {
+    const noLimit = {
+      ...schema,
+      fields: [{ ...schema.fields[0], maxLength: undefined }],
+    };
+    const r = validateRows([{ Company: 'あ'.repeat(500) }], noLimit);
+    expect(r.counts.maxLength).toBe(0);
+  });
+
+  it('空欄は上限超過にしない', () => {
+    const r = validateRows([{ Company: '' }], schema);
+    expect(r.counts.maxLength).toBe(0);
   });
 });

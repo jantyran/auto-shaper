@@ -61,6 +61,17 @@ export interface FieldAutoFillRule {
   overwrite?: boolean;
 }
 
+/** 結合されたソースの、1つ分の取込元(ファイル or シート) */
+export interface SourcePart {
+  fileName: string;
+  /** Excelのシート名(CSV/TSVでは無し) */
+  sheet?: string;
+  /** この取込元から読み込んだ行数 */
+  rowCount: number;
+  /** ヘッダーとして使った行(1始まり) */
+  headerRow: number;
+}
+
 /** パース済みのソースデータ全体 */
 export interface SourceDataset {
   fileName: string;
@@ -71,6 +82,16 @@ export interface SourceDataset {
   sheetNames?: string[];
   /** 現在読み込んでいるシート名 */
   activeSheet?: string;
+  /** ヘッダーとして解釈した行(1始まり)。上のタイトル行や空行を飛ばした位置。 */
+  headerRow?: number;
+  /** ヘッダー行を自動判定したか(false ならユーザーが明示指定した) */
+  headerRowAuto?: boolean;
+  /** ヘッダー行を選び直すUI用の、シート先頭の生データ */
+  previewRows?: string[][];
+  /** シートの総行数(ヘッダー行の指定範囲の上限に使う) */
+  sheetRowCount?: number;
+  /** 複数のファイル/シートを結合している場合の内訳 */
+  parts?: SourcePart[];
 }
 
 /** インポート先(整形後)の1フィールド定義 */
@@ -99,6 +120,11 @@ export interface TargetField {
    * 自動で入る。ユーザーはマッピング画面で選択変更・上書きできる。
    */
   defaultValue?: string;
+  /**
+   * 取り込み先が受け付ける最大文字数。超えた行は検証で警告する。
+   * (Salesforce 等は項目ごとに上限があり、1件でも超えるとインポートが失敗する)
+   */
+  maxLength?: number;
   /** 他の出力項目を参照して自動記入するルール。 */
   autoFill?: FieldAutoFillRule;
 }
@@ -195,15 +221,32 @@ export type Normalizer =
   | 'normalizeCompany' // (株)→株式会社 など
   | 'normalizePhone' // ハイフン等の統一
   | 'normalizeEmail' // trim + 小文字化
+  | 'normalizeDate' // 2024/1/5・令和6年1月5日 → 2024-01-05
+  | 'normalizeNumber' // ¥1,000・１０００ → 1000
   | 'upperCase'
   | 'lowerCase'
   | 'removeSpaces';
 
 /** ターゲット1フィールドへのマッピング定義 */
+/** 値の置換表の1行(`東京都` → `13` のような対応) */
+export interface ValueMapEntry {
+  /** 元データに現れる値。空白・全角半角・英字の大小は無視して照合する。 */
+  from: string;
+  /** 置き換え後の値 */
+  to: string;
+}
+
 export interface FieldMapping {
   targetKey: string;
   transform: Transform;
   normalizers: Normalizer[];
+  /** 値の置換表。Transform と正規化のあとに適用する。 */
+  valueMap?: ValueMapEntry[];
+  /**
+   * 置換表のどれにも一致しなかった、空でない値の扱い。
+   * 未指定なら元の値をそのまま通す。空文字を指定すると空欄にする。
+   */
+  valueMapFallback?: string;
   /** サジェスト時の確信度(0-1)。人手で確定したら 1 */
   confidence: number;
   /** サジェスト根拠の説明(UI表示用) */
@@ -211,9 +254,79 @@ export interface FieldMapping {
 }
 
 /** 変換設定全体。これがAIの出力物であり、変換エンジンの入力 */
+/** 参照テーブルの突き合わせに使う、元データ側と参照側の列の組 */
+export interface LookupKeyPair {
+  /** 元データ側の列名 */
+  sourceColumn: string;
+  /** 参照表側の列名 */
+  lookupColumn: string;
+}
+
+/** 参照表から持ってくる列1つ分 */
+export interface LookupColumn {
+  /** 参照表側の列名 */
+  from: string;
+  /** 元データに足すときの列名 */
+  as: string;
+}
+
+/** 複数の行が一致したときにどれを採るか */
+export type LookupMultiple = 'first' | 'last' | 'joinAll';
+
+/** 一致した行そのものをどう扱うか(差分抽出はこれで実現する) */
+export type LookupMatchAction = 'none' | 'excludeMatched' | 'keepMatched';
+
+/**
+ * 参照テーブル(横引き)の設定。
+ *
+ * SQL の JOIN ではなく XLOOKUP と同じ意味論にしている。1行につき必ず1件を
+ * 返すので、行数は増えない。増えるのは列だけ。業務データの整形では行が
+ * 勝手に増える方が事故になりやすいため、この制約を仕様として選んでいる。
+ */
+export interface LookupTable {
+  id: string;
+  /** lookupFiles のインデックス */
+  fileIndex: number;
+  /** 参照するシート名 */
+  sheet: string;
+  /** 見出し行の明示指定(未指定なら自動判定) */
+  headerRow?: number;
+  /** 突き合わせるキー。複数指定するとすべて一致した行を採る。 */
+  keys: LookupKeyPair[];
+  /** 元データに持ってくる列 */
+  columns: LookupColumn[];
+  multiple: LookupMultiple;
+  /** 見つからなかったときに入れる値 */
+  notFound: string;
+  /** 空白・全角半角・英字の大小を無視して照合するか */
+  loose: boolean;
+  /** 一致状況を残す列名。空なら残さない。 */
+  statusColumn?: string;
+  matchAction: LookupMatchAction;
+}
+
+/** 行の絞り込み条件1件分 */
+export interface RowFilterRule {
+  /** 判定に使う元データの列名 */
+  column: string;
+  op: ConditionOp;
+  value: string;
+}
+
+/** 変換にかける行を絞り込む設定 */
+export interface RowFilter {
+  /** 条件に合う行を残すか、除くか */
+  mode: 'include' | 'exclude';
+  /** 条件が複数あるときの結合方法 */
+  match: 'all' | 'any';
+  rules: RowFilterRule[];
+}
+
 export interface MappingConfig {
   targetSchemaId: string;
   fields: FieldMapping[];
+  /** 変換対象の行を絞り込む。未設定なら全行が対象。 */
+  rowFilter?: RowFilter;
 }
 
 // ─────────────────────────────────────────────────────────────

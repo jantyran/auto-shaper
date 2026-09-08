@@ -1,3 +1,4 @@
+import { createTranslator, type TranslationKey } from '../core/i18n';
 import { useMemo, useState } from 'react';
 import { useStore } from '../state/store';
 import type {
@@ -14,18 +15,18 @@ import { ValueMapEditor } from './ValueMapEditor';
 import { RowFilterEditor } from './RowFilterEditor';
 import { applyRowFilter } from '../core/rowFilter';
 
-const NORMALIZER_LABELS: Record<Normalizer, string> = {
-  trim: '前後空白除去',
-  toHalfWidth: '半角化',
-  toFullWidth: '全角化',
-  normalizeCompany: '(株)→株式会社',
-  normalizePhone: '電話番号正規化',
-  normalizeEmail: 'メール正規化',
-  normalizeDate: '日付を統一(2024-01-05)',
-  normalizeNumber: '数値を統一(¥1,000→1000)',
-  upperCase: '大文字化',
-  lowerCase: '小文字化',
-  removeSpaces: '空白削除',
+const NORMALIZER_LABELS: Record<Normalizer, TranslationKey> = {
+  trim: 'normalizer.trim',
+  toHalfWidth: 'normalizer.toHalfWidth',
+  toFullWidth: 'normalizer.toFullWidth',
+  normalizeCompany: 'normalizer.normalizeCompany',
+  normalizePhone: 'normalizer.normalizePhone',
+  normalizeEmail: 'normalizer.normalizeEmail',
+  normalizeDate: 'normalizer.normalizeDate',
+  normalizeNumber: 'normalizer.normalizeNumber',
+  upperCase: 'normalizer.upperCase',
+  lowerCase: 'normalizer.lowerCase',
+  removeSpaces: 'normalizer.removeSpaces',
 };
 
 const ALL_NORMALIZERS = Object.keys(NORMALIZER_LABELS) as Normalizer[];
@@ -41,6 +42,9 @@ function confidenceClass(c: number): string {
 
 /** ステップ3: マッピング確認・修正(Human-in-the-loop) */
 export function MappingEditor() {
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
+
   const source = useStore((s) => s.source);
   const target = useStore((s) => s.target);
   const mapping = useStore((s) => s.mapping);
@@ -65,22 +69,22 @@ export function MappingEditor() {
 
   return (
     <div className="panel">
-      <h2>3. マッピングを確認・修正</h2>
+      <h2>{t('mapping.heading')}</h2>
       <p className="subtitle" style={{ marginBottom: 8 }}>
-        列名とデータの形から自動で割り当てました。確信度が低いものや違和感のある箇所だけ直せばOKです。
+        {t('mapping.description')}
       </p>
       <div className="security-note">
         {usedLlm ? (
           <>
-            AIに渡したのはカラム名と匿名化した数行サンプルのみです。実データ（
-            {source.rows.length.toLocaleString()}
-            行）はこのブラウザから出ていません。
+            {t('mapping.securityLlm', {
+              count: source.rows.length.toLocaleString(locale),
+            })}
           </>
         ) : (
           <>
-            割り当ての判定も変換も、このブラウザ内で完結しています。実データ（
-            {source.rows.length.toLocaleString()}
-            行）はどこにも送信されていません。
+            {t('mapping.securityLocal', {
+              count: source.rows.length.toLocaleString(locale),
+            })}
           </>
         )}
       </div>
@@ -98,8 +102,9 @@ export function MappingEditor() {
 
       {missingRequired.length > 0 && (
         <div className="alert error">
-          必須項目が未割り当てです:{' '}
-          {missingRequired.map(fieldDisplayName).join('、')}
+          {t('mapping.missingRequired', {
+            fields: missingRequired.map(fieldDisplayName).join(', '),
+          })}
         </div>
       )}
 
@@ -130,12 +135,12 @@ export function MappingEditor() {
   );
 }
 
-function makeContextEntry(): ImportContextEntry {
+function makeContextEntry(label: string): ImportContextEntry {
   const id =
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
       ? crypto.randomUUID()
       : 'ctx-' + Date.now() + '-' + Math.random().toString(36).slice(2);
-  return { id, key: 'EventName', label: 'イベント名', value: '' };
+  return { id, key: 'EventName', label, value: '' };
 }
 
 function ImportContextPanel({
@@ -145,6 +150,9 @@ function ImportContextPanel({
   entries: ImportContextEntry[];
   onChange: (entries: ImportContextEntry[]) => void;
 }) {
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
+
   const setEntry = (
     id: string,
     patch: Partial<Omit<ImportContextEntry, 'id'>>,
@@ -159,37 +167,33 @@ function ImportContextPanel({
     onChange(entries.filter((entry) => entry.id !== id));
   };
   const addEntry = () => {
-    onChange([...entries, makeContextEntry()]);
+    onChange([...entries, makeContextEntry(t('context.eventName'))]);
   };
 
   return (
     <section className="import-context-panel" data-tour="tour-mapping-context">
       <div className="import-context-head">
         <div>
-          <h3>今回の追加情報</h3>
+          <h3>{t('context.heading')}</h3>
           <p className="subtitle">
-            元ファイルに無いイベント名やキャンペーン名を、この実行だけ式に渡せます。
-            効果があるのは、テンプレート管理でその項目に自動記入ルールを設定し、式に
-            {' {Import.キー} '}
-            を書いた場合だけです（式リファレンス参照）。
+            {t('context.description', { reference: '{Import.key}' })}
           </p>
         </div>
         <button type="button" className="ghost" onClick={addEntry}>
-          + 追加
+          {t('common.add')}
         </button>
       </div>
 
       {entries.length === 0 ? (
         <div className="context-empty">
-          例: キー EventName、値 FOOMA 2026 を追加すると、式で{' '}
-          {'{Import.EventName}'} を使えます。
+          {t('context.example', { reference: '{Import.EventName}' })}
         </div>
       ) : (
         <div className="context-list">
           <div className="context-row context-row-head">
-            <span>キー</span>
-            <span>画面表示</span>
-            <span>値</span>
+            <span>{t('context.key')}</span>
+            <span>{t('context.label')}</span>
+            <span>{t('common.value')}</span>
             <span />
           </div>
           {entries.map((entry) => {
@@ -207,7 +211,7 @@ function ImportContextPanel({
                 <input
                   type="text"
                   value={entry.label}
-                  placeholder="イベント名"
+                  placeholder={t('context.eventName')}
                   onChange={(e) =>
                     setEntry(entry.id, { label: e.target.value })
                   }
@@ -215,7 +219,7 @@ function ImportContextPanel({
                 <input
                   type="text"
                   value={entry.value}
-                  placeholder="今回だけ使う値"
+                  placeholder={t('context.valuePlaceholder')}
                   onChange={(e) =>
                     setEntry(entry.id, { value: e.target.value })
                   }
@@ -223,7 +227,7 @@ function ImportContextPanel({
                 <button
                   type="button"
                   className="icon"
-                  title="削除"
+                  title={t('common.delete')}
                   onClick={() => removeEntry(entry.id)}
                 >
                   ×
@@ -246,6 +250,9 @@ interface RowProps {
 }
 
 function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
+
   const setTransform = (transform: Transform) =>
     onChange({ ...mapping, transform, confidence: 1 });
 
@@ -257,27 +264,31 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
     onChange({ ...mapping, normalizers });
   };
 
-  const t = mapping.transform;
+  const transform = mapping.transform;
 
   return (
     <div className="mapping-row">
       <div className="mapping-head">
         <span className="target-name">
           {fieldDisplayName(field)}{' '}
-          {field.required && <span className="required-badge">*必須</span>}
+          {field.required && (
+            <span className="required-badge">{t('mapping.required')}</span>
+          )}
         </span>
         <span className={`confidence ${confidenceClass(mapping.confidence)}`}>
-          確信度 {Math.round(mapping.confidence * 100)}%
+          {t('mapping.confidence', {
+            count: Math.round(mapping.confidence * 100),
+          })}
         </span>
         <span className="meta" style={{ fontSize: 14, color: 'var(--muted)' }}>
           → {field.key}
         </span>
         <span className="field-kind-badge">
           {field.inputKind === 'select' || field.options?.length
-            ? '選択式'
+            ? t('mapping.selectKind')
             : field.inputKind === 'textarea'
-              ? '長文'
-              : '短文'}
+              ? t('mapping.longKind')
+              : t('mapping.shortKind')}
         </span>
       </div>
 
@@ -285,9 +296,9 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
 
       <div className="mapping-controls">
         <label className="field-label">
-          変換方法
+          {t('mapping.method')}
           <select
-            value={t.kind}
+            value={transform.kind}
             onChange={(e) => {
               const kind = e.target.value as Transform['kind'];
               switch (kind) {
@@ -326,20 +337,20 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
               }
             }}
           >
-            <option value="direct">1列をそのまま</option>
-            <option value="concat">複数列を結合</option>
-            <option value="split">1列を分割</option>
-            <option value="constant">固定値</option>
-            <option value="conditional">条件分岐</option>
-            <option value="empty">空（未割当）</option>
+            <option value="direct">{t('mapping.direct')}</option>
+            <option value="concat">{t('mapping.concat')}</option>
+            <option value="split">{t('mapping.split')}</option>
+            <option value="constant">{t('mapping.constant')}</option>
+            <option value="conditional">{t('mapping.conditional')}</option>
+            <option value="empty">{t('mapping.empty')}</option>
           </select>
         </label>
 
-        {t.kind === 'direct' && (
+        {transform.kind === 'direct' && (
           <label className="field-label">
-            ソース列
+            {t('mapping.sourceColumn')}
             <select
-              value={t.source}
+              value={transform.source}
               onChange={(e) =>
                 setTransform({ kind: 'direct', source: e.target.value })
               }
@@ -353,21 +364,23 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
           </label>
         )}
 
-        {t.kind === 'concat' && (
+        {transform.kind === 'concat' && (
           <ConcatEditor
-            transform={t}
+            transform={transform}
             columnNames={columnNames}
             onChange={setTransform}
           />
         )}
 
-        {t.kind === 'split' && (
+        {transform.kind === 'split' && (
           <>
             <label className="field-label">
-              ソース列
+              {t('mapping.sourceColumn')}
               <select
-                value={t.source}
-                onChange={(e) => setTransform({ ...t, source: e.target.value })}
+                value={transform.source}
+                onChange={(e) =>
+                  setTransform({ ...transform, source: e.target.value })
+                }
               >
                 {columnNames.map((c) => (
                   <option key={c} value={c}>
@@ -377,43 +390,43 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
               </select>
             </label>
             <label className="field-label">
-              区切り
+              {t('mapping.separator')}
               <input
                 type="text"
                 style={{ width: 60 }}
-                value={t.delimiter}
+                value={transform.delimiter}
                 onChange={(e) =>
-                  setTransform({ ...t, delimiter: e.target.value })
+                  setTransform({ ...transform, delimiter: e.target.value })
                 }
               />
             </label>
             <label className="field-label">
-              位置
+              {t('mapping.position')}
               <select
-                value={t.index}
+                value={transform.index}
                 onChange={(e) =>
-                  setTransform({ ...t, index: Number(e.target.value) })
+                  setTransform({ ...transform, index: Number(e.target.value) })
                 }
               >
-                <option value={0}>1つ目</option>
-                <option value={1}>2つ目</option>
-                <option value={2}>3つ目</option>
+                <option value={0}>{t('mapping.first')}</option>
+                <option value={1}>{t('mapping.second')}</option>
+                <option value={2}>{t('mapping.third')}</option>
               </select>
             </label>
           </>
         )}
 
-        {t.kind === 'constant' && (
+        {transform.kind === 'constant' && (
           <ConstantEditor
-            value={t.value}
+            value={transform.value}
             options={fieldOptionItems(field)}
             onChange={(value) => setTransform({ kind: 'constant', value })}
           />
         )}
 
-        {t.kind === 'conditional' && (
+        {transform.kind === 'conditional' && (
           <ConditionalEditor
-            transform={t}
+            transform={transform}
             columnNames={columnNames}
             onChange={setTransform}
           />
@@ -422,11 +435,11 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
 
       <FieldMiniPreview mapping={mapping} />
 
-      {t.kind !== 'empty' && (
+      {transform.kind !== 'empty' && (
         <ValueMapEditor field={field} mapping={mapping} onChange={onChange} />
       )}
 
-      {t.kind !== 'empty' && (
+      {transform.kind !== 'empty' && (
         <div className="norm-chips">
           {ALL_NORMALIZERS.map((n) => (
             <button
@@ -436,7 +449,7 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
               aria-pressed={mapping.normalizers.includes(n)}
               onClick={() => toggleNormalizer(n)}
             >
-              {NORMALIZER_LABELS[n]}
+              {t(NORMALIZER_LABELS[n])}
             </button>
           ))}
         </div>
@@ -447,6 +460,9 @@ function FieldEditorRow({ field, mapping, columnNames, onChange }: RowProps) {
 
 /** 項目1つ分のミニプレビュー。実データの先頭数行でどう変換されるかをその場で見せる */
 function FieldMiniPreview({ mapping }: { mapping: FieldMapping }) {
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
+
   const source = useStore((s) => s.source);
   const rowFilter = useStore((s) => s.mapping?.rowFilter);
   const importContext = useStore((s) => s.importContext);
@@ -475,7 +491,7 @@ function FieldMiniPreview({ mapping }: { mapping: FieldMapping }) {
     return (
       <div className="mini-preview is-list">
         <span className="mini-preview-label">
-          プレビュー（先頭{values.length}行）
+          {t('mapping.miniPreview', { count: values.length })}
         </span>
         <ol className="mini-preview-rows">
           {values.map((v, i) => (
@@ -484,7 +500,7 @@ function FieldMiniPreview({ mapping }: { mapping: FieldMapping }) {
               <span
                 className={`mini-preview-val${v.trim() === '' ? ' is-empty' : ''}`}
               >
-                {v.trim() === '' ? '（空欄）' : v}
+                {v.trim() === '' ? t('common.empty') : v}
               </span>
             </li>
           ))}
@@ -495,13 +511,13 @@ function FieldMiniPreview({ mapping }: { mapping: FieldMapping }) {
 
   return (
     <div className="mini-preview">
-      <span className="mini-preview-label">プレビュー:</span>
+      <span className="mini-preview-label">{t('mapping.previewLabel')}</span>
       {values.map((v, i) => (
         <span
           key={i}
           className={`mini-preview-chip${v.trim() === '' ? ' is-empty' : ''}`}
         >
-          {v.trim() === '' ? '（空欄）' : v}
+          {v.trim() === '' ? t('common.empty') : v}
         </span>
       ))}
     </div>
@@ -522,6 +538,9 @@ function ConstantEditor({
   options?: { value: string; label: string }[];
   onChange: (value: string) => void;
 }) {
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
+
   const opts = options ?? [];
   const values = opts.map((o) => o.value);
   const isCustom = opts.length === 0 || !values.includes(value);
@@ -529,7 +548,7 @@ function ConstantEditor({
   if (opts.length === 0) {
     return (
       <label className="field-label">
-        固定値
+        {t('mapping.constant')}
         <input
           type="text"
           value={value}
@@ -542,7 +561,7 @@ function ConstantEditor({
   return (
     <>
       <label className="field-label">
-        固定値（選択）
+        {t('mapping.constantSelect')}
         <select
           value={isCustom ? '__custom__' : value}
           onChange={(e) => {
@@ -555,16 +574,16 @@ function ConstantEditor({
               {o.label === o.value ? o.value : o.label + ' (' + o.value + ')'}
             </option>
           ))}
-          <option value="__custom__">（自由入力）</option>
+          <option value="__custom__">{t('mapping.customValue')}</option>
         </select>
       </label>
       {isCustom && (
         <label className="field-label">
-          値（上書き）
+          {t('mapping.override')}
           <input
             type="text"
             value={value}
-            placeholder="任意の値を入力"
+            placeholder={t('mapping.valuePlaceholder')}
             onChange={(e) => onChange(e.target.value)}
           />
         </label>
@@ -574,12 +593,12 @@ function ConstantEditor({
 }
 
 /** 区切りのプリセット(実文字への対応) */
-const SEP_PRESETS: { label: string; value: string }[] = [
-  { label: 'スペース', value: ' ' },
-  { label: 'カンマ', value: ', ' },
-  { label: 'スラッシュ', value: ' / ' },
-  { label: '改行', value: '\n' },
-  { label: '（なし）', value: '' },
+const SEP_PRESETS: { label: TranslationKey; value: string }[] = [
+  { label: 'mapping.space', value: ' ' },
+  { label: 'mapping.comma', value: ', ' },
+  { label: 'mapping.slash', value: ' / ' },
+  { label: 'mapping.newline', value: '\n' },
+  { label: 'mapping.noSeparator', value: '' },
 ];
 
 function ConcatEditor({
@@ -591,6 +610,9 @@ function ConcatEditor({
   columnNames: string[];
   onChange: (t: Transform) => void;
 }) {
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
+
   const toggle = (col: string) => {
     const has = transform.sources.includes(col);
     const sources = has
@@ -615,7 +637,7 @@ function ConcatEditor({
   return (
     <>
       <div className="field-label">
-        まとめる列（クリックした順に結合）
+        {t('mapping.combineColumns')}
         <div className="norm-chips">
           {columnNames.map((c) => (
             <button
@@ -634,7 +656,7 @@ function ConcatEditor({
       </div>
 
       <label className="field-label">
-        区切り
+        {t('mapping.separator')}
         <select
           value={isCustom ? '__custom__' : transform.separator}
           onChange={(e) => {
@@ -649,15 +671,15 @@ function ConcatEditor({
         >
           {SEP_PRESETS.map((p) => (
             <option key={p.label} value={p.value}>
-              {p.label}
+              {t(p.label)}
             </option>
           ))}
-          <option value="__custom__">カスタム…</option>
+          <option value="__custom__">{t('mapping.customSeparator')}</option>
         </select>
       </label>
       {isCustom && (
         <label className="field-label">
-          区切り文字
+          {t('mapping.separatorChars')}
           <input
             type="text"
             style={{ width: 70 }}
@@ -682,13 +704,13 @@ function ConcatEditor({
             })
           }
         >
-          項目名を付ける（例: 役職: 部長）
+          {t('mapping.withLabels')}
         </button>
       </label>
 
       {transform.withLabels && (
         <div className="field-label" style={{ width: '100%' }}>
-          項目名の表示（未入力なら元の列名を使用）
+          {t('mapping.labelHint')}
           <div
             style={{
               display: 'flex',
@@ -698,7 +720,7 @@ function ConcatEditor({
             }}
           >
             <span style={{ fontSize: 14, color: 'var(--muted)' }}>
-              項目名と値の区切り:
+              {t('mapping.labelSeparator')}
             </span>
             <input
               type="text"
@@ -748,6 +770,9 @@ function ConditionalEditor({
   columnNames: string[];
   onChange: (t: Transform) => void;
 }) {
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
+
   const setCase = (
     i: number,
     patch: Partial<(typeof transform.cases)[number]>,
@@ -759,7 +784,7 @@ function ConditionalEditor({
   };
   return (
     <div className="field-label" style={{ width: '100%' }}>
-      条件分岐
+      {t('mapping.conditional')}
       <div
         style={{
           display: 'flex',
@@ -768,7 +793,7 @@ function ConditionalEditor({
           marginBottom: 6,
         }}
       >
-        <span>判定する列:</span>
+        <span>{t('mapping.testColumn')}</span>
         <select
           value={transform.source}
           onChange={(e) => onChange({ ...transform, source: e.target.value })}
@@ -789,16 +814,16 @@ function ConditionalEditor({
             value={c.op}
             onChange={(e) => setCase(i, { op: e.target.value as typeof c.op })}
           >
-            <option value="contains">含む</option>
-            <option value="equals">一致</option>
-            <option value="startsWith">前方一致</option>
-            <option value="endsWith">後方一致</option>
-            <option value="isEmpty">空である</option>
-            <option value="notEmpty">空でない</option>
+            <option value="contains">{t('condition.contains')}</option>
+            <option value="equals">{t('condition.equals')}</option>
+            <option value="startsWith">{t('condition.startsWith')}</option>
+            <option value="endsWith">{t('condition.endsWith')}</option>
+            <option value="isEmpty">{t('condition.isEmpty')}</option>
+            <option value="notEmpty">{t('condition.notEmpty')}</option>
           </select>
           <input
             type="text"
-            placeholder="値"
+            placeholder={t('common.value')}
             style={{ width: 100 }}
             value={c.value}
             onChange={(e) => setCase(i, { value: e.target.value })}
@@ -806,7 +831,7 @@ function ConditionalEditor({
           <span>→</span>
           <input
             type="text"
-            placeholder="出力"
+            placeholder={t('mapping.output')}
             style={{ width: 100 }}
             value={c.then}
             onChange={(e) => setCase(i, { then: e.target.value })}
@@ -826,7 +851,7 @@ function ConditionalEditor({
           })
         }
       >
-        + 条件を追加
+        {t('mapping.addCondition')}
       </button>
     </div>
   );
@@ -834,6 +859,9 @@ function ConditionalEditor({
 
 /** 変換前後のプレビュー(先頭数行)。変換で値が変わったセルをハイライト */
 function PreviewTable() {
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
+
   const source = useStore((s) => s.source);
   const target = useStore((s) => s.target);
   const mapping = useStore((s) => s.mapping);
@@ -879,14 +907,16 @@ function PreviewTable() {
   return (
     <div data-tour="tour-mapping-preview">
       <div className="preview-bar">
-        <h3 style={{ margin: 0 }}>変換プレビュー（先頭{preview.length}行）</h3>
+        <h3 style={{ margin: 0 }}>
+          {t('mapping.preview', { count: preview.length })}
+        </h3>
         <label className="toggle">
           <input
             type="checkbox"
             checked={!dropEmptyColumns}
             onChange={(e) => setDropEmptyColumns(!e.target.checked)}
           />
-          空欄の項目を表示（出力にも反映されます）
+          {t('mapping.showEmpty')}
         </label>
         <label className="toggle">
           <input
@@ -894,7 +924,7 @@ function PreviewTable() {
             checked={wrapCells}
             onChange={(e) => setWrapCells(e.target.checked)}
           />
-          長い値を折り返して全文表示
+          {t('common.wrap')}
         </label>
       </div>
       <div className={`table-wrap${wrapCells ? ' wrap-cells' : ''}`}>
@@ -928,9 +958,9 @@ function PreviewTable() {
       <div className="legend">
         <span>
           <span className="swatch" />
-          整形・変換されたセル
+          {t('mapping.changedCell')}
         </span>
-        <span>— 空欄</span>
+        <span>{t('mapping.emptyLegend')}</span>
       </div>
     </div>
   );

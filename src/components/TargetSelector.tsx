@@ -1,10 +1,7 @@
+import { createTranslator } from '../core/i18n';
 import { useMemo } from 'react';
 import { useStore } from '../state/store';
-import {
-  PRESET_SCHEMAS,
-  SCHEMA_CATEGORY_LABELS,
-  SCHEMA_CATEGORY_ORDER,
-} from '../core/targetSchemas';
+import { PRESET_SCHEMAS, SCHEMA_CATEGORY_ORDER } from '../core/targetSchemas';
 import { sortCustomSchemas } from '../core/schemaStore';
 import { findMatchingRecipes } from '../core/recipes';
 import { FileDrop } from './FileDrop';
@@ -14,6 +11,9 @@ import type { SchemaCategory, TargetSchema } from '../types';
 
 /** ステップ2: インポート先フォーマット(ターゲットスキーマ)の選択 */
 export function TargetSelector() {
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
+
   const selectSchema = useStore((s) => s.selectSchema);
   const loadUploadedTarget = useStore((s) => s.loadUploadedTarget);
   const isSuggesting = useStore((s) => s.isSuggesting);
@@ -48,9 +48,9 @@ export function TargetSelector() {
 
   return (
     <div className="panel" data-tour="tour-target-panel">
-      <h2>2. インポート先フォーマットを選ぶ</h2>
+      <h2>{t('target.heading')}</h2>
       <p className="subtitle" style={{ marginBottom: 12 }}>
-        整形後のデータをどのフォーマットに合わせるかを指定します。
+        {t('target.description')}
       </p>
 
       {/* 読み込んだファイル・シートの一覧と件数は SourceReadOptions が出す */}
@@ -59,9 +59,9 @@ export function TargetSelector() {
 
       {matchingRecipes.length > 0 && (
         <>
-          <h3>💡 この列構成に合うレシピが見つかりました</h3>
+          <h3>{t('target.recipes')}</h3>
           <p className="subtitle" style={{ marginBottom: 10 }}>
-            過去に保存したマッピングを、そのまま再適用できます。
+            {t('target.recipesHint')}
           </p>
           <div className="card-grid">
             {matchingRecipes.map((r) => (
@@ -73,7 +73,7 @@ export function TargetSelector() {
               >
                 <span className="name">🔁 {r.name}</span>
                 <span className="meta">
-                  {r.mapping.fields.length} 項目・レシピ適用
+                  {t('target.recipeFields', { count: r.mapping.fields.length })}
                 </span>
               </button>
             ))}
@@ -82,19 +82,19 @@ export function TargetSelector() {
       )}
 
       {isSuggesting && (
-        <div className="alert info">AIがマッピングを推論しています…</div>
+        <div className="alert info">{t('target.suggesting')}</div>
       )}
 
       {sortedCustomSchemas.length > 0 && (
         <>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-            <h3 style={{ flex: 1 }}>あなたのテンプレート</h3>
+            <h3 style={{ flex: 1 }}>{t('target.custom')}</h3>
             <button
               className="ghost"
               style={{ padding: '4px 12px' }}
               onClick={() => setView('admin')}
             >
-              管理ページで編集
+              {t('target.manage')}
             </button>
           </div>
           <div className="card-grid">
@@ -107,10 +107,10 @@ export function TargetSelector() {
               >
                 <span className="name">
                   {schema.name}
-                  {schema.isDefault ? '（既定）' : ''}
+                  {schema.isDefault ? t('target.default') : ''}
                 </span>
                 <span className="meta">
-                  {schema.fields.length} フィールド・ユーザー定義
+                  {t('target.customFields', { count: schema.fields.length })}
                 </span>
               </button>
             ))}
@@ -118,12 +118,9 @@ export function TargetSelector() {
         </>
       )}
 
-      <h3>プリセットから選ぶ</h3>
+      <h3>{t('target.presets')}</h3>
       {presetGroups.length === 0 ? (
-        <div className="alert info">
-          表示するプリセットのカテゴリが選ばれていません。「設定 →
-          テンプレートのカテゴリ」で使いたいカテゴリをONにしてください。
-        </div>
+        <div className="alert info">{t('target.noCategories')}</div>
       ) : (
         presetGroups.map(({ category, schemas }) => (
           <PresetGroup
@@ -136,26 +133,24 @@ export function TargetSelector() {
         ))
       )}
       <p className="subtitle" style={{ margin: '4px 0 10px' }}>
-        他の業務（会計・配送・広告レポートなど）のプリセットも用意しています。「設定
-        → テンプレートのカテゴリ」から追加で表示できます。
+        {t('target.moreCategories')}
       </p>
 
-      <h3>独自フォーマットをアップロード</h3>
+      <h3>{t('target.upload')}</h3>
       <p className="subtitle" style={{ marginBottom: 10 }}>
-        インポート用シート（見出し行のあるもの）をアップロードすると、その列構成を
-        ターゲットとして使います。繰り返し使うなら
+        {t('target.uploadIntro')}{' '}
         <button
           className="ghost"
           style={{ padding: '2px 8px', margin: '0 2px' }}
           onClick={() => setView('admin')}
         >
-          テンプレート管理
-        </button>
-        で保存しておくと便利です。
+          {t('target.templateManager')}
+        </button>{' '}
+        {t('target.uploadEnd')}
       </p>
       <FileDrop
-        title="インポート用シートをドロップ"
-        hint="CSV / Excel（ヘッダー行のみでもOK）"
+        title={t('target.dropTitle')}
+        hint={t('target.dropHint')}
         onFile={(name, data) => void loadUploadedTarget(name, data)}
       />
     </div>
@@ -174,12 +169,18 @@ function PresetGroup({
   disabled: boolean;
   onSelect: (id: string) => void;
 }) {
-  const { title, desc } = SCHEMA_CATEGORY_LABELS[category];
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
+
   return (
     <section style={{ marginBottom: 14 }}>
       <div className="preset-group-head">
-        <span className="preset-group-title">{title}</span>
-        <span className="preset-group-desc">{desc}</span>
+        <span className="preset-group-title">
+          {t(`category.${category}.title`)}
+        </span>
+        <span className="preset-group-desc">
+          {t(`category.${category}.description`)}
+        </span>
       </div>
       <div className="card-grid">
         {schemas.map((schema) => (
@@ -190,7 +191,9 @@ function PresetGroup({
             onClick={() => onSelect(schema.id)}
           >
             <span className="name">{schema.name}</span>
-            <span className="meta">{schema.fields.length} フィールド</span>
+            <span className="meta">
+              {t('target.fields', { count: schema.fields.length })}
+            </span>
           </button>
         ))}
       </div>

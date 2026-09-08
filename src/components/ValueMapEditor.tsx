@@ -1,3 +1,4 @@
+import { createTranslator } from '../core/i18n';
 /**
  * 値の置換表エディタ。
  *
@@ -31,6 +32,9 @@ export function ValueMapEditor({
   mapping: FieldMapping;
   onChange: (m: FieldMapping) => void;
 }) {
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
+
   const source = useStore((s) => s.source);
   const importContext = useStore((s) => s.importContext);
   const entries = mapping.valueMap ?? [];
@@ -67,10 +71,10 @@ export function ValueMapEditor({
     return (
       <div className="value-map-toggle">
         <button type="button" className="ghost" onClick={() => setOpen(true)}>
-          値の対応表を作る
+          {t('valueMap.create')}
         </button>
         <span className="subtitle" style={{ margin: 0 }}>
-          「東京都 → 13」のように、値そのものを別の値へ置き換えます。
+          {t('valueMap.description')}
         </span>
       </div>
     );
@@ -79,17 +83,21 @@ export function ValueMapEditor({
   return (
     <div className="value-map">
       <div className="value-map-head">
-        <span className="value-map-title">値の対応表</span>
-        {active > 0 && <span className="value-map-count">{active} 件</span>}
+        <span className="value-map-title">{t('valueMap.heading')}</span>
+        {active > 0 && (
+          <span className="value-map-count">
+            {t('valueMap.count', { count: active })}
+          </span>
+        )}
         <div className="spacer" />
         <button
           type="button"
           className="ghost"
           onClick={() => update(draftValueMap(sourceValues))}
           disabled={sourceValues.length === 0}
-          title="元データに出てくる値を重複なく並べます"
+          title={t('valueMap.draftTitle')}
         >
-          元データから候補を入れる
+          {t('valueMap.draft')}
         </button>
         <button
           type="button"
@@ -104,7 +112,7 @@ export function ValueMapEditor({
             setOpen(false);
           }}
         >
-          対応表をやめる
+          {t('valueMap.remove')}
         </button>
       </div>
 
@@ -121,9 +129,9 @@ export function ValueMapEditor({
       <table className="value-map-table">
         <thead>
           <tr>
-            <th>元の値</th>
+            <th>{t('valueMap.from')}</th>
             <th aria-hidden="true" />
-            <th>置き換え後</th>
+            <th>{t('valueMap.to')}</th>
             <th aria-hidden="true" />
           </tr>
         </thead>
@@ -134,7 +142,7 @@ export function ValueMapEditor({
                 <input
                   type="text"
                   value={entry.from}
-                  placeholder="元データの値"
+                  placeholder={t('valueMap.sourcePlaceholder')}
                   onChange={(e) =>
                     update(
                       entries.map((x, j) =>
@@ -149,7 +157,7 @@ export function ValueMapEditor({
                 <input
                   type="text"
                   value={entry.to}
-                  placeholder="取り込み先の値"
+                  placeholder={t('valueMap.targetPlaceholder')}
                   list={options.length > 0 ? datalistId : undefined}
                   onChange={(e) =>
                     update(
@@ -164,7 +172,7 @@ export function ValueMapEditor({
                 <button
                   type="button"
                   className="ghost"
-                  aria-label={`${i + 1}行目を削除`}
+                  aria-label={t('valueMap.deleteRow', { count: i + 1 })}
                   onClick={() => update(entries.filter((_, j) => j !== i))}
                 >
                   ×
@@ -181,18 +189,18 @@ export function ValueMapEditor({
           className="ghost"
           onClick={() => update([...entries, { from: '', to: '' }])}
         >
-          + 行を追加
+          {t('valueMap.add')}
         </button>
         <div className="spacer" />
         <label className="read-options-inline">
-          表にない値は
+          {t('valueMap.fallback')}
           <select
             value={mode}
             onChange={(e) => setFallback(e.target.value as FallbackMode)}
           >
-            <option value="keep">そのまま通す</option>
-            <option value="empty">空にする</option>
-            <option value="constant">決めた値にする</option>
+            <option value="keep">{t('valueMap.keep')}</option>
+            <option value="empty">{t('valueMap.empty')}</option>
+            <option value="constant">{t('valueMap.constant')}</option>
           </select>
         </label>
         {mode === 'constant' && (
@@ -200,16 +208,14 @@ export function ValueMapEditor({
             type="text"
             style={{ maxWidth: 160 }}
             value={mapping.valueMapFallback ?? ''}
-            placeholder="例: その他"
+            placeholder={t('valueMap.otherPlaceholder')}
             list={options.length > 0 ? datalistId : undefined}
             onChange={(e) => setFallback('constant', e.target.value)}
           />
         )}
       </div>
       <p className="subtitle" style={{ margin: '6px 0 0' }}>
-        照合は前後の空白・全角半角・英字の大小を無視します（
-        <code>ＡＢＣ</code> と <code>abc</code> は同じ値として扱われます）。
-        空欄の行は置き換えの対象外です。
+        {t('valueMap.matchHint')}
       </p>
     </div>
   );

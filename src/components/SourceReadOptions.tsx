@@ -1,3 +1,4 @@
+import { createTranslator } from '../core/i18n';
 /**
  * 読み込み設定。
  *
@@ -32,6 +33,9 @@ function looksMisdetected(ds: SourceDataset): boolean {
 }
 
 export function SourceReadOptions() {
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
+
   const source = useStore((s) => s.source);
   const files = useStore((s) => s.sourceFiles);
   const units = useStore((s) => s.sourceUnits);
@@ -52,15 +56,22 @@ export function SourceReadOptions() {
   return (
     <div className="read-options">
       <div className="read-options-head">
-        <span className="read-options-title">読み込み設定</span>
+        <span className="read-options-title">{t('read.title')}</span>
         <span className="read-options-inline">
-          {source.columns.length} 列 / {source.rows.length.toLocaleString()} 行
+          {t('read.dimensions', {
+            columns: source.columns.length,
+            count: source.rows.length.toLocaleString(locale),
+          })}
           {combined && (
-            <span className="read-options-auto">{units.length}件を結合</span>
+            <span className="read-options-auto">
+              {t('read.combined', { count: units.length })}
+            </span>
           )}
           {filteredOut > 0 && (
             <span className="read-options-auto">
-              参照テーブルで {filteredOut.toLocaleString()} 行を除外
+              {t('read.filtered', {
+                count: filteredOut.toLocaleString(locale),
+              })}
             </span>
           )}
         </span>
@@ -71,7 +82,7 @@ export function SourceReadOptions() {
           onClick={() => setAdding((v) => !v)}
           aria-expanded={adding}
         >
-          {adding ? '閉じる' : '+ ファイルを追加'}
+          {adding ? t('common.close') : t('read.add')}
         </button>
       </div>
 
@@ -79,8 +90,8 @@ export function SourceReadOptions() {
         <div style={{ margin: '10px 0' }}>
           <FileDrop
             multiple
-            title="同じ形のファイルを追加でドロップ"
-            hint="CSV / Excel — 追加したぶんは縦につないで1つの表として整形します"
+            title={t('read.dropTitle')}
+            hint={t('read.dropHint')}
             onFiles={(picked) => {
               void addSourceFiles(picked);
               setAdding(false);
@@ -115,7 +126,7 @@ export function SourceReadOptions() {
               )
             }
           />
-          どのファイル/シート由来かを「{DEFAULT_ORIGIN_COLUMN}」列として足す
+          {t('read.origin', { column: DEFAULT_ORIGIN_COLUMN })}
         </label>
       )}
     </div>
@@ -139,6 +150,9 @@ function SourceUnitRow({
   data?: SourceDataset;
   removable: boolean;
 }) {
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
+
   const units = useStore((s) => s.sourceUnits);
   const setUnitHeaderRow = useStore((s) => s.setUnitHeaderRow);
   const removeSourceUnit = useStore((s) => s.removeSourceUnit);
@@ -165,10 +179,12 @@ function SourceUnitRow({
           )}
         </span>
         <span className="source-unit-meta">
-          見出し行 <b>{headerRow}</b> ・{' '}
-          {(data?.rows.length ?? 0).toLocaleString()} 行
+          {t('read.headerMeta', {
+            row: headerRow,
+            count: (data?.rows.length ?? 0).toLocaleString(locale),
+          })}
           {data?.headerRowAuto && (
-            <span className="read-options-auto">自動判定</span>
+            <span className="read-options-auto">{t('read.auto')}</span>
           )}
         </span>
         <div className="spacer" />
@@ -178,13 +194,13 @@ function SourceUnitRow({
           onClick={() => setManualOpen(!open)}
           aria-expanded={open}
         >
-          {open ? '閉じる' : '見出し行を選び直す'}
+          {open ? t('common.close') : t('read.reselect')}
         </button>
         {removable && (
           <button
             type="button"
             className="ghost"
-            aria-label={`${fileName} を取り込み対象から外す`}
+            aria-label={t('read.remove', { fileName })}
             onClick={() => void removeSourceUnit(index)}
           >
             ×
@@ -194,16 +210,14 @@ function SourceUnitRow({
 
       {suspicious && (
         <div className="alert warn" style={{ margin: '8px 0 0' }}>
-          見出しをうまく読み取れていない可能性があります（列名が
-          <code>列1</code>
-          のような仮の名前になっています）。下のプレビューから、見出しが書かれている行を選んでください。
+          {t('read.suspicious')}
         </div>
       )}
 
       {open && (
         <>
           <p className="subtitle" style={{ margin: '10px 0 6px' }}>
-            見出しが書かれている行をクリックしてください。その行より下がデータとして読み込まれます。
+            {t('read.pickHint')}
           </p>
           <div className="preview-scroll">
             <table className="preview-table">
@@ -219,12 +233,14 @@ function SourceUnitRow({
                         isSkipped ? ' is-skipped' : ''
                       }`}
                       onClick={() => void setUnitHeaderRow(index, rowNo)}
-                      title={`${rowNo}行目を見出しにする`}
+                      title={t('read.useHeader', { count: rowNo })}
                     >
                       <th scope="row" className="preview-rowno">
                         {rowNo}
                         {isHeader && (
-                          <span className="preview-badge">見出し</span>
+                          <span className="preview-badge">
+                            {t('read.header')}
+                          </span>
                         )}
                       </th>
                       {cells.slice(0, 12).map((c, j) => (
@@ -238,15 +254,17 @@ function SourceUnitRow({
           </div>
           {(data?.sheetRowCount ?? 0) > previewRows.length && (
             <p className="subtitle" style={{ margin: '6px 0 0' }}>
-              先頭 {previewRows.length} 行のみ表示しています（シート全体は
-              {(data?.sheetRowCount ?? 0).toLocaleString()} 行）。
+              {t('read.previewLimit', {
+                count: previewRows.length,
+                total: (data?.sheetRowCount ?? 0).toLocaleString(locale),
+              })}
             </p>
           )}
 
           {otherSheets.length > 0 && (
             <div className="source-unit-sheets">
               <span className="subtitle" style={{ margin: 0 }}>
-                このファイルの他のシートも結合する:
+                {t('read.otherSheets')}
               </span>
               {otherSheets.map((name) => (
                 <label key={name} className="read-options-inline">

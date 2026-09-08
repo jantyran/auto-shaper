@@ -1,6 +1,6 @@
 import type { Locale } from './settings';
 
-const messages = {
+export const messages = {
   en: {
     'language.choose': 'Choose your language',
     'language.description': 'You can change this anytime in Settings.',
@@ -23,6 +23,8 @@ const messages = {
     'settings.language.title': 'Language',
     'settings.language.description':
       'Choose the language used throughout the app.',
+    'document.title': 'Auto Shaper — Data shaping',
+    'status.rows': '{count} rows processed',
   },
   ja: {
     'language.choose': '言語を選択',
@@ -45,11 +47,21 @@ const messages = {
     'entrance.start': 'クリックしてはじめる',
     'settings.language.title': '表示言語',
     'settings.language.description': 'アプリ全体で使用する言語を選択します。',
+    'document.title': 'Auto Shaper — データ整形',
+    'status.rows': '{count}行を処理しました',
   },
 } as const;
 
 export type TranslationKey = keyof (typeof messages)['en'];
 
+export type TranslationValues = Record<string, string | number>;
+
 export function createTranslator(locale: Locale) {
-  return (key: TranslationKey): string => messages[locale][key];
+  return (key: TranslationKey, values?: TranslationValues): string => {
+    const message = messages[locale][key];
+    if (!values) return message;
+    return message.replace(/\{(\w+)\}/g, (placeholder, name: string) =>
+      name in values ? String(values[name]) : placeholder,
+    );
+  };
 }

@@ -13,6 +13,7 @@ import { GuidedTour } from './components/GuidedTour';
 import { EntranceScreen } from './components/EntranceScreen';
 import { LanguagePicker } from './components/LanguagePicker';
 import { createTranslator } from './core/i18n';
+import { syncDocumentLocale } from './core/documentLocale';
 import { hasSavedLocale, type Locale } from './core/settings';
 
 export function App() {
@@ -35,6 +36,9 @@ export function App() {
     () => !hasSavedLocale(),
   );
   const t = createTranslator(settings.locale);
+  const appAccessibilityProps = showLanguagePicker
+    ? { inert: '', 'aria-hidden': true }
+    : {};
   const steps: { id: Step; label: string }[] = [
     { id: 'source', label: t('step.source') },
     { id: 'target', label: t('step.target') },
@@ -57,117 +61,123 @@ export function App() {
     })();
   }, [refreshAuth, refreshSchemas, refreshRecipes, refreshLearning]);
 
+  useEffect(() => {
+    syncDocumentLocale(settings.locale);
+  }, [settings.locale]);
+
   return (
-    <div className="app">
+    <div className="app-shell">
       {showLanguagePicker && <LanguagePicker onSelect={selectLocale} />}
-      {entranceActive && <EntranceScreen />}
-      <div className="app-header">
-        <div className="app-header-top">
-          <div className="app-brand">
-            <h1>Auto Shaper</h1>
-            <span className="tag">{t('app.tag')}</span>
+      <div className="app" {...appAccessibilityProps}>
+        {entranceActive && <EntranceScreen />}
+        <div className="app-header">
+          <div className="app-header-top">
+            <div className="app-brand">
+              <h1>Auto Shaper</h1>
+              <span className="tag">{t('app.tag')}</span>
+            </div>
+            <AuthBadge />
           </div>
-          <AuthBadge />
+          <nav className="topnav">
+            <button
+              className={view === 'app' ? 'navbtn active' : 'navbtn'}
+              onClick={() => setView('app')}
+            >
+              {t('nav.table')}
+            </button>
+            <button
+              className={view === 'text' ? 'navbtn active' : 'navbtn'}
+              data-tour="tour-nav-text"
+              onClick={() => setView('text')}
+            >
+              {t('nav.text')}
+            </button>
+            <button
+              className={view === 'admin' ? 'navbtn active' : 'navbtn'}
+              data-tour="tour-nav-admin"
+              onClick={() => setView('admin')}
+            >
+              {t('nav.templates')}
+            </button>
+            <button
+              className={view === 'formula' ? 'navbtn active' : 'navbtn'}
+              data-tour="tour-nav-formula"
+              onClick={() => setView('formula')}
+            >
+              {t('nav.formulas')}
+            </button>
+            <button
+              className={view === 'settings' ? 'navbtn active' : 'navbtn'}
+              onClick={() => setView('settings')}
+            >
+              {t('nav.settings')}
+            </button>
+            <button className="navbtn" onClick={() => startTour()}>
+              {t('nav.tour')}
+            </button>
+          </nav>
         </div>
-        <nav className="topnav">
-          <button
-            className={view === 'app' ? 'navbtn active' : 'navbtn'}
-            onClick={() => setView('app')}
+        <GuidedTour />
+        {demoActive && (
+          <div className="demo-banner">
+            <span>{t('demo.banner')}</span>
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => {
+                reset();
+                setView('app');
+              }}
+            >
+              {t('demo.startOwn')}
+            </button>
+          </div>
+        )}
+        <p className="subtitle">
+          {view === 'app'
+            ? t('view.app.description')
+            : view === 'text'
+              ? t('view.text.description')
+              : view === 'admin'
+                ? t('view.admin.description')
+                : view === 'formula'
+                  ? t('view.formula.description')
+                  : t('view.settings.description')}
+        </p>
+
+        {error && <div className="alert error">{error}</div>}
+        {sizeWarning && <div className="alert warn">{sizeWarning}</div>}
+
+        {view === 'text' ? (
+          <TextShaper />
+        ) : view === 'admin' ? (
+          <SchemaAdmin />
+        ) : view === 'formula' ? (
+          <FormulaReference />
+        ) : view === 'settings' ? (
+          <SettingsPage />
+        ) : (
+          <>
+            <Stepper current={step} steps={steps} />
+            {step === 'source' && <SourceStep />}
+            {step === 'target' && <TargetSelector />}
+            {step === 'mapping' && <MappingStep />}
+            {step === 'result' && <ResultStep />}
+          </>
+        )}
+
+        <footer className="app-footer">
+          <span>{t('footer.by')}</span>
+          <span aria-hidden="true">/</span>
+          <a
+            href="https://github.com/jantyran/auto-shaper"
+            target="_blank"
+            rel="noreferrer"
           >
-            {t('nav.table')}
-          </button>
-          <button
-            className={view === 'text' ? 'navbtn active' : 'navbtn'}
-            data-tour="tour-nav-text"
-            onClick={() => setView('text')}
-          >
-            {t('nav.text')}
-          </button>
-          <button
-            className={view === 'admin' ? 'navbtn active' : 'navbtn'}
-            data-tour="tour-nav-admin"
-            onClick={() => setView('admin')}
-          >
-            {t('nav.templates')}
-          </button>
-          <button
-            className={view === 'formula' ? 'navbtn active' : 'navbtn'}
-            data-tour="tour-nav-formula"
-            onClick={() => setView('formula')}
-          >
-            {t('nav.formulas')}
-          </button>
-          <button
-            className={view === 'settings' ? 'navbtn active' : 'navbtn'}
-            onClick={() => setView('settings')}
-          >
-            {t('nav.settings')}
-          </button>
-          <button className="navbtn" onClick={() => startTour()}>
-            {t('nav.tour')}
-          </button>
-        </nav>
+            {t('footer.license')}
+          </a>
+        </footer>
       </div>
-      <GuidedTour />
-      {demoActive && (
-        <div className="demo-banner">
-          <span>🧪 デモデータで操作を体験中です（実データではありません）</span>
-          <button
-            type="button"
-            className="ghost"
-            onClick={() => {
-              reset();
-              setView('app');
-            }}
-          >
-            自分のデータで始める
-          </button>
-        </div>
-      )}
-      <p className="subtitle">
-        {view === 'app'
-          ? '毎回フォーマットが違うExcel/CSVを、取り込み先の形式に合わせて整形します。表記ゆれの統一・姓名の分割・重複チェックまで。'
-          : view === 'text'
-            ? '問合せメールなどの文章を貼り付けると、テンプレートの項目へ振り分けて表形式に整理します。'
-            : view === 'admin'
-              ? 'インポート先（整形後）のフォーマットを自由に追加・編集できます。'
-              : view === 'formula'
-                ? '自動記入ルールで使える式、分岐、フィールド参照の書き方を確認できます。'
-                : '機能のON/OFF、AI(LLM)接続、マスキングをここで管理します。'}
-      </p>
-
-      {error && <div className="alert error">{error}</div>}
-      {sizeWarning && <div className="alert warn">{sizeWarning}</div>}
-
-      {view === 'text' ? (
-        <TextShaper />
-      ) : view === 'admin' ? (
-        <SchemaAdmin />
-      ) : view === 'formula' ? (
-        <FormulaReference />
-      ) : view === 'settings' ? (
-        <SettingsPage />
-      ) : (
-        <>
-          <Stepper current={step} steps={steps} />
-          {step === 'source' && <SourceStep />}
-          {step === 'target' && <TargetSelector />}
-          {step === 'mapping' && <MappingStep />}
-          {step === 'result' && <ResultStep />}
-        </>
-      )}
-
-      <footer className="app-footer">
-        <span>Shaped by Shotaroh Horiguchi</span>
-        <span aria-hidden="true">/</span>
-        <a
-          href="https://github.com/jantyran/auto-shaper"
-          target="_blank"
-          rel="noreferrer"
-        >
-          MIT License
-        </a>
-      </footer>
     </div>
   );
 }
@@ -199,23 +209,23 @@ function Stepper({
 
 function SourceStep() {
   const loadSource = useStore((s) => s.loadSource);
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
   return (
     <div className="panel">
-      <h2>1. 整形前のデータをアップロード</h2>
+      <h2>{t('source.heading')}</h2>
       <p className="subtitle" style={{ marginBottom: 12 }}>
-        代理店リスト、アンケート結果など、フォーマットがバラバラなファイルをそのまま投入してください。月次で分かれたファイルや、支店ごとのシートは、まとめて投入すると1つの表として整形します。
+        {t('source.description')}
       </p>
       <div data-tour="tour-source-upload">
         <FileDrop
-          title="ここにファイルをドロップ、またはクリックして選択"
-          hint="CSV / Excel (.xlsx, .xls) / TSV — 同じ形のファイルは複数まとめて投入できます。見出し行は自動で判定します（上にタイトル行があってもOK）"
+          title={t('source.dropTitle')}
+          hint={t('source.dropHint')}
           multiple
           onFiles={(files) => void loadSource(files)}
         />
       </div>
-      <div className="security-note">
-        アップロードしたファイルはブラウザ内でのみ処理されます。サーバーやAIへ実データを送信しません。
-      </div>
+      <div className="security-note">{t('source.security')}</div>
     </div>
   );
 }
@@ -226,7 +236,9 @@ function MappingStep() {
   const mapping = useStore((s) => s.mapping);
   const source = useStore((s) => s.source);
   const recipesEnabled = useStore((s) => s.settings.features.recipes);
+  const locale = useStore((s) => s.settings.locale);
   const saveCurrentAsRecipe = useStore((s) => s.saveCurrentAsRecipe);
+  const t = createTranslator(locale);
 
   const requiredUnmet =
     target && mapping
@@ -238,8 +250,8 @@ function MappingStep() {
       : false;
 
   const handleSaveRecipe = () => {
-    const suggested = `${source?.fileName ?? 'レシピ'} → ${target?.name ?? ''}`;
-    const name = prompt('レシピ名を入力してください', suggested);
+    const suggested = `${source?.fileName ?? t('mapping.recipe.defaultName')} → ${target?.name ?? ''}`;
+    const name = prompt(t('mapping.recipe.prompt'), suggested);
     if (name && name.trim()) void saveCurrentAsRecipe(name.trim());
   };
 
@@ -248,11 +260,11 @@ function MappingStep() {
       <MappingEditor />
       <div className="btn-row">
         <button className="ghost" onClick={() => goTo('target')}>
-          ← インポート先を選び直す
+          {t('mapping.backToTarget')}
         </button>
         {recipesEnabled && (
           <button className="ghost" onClick={handleSaveRecipe}>
-            🔁 レシピとして保存
+            {t('mapping.saveRecipe')}
           </button>
         )}
         <div className="spacer" />
@@ -260,10 +272,10 @@ function MappingStep() {
           className="primary"
           data-tour="tour-mapping-convert"
           disabled={requiredUnmet}
-          title={requiredUnmet ? '必須項目を割り当ててください' : ''}
+          title={requiredUnmet ? t('mapping.requiredHint') : ''}
           onClick={() => goTo('result')}
         >
-          この内容で変換する →
+          {t('mapping.convert')}
         </button>
       </div>
     </>
@@ -273,16 +285,18 @@ function MappingStep() {
 function ResultStep() {
   const goTo = useStore((s) => s.goTo);
   const reset = useStore((s) => s.reset);
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
   return (
     <>
       <ResultView />
       <div className="btn-row">
         <button className="ghost" onClick={() => goTo('mapping')}>
-          ← マッピングを修正
+          {t('result.backToMapping')}
         </button>
         <div className="spacer" />
         <button className="ghost" onClick={reset}>
-          最初からやり直す
+          {t('result.reset')}
         </button>
       </div>
     </>

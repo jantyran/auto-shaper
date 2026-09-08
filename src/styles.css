@@ -162,6 +162,10 @@ a {
   padding: 24px 20px 80px;
 }
 
+.app[aria-hidden='true'] {
+  pointer-events: none;
+}
+
 .app-header {
   margin-bottom: 14px;
 }

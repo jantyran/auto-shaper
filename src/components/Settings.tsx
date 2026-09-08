@@ -1,10 +1,12 @@
 import { useStore } from '../state/store';
 import {
   defaultModelFor,
+  type Locale,
   type FeatureFlags,
   type LlmProvider,
   type Settings,
 } from '../core/settings';
+import { createTranslator } from '../core/i18n';
 import {
   PRESET_SCHEMAS,
   SCHEMA_CATEGORY_LABELS,
@@ -50,6 +52,7 @@ export function SettingsPage() {
   const removeRecipe = useStore((s) => s.removeRecipe);
   const learnedEntries = useStore((s) => s.learnedEntries);
   const clearLearning = useStore((s) => s.clearLearning);
+  const t = createTranslator(settings.locale);
 
   const set = (patch: Partial<Settings>) => update({ ...settings, ...patch });
   const setFeature = (key: keyof FeatureFlags, value: boolean) => {
@@ -70,6 +73,21 @@ export function SettingsPage() {
   return (
     <>
       <AccountPanel />
+
+      <div className="panel">
+        <h2>{t('settings.language.title')}</h2>
+        <p className="subtitle">{t('settings.language.description')}</p>
+        <label className="field-label language-select">
+          {t('language.label')}
+          <select
+            value={settings.locale}
+            onChange={(e) => set({ locale: e.target.value as Locale })}
+          >
+            <option value="en">English</option>
+            <option value="ja">日本語</option>
+          </select>
+        </label>
+      </div>
 
       <div className="panel">
         <h2>機能のON/OFF</h2>

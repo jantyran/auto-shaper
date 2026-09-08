@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore, type Step } from './state/store';
 import { FileDrop } from './components/FileDrop';
 import { TargetSelector } from './components/TargetSelector';
@@ -11,13 +11,9 @@ import { AuthBadge } from './components/AuthBadge';
 import { FormulaReference } from './components/FormulaReference';
 import { GuidedTour } from './components/GuidedTour';
 import { EntranceScreen } from './components/EntranceScreen';
-
-const STEPS: { id: Step; label: string }[] = [
-  { id: 'source', label: 'ソース投入' },
-  { id: 'target', label: 'インポート先選択' },
-  { id: 'mapping', label: 'マッピング確認' },
-  { id: 'result', label: '変換・出力' },
-];
+import { LanguagePicker } from './components/LanguagePicker';
+import { createTranslator } from './core/i18n';
+import { hasSavedLocale, type Locale } from './core/settings';
 
 export function App() {
   const entranceActive = useStore((s) => s.entranceActive);
@@ -33,6 +29,23 @@ export function App() {
   const startTour = useStore((s) => s.startTour);
   const demoActive = useStore((s) => s.demoActive);
   const reset = useStore((s) => s.reset);
+  const settings = useStore((s) => s.settings);
+  const updateSettings = useStore((s) => s.updateSettings);
+  const [showLanguagePicker, setShowLanguagePicker] = useState(
+    () => !hasSavedLocale(),
+  );
+  const t = createTranslator(settings.locale);
+  const steps: { id: Step; label: string }[] = [
+    { id: 'source', label: t('step.source') },
+    { id: 'target', label: t('step.target') },
+    { id: 'mapping', label: t('step.mapping') },
+    { id: 'result', label: t('step.result') },
+  ];
+
+  const selectLocale = (locale: Locale) => {
+    updateSettings({ ...settings, locale });
+    setShowLanguagePicker(false);
+  };
 
   // 起動時: 先に認証状態を復元してから、保存先を判定してテンプレート/レシピ/学習辞書を同期
   useEffect(() => {
@@ -46,12 +59,13 @@ export function App() {
 
   return (
     <div className="app">
+      {showLanguagePicker && <LanguagePicker onSelect={selectLocale} />}
       {entranceActive && <EntranceScreen />}
       <div className="app-header">
         <div className="app-header-top">
           <div className="app-brand">
             <h1>Auto Shaper</h1>
-            <span className="tag">ブラウザ完結・実データは外部に出ません</span>
+            <span className="tag">{t('app.tag')}</span>
           </div>
           <AuthBadge />
         </div>
@@ -60,37 +74,37 @@ export function App() {
             className={view === 'app' ? 'navbtn active' : 'navbtn'}
             onClick={() => setView('app')}
           >
-            表の整形
+            {t('nav.table')}
           </button>
           <button
             className={view === 'text' ? 'navbtn active' : 'navbtn'}
             data-tour="tour-nav-text"
             onClick={() => setView('text')}
           >
-            テキスト整形
+            {t('nav.text')}
           </button>
           <button
             className={view === 'admin' ? 'navbtn active' : 'navbtn'}
             data-tour="tour-nav-admin"
             onClick={() => setView('admin')}
           >
-            テンプレート管理
+            {t('nav.templates')}
           </button>
           <button
             className={view === 'formula' ? 'navbtn active' : 'navbtn'}
             data-tour="tour-nav-formula"
             onClick={() => setView('formula')}
           >
-            式リファレンス
+            {t('nav.formulas')}
           </button>
           <button
             className={view === 'settings' ? 'navbtn active' : 'navbtn'}
             onClick={() => setView('settings')}
           >
-            設定
+            {t('nav.settings')}
           </button>
           <button className="navbtn" onClick={() => startTour()}>
-            使い方
+            {t('nav.tour')}
           </button>
         </nav>
       </div>
@@ -135,7 +149,7 @@ export function App() {
         <SettingsPage />
       ) : (
         <>
-          <Stepper current={step} />
+          <Stepper current={step} steps={steps} />
           {step === 'source' && <SourceStep />}
           {step === 'target' && <TargetSelector />}
           {step === 'mapping' && <MappingStep />}
@@ -158,11 +172,17 @@ export function App() {
   );
 }
 
-function Stepper({ current }: { current: Step }) {
-  const currentIdx = STEPS.findIndex((s) => s.id === current);
+function Stepper({
+  current,
+  steps,
+}: {
+  current: Step;
+  steps: { id: Step; label: string }[];
+}) {
+  const currentIdx = steps.findIndex((s) => s.id === current);
   return (
     <div className="stepper">
-      {STEPS.map((s, i) => (
+      {steps.map((s, i) => (
         <div
           key={s.id}
           className={`step${s.id === current ? ' active' : ''}${

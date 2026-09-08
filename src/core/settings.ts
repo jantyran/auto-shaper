@@ -21,6 +21,7 @@ export interface FeatureFlags {
 }
 
 export type LlmProvider = 'anthropic' | 'openai' | 'gemini';
+export type Locale = 'en' | 'ja';
 
 export interface LlmSettings {
   provider: LlmProvider;
@@ -60,6 +61,8 @@ export interface MaskingSettings {
 }
 
 export interface Settings {
+  /** 表示言語。初回は言語選択を表示するが、未選択時の表示は英語にする。 */
+  locale: Locale;
   features: FeatureFlags;
   llm: LlmSettings;
   masking: MaskingSettings;
@@ -74,6 +77,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
+  locale: 'en',
   features: {
     recipes: true,
     learningDictionary: true,
@@ -100,6 +104,22 @@ export const DEFAULT_SETTINGS: Settings = {
 
 const STORAGE_KEY = 'auto-shaper.settings.v1';
 
+function normalizeLocale(locale: unknown): Locale {
+  return locale === 'ja' ? 'ja' : 'en';
+}
+
+/** 初回の言語選択を済ませているか */
+export function hasSavedLocale(): boolean {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const parsed = JSON.parse(raw) as Partial<Settings>;
+    return parsed.locale === 'en' || parsed.locale === 'ja';
+  } catch {
+    return false;
+  }
+}
+
 /** 保存済み設定を読み込む(欠損はデフォルトで補完) */
 export function loadSettings(): Settings {
   try {
@@ -124,6 +144,7 @@ export function saveSettings(settings: Settings): void {
 /** デフォルトに保存値を重ねて前方互換を保つ */
 export function mergeSettings(partial: Partial<Settings>): Settings {
   return {
+    locale: normalizeLocale(partial.locale),
     features: { ...DEFAULT_SETTINGS.features, ...(partial.features ?? {}) },
     llm: { ...DEFAULT_SETTINGS.llm, ...(partial.llm ?? {}) },
     masking: {

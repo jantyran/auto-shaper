@@ -223,9 +223,9 @@ export function TextShaper() {
           raw = localTextExtract(workingText, target);
           used = 'local';
           setError(
-            `LLM抽出に失敗したためローカル抽出に切り替えました（${
-              e instanceof Error ? e.message : ''
-            }）`,
+            t('text.llmFallback', {
+              message: e instanceof Error ? e.message : '',
+            }),
           );
         }
       } else {

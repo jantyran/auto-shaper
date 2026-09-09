@@ -178,8 +178,21 @@ def main() -> None:
         assert page.get_by_text("Safe mini expressions for template auto-fill rules. JavaScript and Python are not executed; only the syntax shown here is evaluated.", exact=True).count() == 1
         assert page.get_by_role("heading", name="Common examples", exact=True).count() == 1
         assert page.get_by_role("heading", name="Syntax reference", exact=True).count() == 1
+        first_formula_example = page.locator(".formula-example").first
+        assert first_formula_example.get_by_role(
+            "heading", name="Fixed text + company name", exact=True
+        ).count() == 1
+        assert first_formula_example.get_by_text(
+            "Outputs, for example, Public web: Sample Corporation.", exact=True
+        ).count() == 1
         assert page.get_by_text("if(cond, yes, no)", exact=True).count() == 1
         assert page.get_by_text("{Field}", exact=True).count() == 1
+        field_reference = page.locator(".formula-ref-row").filter(
+            has=page.get_by_text("{Field}", exact=True)
+        )
+        assert field_reference.get_by_text(
+            "Inserts a field value. Example: {Company}", exact=True
+        ).count() == 1
         assert page.get_by_text('"{Company.label}: " & {Company.value}', exact=True).count() == 1
 
         assert not console_errors, "Browser console errors:\n" + "\n".join(console_errors)

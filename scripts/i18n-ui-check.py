@@ -124,12 +124,15 @@ def main() -> None:
         page.get_by_role("button", name="Text shaping", exact=True).click()
         assert page.get_by_role("heading", name="Shape text into a template").count() == 1, page.locator(".panel").inner_text()
         page.get_by_role("textbox", name="Source text").fill("会社名: 株式会社そのまま\nメール: hello@example.com")
+        assert page.get_by_role("button", name="🛡 Scan and mask automatically", exact=True).count() == 1
+        assert page.get_by_text("Mask selection:", exact=True).count() == 1
         page.get_by_role("button", name="⚙ Shape locally", exact=True).click()
         page.get_by_role("heading", name="Shaped results (1)", exact=True).wait_for()
         assert page.get_by_role("button", name="Copy as JSON", exact=True).count() == 1
         assert page.get_by_role("button", name="+ Add another", exact=True).count() == 1
         page.get_by_role("button", name="Templates", exact=True).click()
         assert page.get_by_role("heading", name="Template management", exact=True).count() == 1
+        assert page.get_by_text("Storage: this browser (localStorage)", exact=True).count() == 1
         page.get_by_role("button", name="+ Create template", exact=True).click()
         assert page.get_by_role("heading", name="Edit template", exact=True).count() == 1
         page.get_by_role("textbox", name="Template name", exact=True).fill("")
@@ -172,6 +175,7 @@ def main() -> None:
             assert saved["fields"][0][key] == custom["fields"][0][key]
         page.get_by_role("button", name="Formula reference", exact=True).click()
         assert page.get_by_role("heading", name="Auto-fill formula reference", exact=True).count() == 1
+        assert page.get_by_text("Safe mini expressions for template auto-fill rules. JavaScript and Python are not executed; only the syntax shown here is evaluated.", exact=True).count() == 1
         assert page.get_by_role("heading", name="Common examples", exact=True).count() == 1
         assert page.get_by_role("heading", name="Syntax reference", exact=True).count() == 1
         assert page.get_by_text("if(cond, yes, no)", exact=True).count() == 1

@@ -186,10 +186,10 @@ export function SchemaAdmin() {
         <span className={`storage-badge ${storageMode === 'api' ? 'api' : ''}`}>
           <span className="dot" />
           {storageMode === 'api'
-            ? '保存先: SQLite（サーバー同期）'
+            ? t('admin.storageApi')
             : storageMode === 'local'
-              ? '保存先: このブラウザ（localStorage）'
-              : '保存先を確認中…'}
+              ? t('admin.storageLocal')
+              : t('admin.storageLoading')}
         </span>
         <div className="spacer" />
         <button
@@ -251,11 +251,11 @@ export function SchemaAdmin() {
       </p>
 
       <div data-tour="tour-admin-list">
-        <h3>あなたのテンプレート</h3>
+        <h3>{t('admin.yourTemplates')}</h3>
         {sortedCustomSchemas.length === 0 ? (
           <div className="alert info">
             {
-              'まだテンプレートがありません。「+ 新規テンプレートを作成」から追加するか、下のプリセットを複製して編集できます。'
+              t('admin.emptyTemplates')
             }
           </div>
         ) : (
@@ -271,10 +271,10 @@ export function SchemaAdmin() {
                     {s.name}
                   </span>
                   {s.isDefault && (
-                    <span className="field-kind-badge">既定</span>
+                    <span className="field-kind-badge">{t('admin.default')}</span>
                   )}
                 </div>
-                <p className="rationale">{s.fields.length} フィールド</p>
+                <p className="rationale">{t('admin.fieldCount', { count: s.fields.length })}</p>
                 <div className="btn-row" style={{ marginTop: 10 }}>
                   <button onClick={() => setDraft(structuredClone(s))}>
                     編集
@@ -294,7 +294,7 @@ export function SchemaAdmin() {
                   </button>
                   <button
                     className="icon"
-                    title="上へ"
+                    title={t('admin.moveUp')}
                     disabled={i === 0}
                     onClick={() => moveSchema(i, -1)}
                   >
@@ -302,7 +302,7 @@ export function SchemaAdmin() {
                   </button>
                   <button
                     className="icon"
-                    title="下へ"
+                    title={t('admin.moveDown')}
                     disabled={i === sortedCustomSchemas.length - 1}
                     onClick={() => moveSchema(i, 1)}
                   >
@@ -312,7 +312,7 @@ export function SchemaAdmin() {
                   <button
                     className="ghost"
                     onClick={() => {
-                      if (confirm(`「${s.name}」を削除しますか？`))
+                      if (confirm(t('admin.confirmDelete', { name: s.name })))
                         removeSchema(s.id);
                     }}
                   >
@@ -426,21 +426,21 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
             type="text"
             style={{ maxWidth: 360 }}
             value={draft.name}
-            placeholder="例: 自社CRM インポート用"
+            placeholder={t('admin.templateNamePlaceholder')}
             onChange={(e) => onChange({ ...draft, name: e.target.value })}
           />
         </label>
       </div>
 
-      <h3>項目（出力フィールド）</h3>
+      <h3>{t('admin.fields')}</h3>
       <p className="subtitle" style={{ marginBottom: 12 }}>
         一覧ではキーと表示名だけを確認し、詳細編集が必要な項目だけ開いて設定します。
       </p>
 
       <div className="field-list-head">
         <span>項目</span>
-        <span>型 / 入力形式</span>
-        <span>設定</span>
+        <span>{t('admin.typeInput')}</span>
+        <span>{t('admin.settings')}</span>
       </div>
 
       <div className="field-accordion-list">
@@ -467,7 +467,7 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
                 <div className="field-summary-main">
                   <span
                     className="drag-handle"
-                    title="ドラッグして並び替え"
+                    title={t('admin.dragReorder')}
                     draggable
                     onClick={(e) => e.preventDefault()}
                     onDragStart={(e) => {
@@ -481,10 +481,10 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
                   </span>
                   <span className="field-summary-index">{i + 1}</span>
                   <span className="field-summary-key">
-                    {f.key || '未設定のキー'}
+                    {f.key || t('admin.unsetKey')}
                   </span>
                   <span className="field-summary-label">
-                    {f.label.trim() ? f.label : '表示名なし'}
+                    {f.label.trim() ? f.label : t('admin.noDisplayName')}
                   </span>
                 </div>
                 <div className="field-summary-meta">
@@ -494,12 +494,12 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
                   <span className={`field-kind-badge ${inputKind}`}>
                     {INPUT_KIND_LABELS[inputKind]}
                   </span>
-                  {f.required && <span className="required-badge">必須</span>}
+                  {f.required && <span className="required-badge">{t('admin.required')}</span>}
                   {inputKind === 'select' &&
                     f.options &&
                     f.options.length > 0 && (
                       <span className="field-kind-badge subtle">
-                        {f.options.length}候補
+                        {t('admin.optionsCount', { count: f.options.length })}
                       </span>
                     )}
                 </div>
@@ -529,7 +529,7 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
                   <button
                     type="button"
                     className="icon"
-                    title="削除"
+                    title={t('admin.delete')}
                     onClick={(e) => {
                       e.preventDefault();
                       removeField(i);
@@ -541,7 +541,7 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
               </summary>
 
               <div className="admin-detail-panel">
-                <div className="detail-section-title">基本</div>
+                <div className="detail-section-title">{t('admin.basic')}</div>
                 <div className="admin-detail-grid basic">
                   <label className="field-label">
                     キー（出力列名）
@@ -608,7 +608,7 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
                     <input
                       type="number"
                       min={1}
-                      placeholder="制限なし"
+                      placeholder={t('admin.noLimit')}
                       value={f.maxLength ?? ''}
                       onChange={(e) => {
                         const n = Number(e.target.value);
@@ -625,7 +625,7 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
                   </label>
                 </div>
 
-                <div className="detail-section-title">補助設定</div>
+                <div className="detail-section-title">{t('admin.additional')}</div>
                 <div className="admin-detail-grid compact">
                   <label className="field-label detail-wide">
                     別名（カンマ区切り）
@@ -640,7 +640,7 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
 
                 {inputKind === 'select' && (
                   <div className="detail-section">
-                    <div className="detail-section-title">選択肢</div>
+                    <div className="detail-section-title">{t('admin.options')}</div>
                     <label className="field-label">
                       <OptionListEditor
                         values={f.options ?? []}
@@ -657,7 +657,7 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
                 )}
 
                 <div className="detail-section">
-                  <div className="detail-section-title">自動記入ルール</div>
+                  <div className="detail-section-title">{t('admin.autoFill')}</div>
                   <AutoFillRuleEditor
                     rule={f.autoFill}
                     fields={draft.fields}
@@ -666,7 +666,7 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
                   />
                 </div>
 
-                <div className="detail-section-title">既定値</div>
+                <div className="detail-section-title">{t('admin.defaultValue')}</div>
                 <div className="admin-detail-grid compact">
                   <label className="field-label detail-wide">
                     対応列が無いとき自動で入る値
@@ -707,7 +707,7 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
       </div>
 
       <div className="btn-row">
-        <button onClick={addField}>+ 項目を追加</button>
+        <button onClick={addField}>{t('admin.addField')}</button>
       </div>
 
       {problems.length > 0 && (
@@ -782,6 +782,8 @@ function AutoFillRuleEditor({
   currentFieldKey: string;
   onChange: (rule?: FieldAutoFillRule) => void;
 }) {
+  const locale = useStore((state) => state.settings.locale);
+  const t = createTranslator(locale);
   const active: FieldAutoFillRule = rule ?? { template: '', cases: [] };
   const selectableFields = fields.filter((f) => f.key.trim() !== '');
   const expressionError = validateAutoFillExpression(active.expression, fields);
@@ -946,7 +948,7 @@ function AutoFillRuleEditor({
       </div>
 
       <details className="mini-doc">
-        <summary>式の書き方</summary>
+        <summary>{t('admin.expressionHelp')}</summary>
         <pre>{expressionHelpText()}</pre>
       </details>
 
@@ -971,10 +973,10 @@ function AutoFillRuleEditor({
       {(active.cases ?? []).length > 0 && (
         <>
           <div className="auto-fill-case-head">
-            <span>条件項目</span>
-            <span>条件</span>
-            <span>比較値</span>
-            <span>入れるテンプレート</span>
+            <span>{t('admin.conditionField')}</span>
+            <span>{t('admin.condition')}</span>
+            <span>{t('admin.compareValue')}</span>
+            <span>{t('admin.resultTemplate')}</span>
             <span></span>
           </div>
           {(active.cases ?? []).map((c, index) => (
@@ -1100,6 +1102,8 @@ function OptionListEditor({
   labels?: Record<string, string>;
   onChange: (values: string[], labels?: Record<string, string>) => void;
 }) {
+  const locale = useStore((state) => state.settings.locale);
+  const t = createTranslator(locale);
   const [bulkText, setBulkText] = useState('');
 
   const items: DraftOption[] = values.map((value) => ({
@@ -1169,7 +1173,7 @@ function OptionListEditor({
       </div>
       {items.length > 0 && (
         <>
-          <div className="option-tags" aria-label="選択肢">
+          <div className="option-tags" aria-label={t('admin.options')}>
             {items.map((item, index) => (
               <span className="option-tag" key={`${item.value}-${index}`}>
                 {item.label === item.value
@@ -1187,8 +1191,8 @@ function OptionListEditor({
           </div>
           <div className="option-pair-head">
             <span></span>
-            <span>ラベル（画面表示）</span>
-            <span>値（出力・検証）</span>
+            <span>{t('admin.optionLabel')}</span>
+            <span>{t('admin.optionValue')}</span>
             <span></span>
           </div>
           {items.map((item, index) => (

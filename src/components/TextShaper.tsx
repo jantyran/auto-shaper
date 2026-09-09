@@ -49,12 +49,7 @@ const MANUAL_CATEGORIES: MaskCategory[] = [
   'CUSTOM',
 ];
 
-const PLACEHOLDER = `例）問合せフォームやメールの本文をそのまま貼り付けてください。
 
-お世話になっております。株式会社サンプルの山田と申します。
-新製品のお見積もりについてお問い合わせいたします。
-連絡先: yamada@example.co.jp / 03-1234-5678
-ご担当者よりご連絡いただけますと幸いです。`;
 
 type TextRecordMethod = 'llm' | 'local';
 
@@ -71,7 +66,7 @@ function newRecordId(): string {
     : 'text-' + Date.now() + '-' + Math.random().toString(36).slice(2);
 }
 
-function recordTitle(item: ShapedTextRecord, fields: TargetField[]): string {
+function recordTitle(item: ShapedTextRecord, fields: TargetField[], t: ReturnType<typeof createTranslator>): string {
   const topic = fields.find((f) =>
     /topic|TOPIC|トピック/i.test(f.key + f.label),
   );
@@ -81,7 +76,7 @@ function recordTitle(item: ShapedTextRecord, fields: TargetField[]): string {
     (company && item.record[company.key]?.trim()) ||
     fields.map((f) => item.record[f.key]?.trim()).find(Boolean) ||
     '';
-  return primary ? `${item.index}. ${primary}` : `${item.index}. 整形結果`;
+  return primary ? `${item.index}. ${primary}` : `${item.index}. ${t('text.results', { count: 1 })}`;
 }
 
 export function TextShaper() {
@@ -349,19 +344,13 @@ export function TextShaper() {
   return (
     <div className="panel">
       <h2>{t('text.heading')}</h2>
-      <p className="subtitle" style={{ marginBottom: 12 }}>
-        問合せメールやメモをそのまま貼り付けると、AIが内容を読み取って、選んだテンプレートの
-        各項目へ当てはめ・整理します。AIに見せたくない情報は、貼り付け後にマスクしてから渡せます。
-      </p>
+      <p className="subtitle" style={{ marginBottom: 12 }}>{t('text.description')}</p>
 
-      <div className="security-note">
-        マスクした情報は<b>このブラウザ内にのみ</b>保持され、AIへはトークン（例:
-        [EMAIL_1]）だけが送られます。AIの応答はローカルで元の値へ復元してから表示します。
-      </div>
+      <div className="security-note">{t('text.security')}</div>
 
       {/* テンプレート選択 */}
       <label className="field-label" style={{ maxWidth: 480, marginTop: 8 }}>
-        当てはめ先テンプレート
+        {t('text.template')}
         <select
           value={schemaId}
           onChange={(e) => handleSchemaChange(e.target.value)}
@@ -369,22 +358,13 @@ export function TextShaper() {
           {schemas.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
-              {s.isDefault ? '（既定）' : ''}（{s.fields.length}項目）
+              {s.isDefault ? t('text.default') : ''}{t('text.fieldCount', { count: s.fields.length })}
             </option>
           ))}
         </select>
       </label>
       <p className="subtitle" style={{ margin: '6px 0 14px' }}>
-        目的に合う項目が無いときは
-        <button
-          className="ghost"
-          style={{ padding: '2px 8px', margin: '0 2px' }}
-          onClick={() => setView('admin')}
-        >
-          テンプレート管理
-        </button>
-        で独自の項目のテンプレートを作れます。
-      </p>
+        {t('text.managePrefix')}<button className="ghost" style={{ padding: '2px 8px', margin: '0 2px' }} onClick={() => setView('admin')}>{t('text.manage')}</button>{t('text.manageSuffix')}</p>
 
       {/* マスキング・ツールバー */}
       <div className="mask-toolbar" data-tour="tour-text-input">
@@ -393,9 +373,9 @@ export function TextShaper() {
           onClick={runAutoMask}
           disabled={!text.trim()}
         >
-          🛡 自動スキャンでマスク
+          {t('text.autoMask')}
         </button>
-        <span className="mask-sep">選択範囲をマスク:</span>
+        <span className="mask-sep">{t('text.maskSelection')}</span>
         {MANUAL_CATEGORIES.map((cat) => (
           <button
             key={cat}
@@ -411,7 +391,7 @@ export function TextShaper() {
           onClick={clearMasks}
           disabled={dict.size === 0}
         >
-          マスク解除
+          {t('text.clearMasks')}
         </button>
       </div>
 
@@ -450,7 +430,7 @@ export function TextShaper() {
           onChange={(e) => setText(e.target.value)}
           onScroll={syncScroll}
           aria-label={t('text.source')}
-          placeholder={PLACEHOLDER}
+          placeholder={t('text.placeholder')}
           spellCheck={false}
         />
       </div>
@@ -459,20 +439,20 @@ export function TextShaper() {
       <div className="mask-tokens">
         {tokens.length === 0 ? (
           <span className="empty">
-            マスクしたトークンはまだありません（AIに見せたくない箇所を選択して上のボタンでマスク）。
+            {t('text.noTokens')}
           </span>
         ) : (
-          tokens.map((t) => (
+          tokens.map((token) => (
             <span
-              key={t.display}
+              key={token.display}
               className="token-pill"
-              style={{ borderColor: t.color, color: t.color }}
-              title={`元の値: ${t.original}`}
+              style={{ borderColor: token.color, color: token.color }}
+              title={t('text.originalValue', { value: token.original })}
             >
-              {t.display}
+              {token.display}
               <button
-                onClick={() => removeToken(t.display)}
-                title="このマスクを解除"
+                onClick={() => removeToken(token.display)}
+                title={t('text.removeMask')}
               >
                 ×
               </button>
@@ -488,34 +468,26 @@ export function TextShaper() {
           disabled={isExtracting || !text.trim()}
         >
           {isExtracting
-            ? '整形中…'
+            ? t('text.extracting')
             : llmReady
-              ? '✨ AIで整形する'
+              ? t('text.extractAi')
               : t('text.extractLocal')}
         </button>
         {llmReady && (
           <button onClick={() => handleExtract(true)} disabled={isExtracting}>
-            AIを使わずローカル抽出
+            {t('text.extractWithoutAi')}
           </button>
         )}
         {records.length > 0 && (
           <span className="v-sub text-batch-count">
-            現在 {records.length} 件をまとめ中
+            {t('text.batch', { count: records.length })}
           </span>
         )}
       </div>
 
       {!llmReady && (
         <div className="alert info" style={{ marginTop: 12 }}>
-          AI接続が未設定のため、ラベル・パターンによるローカル抽出で動作します。精度を上げるには
-          <button
-            className="ghost"
-            style={{ padding: '2px 8px', margin: '0 2px' }}
-            onClick={() => setView('settings')}
-          >
-            設定
-          </button>
-          でLLMのAPIキーを登録してください。
+          {t('text.llmUnavailablePrefix')}<button className="ghost" style={{ padding: '2px 8px', margin: '0 2px' }} onClick={() => setView('settings')}>{t('nav.settings')}</button>{t('text.llmUnavailableSuffix')}
         </div>
       )}
 
@@ -531,7 +503,7 @@ export function TextShaper() {
           <div className="preview-bar">
             <h3 style={{ margin: 0 }}>{t('text.results', { count: records.length })}</h3>
             <span className="v-sub">
-              各項目は編集できます。値はマスク解除済み（元の値）です。
+              {t('text.resultsHint')}
             </span>
           </div>
 
@@ -551,9 +523,9 @@ export function TextShaper() {
               }}
             >
               <summary className="text-result-summary">
-                <span>{recordTitle(item, target.fields)}</span>
+                <span>{recordTitle(item, target.fields, t)}</span>
                 <span className="field-kind-badge">
-                  {item.method === 'llm' ? 'AI抽出' : 'ローカル抽出'}
+                  {item.method === 'llm' ? t('text.llmMethod') : t('text.localMethod')}
                 </span>
               </summary>
               <div className="fill-grid">
@@ -573,14 +545,14 @@ export function TextShaper() {
             <button className="primary" onClick={startNextRecord}>
               {t('text.addAnother')}
             </button>
-            <button onClick={exportCsv}>CSVでダウンロード</button>
-            <button onClick={exportXlsx}>Excel(.xlsx)でダウンロード</button>
+            <button onClick={exportCsv}>{t('text.downloadCsv')}</button>
+            <button onClick={exportXlsx}>{t('text.downloadXlsx')}</button>
             <div className="spacer" />
             <button onClick={copyAsText}>
-              {copied === 'text' ? '✓ コピーしました' : 'テキストでコピー'}
+              {copied === 'text' ? t('text.copied') : t('text.copyText')}
             </button>
             <button onClick={copyAsJson}>
-              {copied === 'json' ? '✓ Copied' : t('text.copyJson')}
+              {copied === 'json' ? t('text.copied') : t('text.copyJson')}
             </button>
           </div>
         </div>
@@ -598,6 +570,8 @@ function FillRow({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const locale = useStore((state) => state.settings.locale);
+  const t = createTranslator(locale);
   const opts = fieldOptionItems(field);
   const values = opts.map((o) => o.value);
   const inputKind = fieldInputKind(field);
@@ -606,13 +580,13 @@ function FillRow({
     <>
       <div className="fill-label">
         {fieldDisplayName(field)}
-        {field.required && <span className="required-badge"> ※必須</span>}
+        {field.required && <span className="required-badge">{t('text.required')}</span>}
         <span className="field-kind-badge">
           {inputKind === 'select'
-            ? '選択式'
+            ? t('text.selectKind')
             : inputKind === 'textarea'
-              ? '長文'
-              : '短文'}
+              ? t('text.longKind')
+              : t('text.shortKind')}
         </span>
       </div>
       {inputKind === 'textarea' ? (
@@ -631,7 +605,7 @@ function FillRow({
               if (e.target.value) onChange(e.target.value);
             }}
           >
-            <option value="">選択…</option>
+            <option value="">{t('text.selectOption')}</option>
             {opts.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label === o.value ? o.value : o.label + ' (' + o.value + ')'}
@@ -642,7 +616,7 @@ function FillRow({
             type="text"
             style={{ flex: 1 }}
             value={value}
-            placeholder="—（自由入力も可）"
+            placeholder={t('text.freeInput')}
             onChange={(e) => onChange(e.target.value)}
           />
         </div>

@@ -90,7 +90,7 @@ export function FormulaReference() {
     <div className="panel formula-reference" data-tour="tour-formula-panel">
       <h2>{t('formula.heading')}</h2>
       <p className="subtitle" style={{ marginBottom: 14 }}>
-        テンプレート項目の自動記入ルールで使える安全なミニ式です。JavaScriptやPythonのコードは実行せず、ここに載っている構文だけを評価します。
+        {t('formula.description')}
       </p>
 
       <h3>{t('formula.examples')}</h3>

@@ -198,8 +198,7 @@ export function TemplateImportDialog({
       <div className="tpl-card">
         <h3 style={{ marginTop: 0 }}>{t('template.importTitle')}</h3>
         <p className="subtitle">
-          <b>{fileName}</b> に {candidates.length}{' '}
-          件のテンプレートが入っています。追加するものを選んでください。
+          {t('template.importDescription', { fileName, count: candidates.length })}
           <b>{t('template.importNoReplace')}</b>
           {t('template.importAsNew')}
         </p>
@@ -236,7 +235,7 @@ export function TemplateImportDialog({
         </div>
         <div className="btn-row">
           <button className="ghost" onClick={onCancel}>
-            キャンセル
+            {t('template.cancel')}
           </button>
           <div className="spacer" />
           <button

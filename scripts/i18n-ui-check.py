@@ -42,6 +42,10 @@ def main() -> None:
         assert english.evaluate("element => element === document.activeElement")
 
         english.click()
+        # Dismiss onboarding through its real controls before its delayed start
+        # can navigate away from an editor later in this workflow.
+        page.get_by_role("button", name="How it works", exact=True).click()
+        page.locator(".intro-actions .ghost").click()
         assert page.locator("html").get_attribute("lang") == "en"
         assert page.title() == "Auto Shaper — Data shaping"
         assert (
@@ -135,13 +139,26 @@ def main() -> None:
         assert page.get_by_text("Storage: this browser (localStorage)", exact=True).count() == 1
         page.get_by_role("button", name="+ Create template", exact=True).click()
         assert page.get_by_role("heading", name="Edit template", exact=True).count() == 1
+        page.get_by_role("textbox", name="Key (output column)", exact=True).fill("Company")
+        assert page.get_by_role("button", name="Save", exact=True).is_enabled()
         page.get_by_role("textbox", name="Template name", exact=True).fill("")
         assert page.get_by_text("Enter a template name", exact=True).count() == 1
+        assert page.get_by_role("button", name="Save", exact=True).is_disabled()
+        page.locator(".admin-field-summary").click()
+        assert page.get_by_role("textbox", name="Key (output column)", exact=True).count() == 1
+        assert page.get_by_role("combobox", name="Type", exact=True).count() == 1
+        assert page.get_by_role("combobox", name="Input kind", exact=True).count() == 1
+        assert page.get_by_role("option", name="String", exact=True).count() == 1
+        assert page.get_by_role("option", name="Short text", exact=True).count() == 1
+        assert page.get_by_role("textbox", name="Aliases (comma-separated)", exact=True).count() == 1
+        assert page.get_by_role("button", name="+ Add auto-fill rule", exact=True).count() == 1
         page.get_by_role("button", name="Cancel", exact=True).click()
         custom = {"id": "literal", "name": "日本語テンプレート", "fields": [
-            {"key": "Company", "label": "会社名そのまま", "type": "string", "aliases": [], "required": False,
+            {"key": "Company", "label": "会社名そのまま", "type": "string", "aliases": ["別名そのまま"], "required": False,
              "inputKind": "select", "options": ["保存値そのまま"], "optionLabels": {"保存値そのまま": "選択肢そのまま"},
-             "autoFill": {"expression": 'if(empty({Company}), "固定値そのまま", {Company})', "template": ""}}
+             "defaultValue": "既定値そのまま",
+             "autoFill": {"expression": 'if(empty({Company}), "固定値そのまま", {Company})', "template": "", "overwrite": False,
+                          "cases": [{"sourceFieldKey": "Company", "op": "equals", "value": "比較値そのまま", "template": "結果そのまま {Company}"}]}}
         ]}
         page.locator('input[type="file"]').set_input_files({
             "name": "templates.json", "mimeType": "application/json",
@@ -156,9 +173,22 @@ def main() -> None:
         card.get_by_role("button", name="Edit", exact=True).click()
         page.locator(".admin-field-summary").click()
         assert page.get_by_role("textbox", name="Display name", exact=True).input_value() == "会社名そのまま"
-        assert page.get_by_role("button", name="Remove 選択肢そのまま", exact=True).count() == 1
+        assert page.get_by_role("button", name="Remove 選択肢そのまま", exact=True).count() == 2
+        assert page.get_by_role("textbox", name="Label (shown in app)", exact=True).input_value() == "選択肢そのまま"
+        assert page.get_by_role("textbox", name="Value (exported and validated)", exact=True).input_value() == "保存値そのまま"
         formula = page.get_by_role("textbox", name="Mini expression", exact=True)
         assert formula.input_value() == custom["fields"][0]["autoFill"]["expression"]
+        assert page.get_by_role("textbox", name="Basic template (when not using an expression)", exact=True).count() == 1
+        assert page.get_by_role("checkbox", name="Overwrite even when a value exists", exact=True).count() == 1
+        assert page.get_by_role("combobox", name="Condition field", exact=True).input_value() == "Company"
+        assert page.get_by_role("combobox", name="Condition", exact=True).input_value() == "equals"
+        for operator in ("Contains", "Equals", "Starts with", "Ends with", "Is empty", "Is not empty"):
+            assert page.get_by_role("option", name=operator, exact=True).count() == 1
+        assert page.get_by_role("textbox", name="Comparison value", exact=True).input_value() == "比較値そのまま"
+        assert page.get_by_role("textbox", name="Template to insert", exact=True).input_value() == "結果そのまま {Company}"
+        assert page.get_by_role("button", name="Delete condition 1", exact=True).count() == 1
+        page.get_by_text("Expression help", exact=True).click()
+        assert "Field references: {Company}, {Company.value}" in page.locator(".mini-doc pre").inner_text()
         formula.fill("unknown({Company})")
         assert "Unknown function: unknown" in page.locator(".form-error").inner_text()
         formula.fill(custom["fields"][0]["autoFill"]["expression"])
@@ -171,8 +201,20 @@ def main() -> None:
         with open(template_download.value.path(), encoding="utf-8") as template_file:
             saved = json.load(template_file)[0]
         assert saved["name"] == custom["name"]
-        for key in ("label", "options", "optionLabels", "autoFill"):
-            assert saved["fields"][0][key] == custom["fields"][0][key]
+        for key in ("label", "aliases", "options", "optionLabels", "defaultValue", "autoFill"):
+            assert saved["fields"][0][key] == custom["fields"][0][key], (key, saved["fields"][0][key])
+        page.get_by_role("button", name="Settings", exact=True).click()
+        page.get_by_role("combobox", name="Language", exact=True).select_option("ja")
+        page.get_by_role("button", name="テンプレート管理", exact=True).click()
+        card.get_by_role("button", name="編集", exact=True).click()
+        page.locator(".admin-field-summary").click()
+        assert page.get_by_role("textbox", name="表示名", exact=True).input_value() == "会社名そのまま"
+        assert page.get_by_role("combobox", name="型", exact=True).input_value() == "string"
+        assert page.get_by_role("option", name="文字列", exact=True).count() == 1
+        assert page.get_by_role("textbox", name="ミニ式", exact=True).input_value() == custom["fields"][0]["autoFill"]["expression"]
+        page.get_by_role("button", name="キャンセル", exact=True).click()
+        page.get_by_role("button", name="設定", exact=True).click()
+        page.get_by_role("combobox", name="表示言語", exact=True).select_option("en")
         page.get_by_role("button", name="Formula reference", exact=True).click()
         assert page.get_by_role("heading", name="Auto-fill formula reference", exact=True).count() == 1
         assert page.get_by_text("Safe mini expressions for template auto-fill rules. JavaScript and Python are not executed; only the syntax shown here is evaluated.", exact=True).count() == 1

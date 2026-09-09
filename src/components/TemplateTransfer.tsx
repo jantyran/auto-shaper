@@ -8,6 +8,8 @@
  *    `名前 (2)` のように付け替える)。
  */
 import { useMemo, useState } from 'react';
+import { createTranslator } from '../core/i18n';
+import { useStore } from '../state/store';
 import type { TargetSchema } from '../types';
 import { schemaFromImport, uniqueSchemaName } from '../core/schemaStore';
 
@@ -27,13 +29,15 @@ function ItemRow({
   note?: string;
   onToggle: () => void;
 }) {
+  const locale = useStore((state) => state.settings.locale);
+  const t = createTranslator(locale);
   return (
     <label className="tpl-pick">
       <input type="checkbox" checked={checked} onChange={onToggle} />
       <span className="tpl-pick-body">
         <span className="tpl-pick-name">{schema.name}</span>
         <span className="tpl-pick-meta">
-          {schema.fields.length} 項目
+          {t('template.fields', { count: schema.fields.length })}
           {note && <span className="tpl-pick-note">{note}</span>}
         </span>
       </span>
@@ -52,17 +56,19 @@ function PickerActions({
   onAll: () => void;
   onNone: () => void;
 }) {
+  const locale = useStore((state) => state.settings.locale);
+  const t = createTranslator(locale);
   return (
     <div className="tpl-pick-actions">
       <span className="subtitle" style={{ margin: 0 }}>
-        {count} / {total} 件を選択中
+        {t('template.selected', { count, total })}
       </span>
       <div className="spacer" />
       <button type="button" className="ghost" onClick={onAll}>
-        すべて選択
+        {t('template.selectAll')}
       </button>
       <button type="button" className="ghost" onClick={onNone}>
-        選択を解除
+        {t('template.clearSelection')}
       </button>
     </div>
   );
@@ -75,6 +81,8 @@ export function TemplateExportDialog({
   schemas: TargetSchema[];
   onClose: () => void;
 }) {
+  const locale = useStore((state) => state.settings.locale);
+  const t = createTranslator(locale);
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(schemas.map((s) => s.id)),
   );
@@ -103,9 +111,9 @@ export function TemplateExportDialog({
   return (
     <div className="tpl-overlay" role="dialog" aria-modal="true">
       <div className="tpl-card">
-        <h3 style={{ marginTop: 0 }}>テンプレートをエクスポート</h3>
+        <h3 style={{ marginTop: 0 }}>{t('template.exportTitle')}</h3>
         <p className="subtitle">
-          書き出すテンプレートを選んでください。選んだものだけが1つのJSONファイルになります。
+          {t('template.exportDescription')}
         </p>
         <PickerActions
           count={chosen.length}
@@ -132,7 +140,7 @@ export function TemplateExportDialog({
         </div>
         <div className="btn-row">
           <button className="ghost" onClick={onClose}>
-            キャンセル
+            {t('template.cancel')}
           </button>
           <div className="spacer" />
           <button
@@ -140,7 +148,7 @@ export function TemplateExportDialog({
             disabled={chosen.length === 0}
             onClick={download}
           >
-            {chosen.length} 件をエクスポート
+            {t('template.export', { count: chosen.length })}
           </button>
         </div>
       </div>
@@ -163,6 +171,8 @@ export function TemplateImportDialog({
   onCancel: () => void;
   onConfirm: (schemas: TargetSchema[]) => void;
 }) {
+  const locale = useStore((state) => state.settings.locale);
+  const t = createTranslator(locale);
   const [selected, setSelected] = useState<Set<number>>(
     () => new Set(candidates.map((_, i) => i)),
   );
@@ -186,12 +196,12 @@ export function TemplateImportDialog({
   return (
     <div className="tpl-overlay" role="dialog" aria-modal="true">
       <div className="tpl-card">
-        <h3 style={{ marginTop: 0 }}>テンプレートをインポート</h3>
+        <h3 style={{ marginTop: 0 }}>{t('template.importTitle')}</h3>
         <p className="subtitle">
           <b>{fileName}</b> に {candidates.length}{' '}
           件のテンプレートが入っています。追加するものを選んでください。
-          <b>既存のテンプレートは置き換えられません</b>
-          （すべて新規として追加されます）。
+          <b>{t('template.importNoReplace')}</b>
+          {t('template.importAsNew')}
         </p>
         <PickerActions
           count={chosenIndexes.length}
@@ -209,7 +219,7 @@ export function TemplateImportDialog({
                 checked={selected.has(i)}
                 note={
                   collides
-                    ? `同名があるため「${uniqueSchemaName(s.name, existing)}」として追加`
+                    ? t('template.duplicateName', { name: uniqueSchemaName(s.name, existing) })
                     : undefined
                 }
                 onToggle={() =>
@@ -234,7 +244,7 @@ export function TemplateImportDialog({
             disabled={chosenIndexes.length === 0}
             onClick={confirm}
           >
-            {chosenIndexes.length} 件を追加
+            {t('template.add', { count: chosenIndexes.length })}
           </button>
         </div>
       </div>

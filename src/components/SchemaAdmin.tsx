@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../state/store';
+import { createTranslator } from '../core/i18n';
 import type {
   AutoFillCase,
   ConditionOp,
@@ -80,6 +81,8 @@ const CONDITION_OPS: ConditionOp[] = [
  */
 export function SchemaAdmin() {
   const customSchemas = useStore((s) => s.customSchemas);
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
   const storageMode = useStore((s) => s.storageMode);
   const saveSchema = useStore((s) => s.saveSchema);
   const removeSchema = useStore((s) => s.removeSchema);
@@ -129,7 +132,7 @@ export function SchemaAdmin() {
           .filter((raw) => raw && typeof raw === 'object')
           .map((raw) => schemaFromImport(raw));
         if (candidates.length === 0) {
-          alert('テンプレートが見つかりませんでした。');
+          alert(t('admin.noTemplatesInFile'));
           return;
         }
         setPending({ fileName: file.name, candidates });
@@ -138,7 +141,7 @@ export function SchemaAdmin() {
         const dataset = await parseWorkbook(file.name, buf);
         if (dataset.columns.length === 0) {
           alert(
-            '列が読み取れませんでした。見出し行のあるCSV/Excelを選んでください。',
+            t('admin.noColumns'),
           );
           return;
         }
@@ -149,7 +152,7 @@ export function SchemaAdmin() {
       }
     } catch {
       alert(
-        'ファイルの読み込みに失敗しました。テンプレートJSON、またはヘッダー行のあるCSV/Excelを選んでください。',
+        t('admin.readFailed'),
       );
     }
   };
@@ -179,7 +182,7 @@ export function SchemaAdmin() {
         }}
         data-tour="tour-admin-toolbar"
       >
-        <h2 style={{ margin: 0 }}>テンプレート管理</h2>
+        <h2 style={{ margin: 0 }}>{t('admin.heading')}</h2>
         <span className={`storage-badge ${storageMode === 'api' ? 'api' : ''}`}>
           <span className="dot" />
           {storageMode === 'api'
@@ -193,7 +196,7 @@ export function SchemaAdmin() {
           onClick={() => setExporting(true)}
           disabled={customSchemas.length === 0}
         >
-          エクスポート（選択）
+          {t('admin.exportSelected')}
         </button>
         <button onClick={() => importRef.current?.click()}>
           インポート（JSON / CSV / Excel）
@@ -213,7 +216,7 @@ export function SchemaAdmin() {
           className="primary"
           onClick={() => setDraft(createEmptySchema())}
         >
-          + 新規テンプレートを作成
+          {t('admin.create')}
         </button>
       </div>
 
@@ -352,6 +355,8 @@ interface EditorProps {
 }
 
 function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
 
   const setField = (i: number, patch: Partial<TargetField>) => {
@@ -386,7 +391,7 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
   const emptyKey = draft.fields.some((f) => f.key.trim() === '');
   const problems: string[] = [];
   if (draft.name.trim() === '')
-    problems.push('テンプレート名を入力してください');
+    problems.push(t('admin.templateNameRequired'));
   if (draft.fields.length === 0) problems.push('項目を1つ以上追加してください');
   if (emptyKey) problems.push('すべての項目にキー（出力列名）が必要です');
   if (dupKeys.length > 0)
@@ -411,12 +416,12 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
           flexWrap: 'wrap',
         }}
       >
-        <h2 style={{ margin: 0 }}>テンプレートを編集</h2>
+        <h2 style={{ margin: 0 }}>{t('admin.editTitle')}</h2>
       </div>
 
       <div style={{ marginTop: 14, marginBottom: 8 }}>
         <label className="field-label">
-          テンプレート名
+          {t('admin.templateName')}
           <input
             type="text"
             style={{ maxWidth: 360 }}
@@ -551,6 +556,7 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
                     表示名
                     <input
                       type="text"
+                      aria-label={t('admin.displayName')}
                       placeholder={f.key || '会社名'}
                       value={f.label}
                       onChange={(e) => setField(i, { label: e.target.value })}
@@ -707,7 +713,7 @@ function SchemaEditor({ draft, onChange, onSave, onCancel }: EditorProps) {
       {problems.length > 0 && (
         <div className="alert error" style={{ marginTop: 16 }}>
           {problems.map((p) => (
-            <div key={p}>・{p}</div>
+            <div key={p}>{p}</div>
           ))}
         </div>
       )}
@@ -1171,7 +1177,7 @@ function OptionListEditor({
                   : `${item.label} = ${item.value}`}
                 <button
                   type="button"
-                  aria-label={`${item.label} を削除`}
+                  aria-label={createTranslator(useStore.getState().settings.locale)('admin.removeOption', { label: item.label })}
                   onClick={() => removeAt(index)}
                 >
                   ×

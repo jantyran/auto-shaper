@@ -1,4 +1,5 @@
 import os
+import json
 
 from playwright.sync_api import sync_playwright
 
@@ -118,6 +119,65 @@ def main() -> None:
         with open(downloaded.value.path(), encoding="utf-8-sig") as csv:
             exported = csv.read()
         assert "会社名" in exported and "株式会社そのまま" in exported
+
+        # Locale controls must cover workflows without changing custom data.
+        page.get_by_role("button", name="Text shaping", exact=True).click()
+        assert page.get_by_role("heading", name="Shape text into a template").count() == 1, page.locator(".panel").inner_text()
+        page.get_by_role("textbox", name="Source text").fill("会社名: 株式会社そのまま\nメール: hello@example.com")
+        page.get_by_role("button", name="⚙ Shape locally", exact=True).click()
+        page.get_by_role("heading", name="Shaped results (1)", exact=True).wait_for()
+        assert page.get_by_role("button", name="Copy as JSON", exact=True).count() == 1
+        assert page.get_by_role("button", name="+ Add another", exact=True).count() == 1
+        page.get_by_role("button", name="Templates", exact=True).click()
+        assert page.get_by_role("heading", name="Template management", exact=True).count() == 1
+        page.get_by_role("button", name="+ Create template", exact=True).click()
+        assert page.get_by_role("heading", name="Edit template", exact=True).count() == 1
+        page.get_by_role("textbox", name="Template name", exact=True).fill("")
+        assert page.get_by_text("Enter a template name", exact=True).count() == 1
+        page.get_by_role("button", name="Cancel", exact=True).click()
+        custom = {"id": "literal", "name": "日本語テンプレート", "fields": [
+            {"key": "Company", "label": "会社名そのまま", "type": "string", "aliases": [], "required": False,
+             "inputKind": "select", "options": ["保存値そのまま"], "optionLabels": {"保存値そのまま": "選択肢そのまま"},
+             "autoFill": {"expression": 'if(empty({Company}), "固定値そのまま", {Company})', "template": ""}}
+        ]}
+        page.locator('input[type="file"]').set_input_files({
+            "name": "templates.json", "mimeType": "application/json",
+            "buffer": json.dumps([custom], ensure_ascii=False).encode("utf-8"),
+        })
+        dialog = page.get_by_role("dialog")
+        dialog.get_by_role("heading", name="Import templates", exact=True).wait_for()
+        assert dialog.get_by_text("日本語テンプレート", exact=True).count() == 1
+        assert dialog.get_by_role("button", name="Clear selection", exact=True).count() == 1
+        dialog.get_by_role("button", name="Add 1 templates", exact=True).click()
+        card = page.locator(".mapping-row").filter(has_text="日本語テンプレート")
+        card.get_by_role("button", name="Edit", exact=True).click()
+        page.locator(".admin-field-summary").click()
+        assert page.get_by_role("textbox", name="Display name", exact=True).input_value() == "会社名そのまま"
+        assert page.get_by_role("button", name="Remove 選択肢そのまま", exact=True).count() == 1
+        formula = page.get_by_role("textbox", name="Mini expression", exact=True)
+        assert formula.input_value() == custom["fields"][0]["autoFill"]["expression"]
+        formula.fill("unknown({Company})")
+        assert "Unknown function: unknown" in page.locator(".form-error").inner_text()
+        formula.fill(custom["fields"][0]["autoFill"]["expression"])
+        page.get_by_role("button", name="Save", exact=True).click()
+        page.get_by_role("button", name="Export selected templates", exact=True).click()
+        dialog.get_by_role("heading", name="Export templates", exact=True).wait_for()
+        assert dialog.get_by_text("日本語テンプレート", exact=True).count() == 1
+        with page.expect_download() as template_download:
+            dialog.get_by_role("button", name="Export 1 templates", exact=True).click()
+        with open(template_download.value.path(), encoding="utf-8") as template_file:
+            saved = json.load(template_file)[0]
+        assert saved["name"] == custom["name"]
+        for key in ("label", "options", "optionLabels", "autoFill"):
+            assert saved["fields"][0][key] == custom["fields"][0][key]
+        page.get_by_role("button", name="Formula reference", exact=True).click()
+        assert page.get_by_role("heading", name="Auto-fill formula reference", exact=True).count() == 1
+        assert page.get_by_role("heading", name="Common examples", exact=True).count() == 1
+        assert page.get_by_role("heading", name="Syntax reference", exact=True).count() == 1
+        assert page.get_by_text("if(cond, yes, no)", exact=True).count() == 1
+        assert page.get_by_text("{Field}", exact=True).count() == 1
+        assert page.get_by_text('"{Company.label}: " & {Company.value}', exact=True).count() == 1
+
         assert not console_errors, "Browser console errors:\n" + "\n".join(console_errors)
 
         browser.close()

@@ -11,6 +11,7 @@
  */
 import { useMemo, useRef, useState } from 'react';
 import { useStore } from '../state/store';
+import { createTranslator } from '../core/i18n';
 import { getAllSchemas, getDefaultSchema } from '../core/schemaStore';
 import {
   autoMaskText,
@@ -85,6 +86,7 @@ function recordTitle(item: ShapedTextRecord, fields: TargetField[]): string {
 
 export function TextShaper() {
   const settings = useStore((s) => s.settings);
+  const t = createTranslator(settings.locale);
   const customSchemas = useStore((s) => s.customSchemas);
   const setView = useStore((s) => s.setView);
   const demoActive = useStore((s) => s.demoActive);
@@ -179,7 +181,7 @@ export function TextShaper() {
   const handleSchemaChange = (nextSchemaId: string) => {
     if (records.length > 0) {
       const ok = confirm(
-        'テンプレートを変更すると、現在ためている整形結果はクリアされます。変更しますか？',
+        t('text.confirmChangeTemplate'),
       );
       if (!ok) return;
       setRecords([]);
@@ -191,11 +193,11 @@ export function TextShaper() {
 
   const handleExtract = async (forceLocal: boolean) => {
     if (!target) {
-      setError('テンプレートを選択してください。');
+      setError(t('text.selectTemplate'));
       return;
     }
     if (!text.trim()) {
-      setError('本文を入力してください。');
+      setError(t('text.enterText'));
       return;
     }
     setError(undefined);
@@ -246,7 +248,7 @@ export function TextShaper() {
       setOpenRecordIds((prev) => new Set([...prev, item.id]));
       setManualRecordFields((prev) => ({ ...prev, [item.id]: new Set() }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : '整形に失敗しました。');
+      setError(e instanceof Error ? e.message : t('text.extractFailed'));
     } finally {
       setExtracting(false);
     }
@@ -346,7 +348,7 @@ export function TextShaper() {
 
   return (
     <div className="panel">
-      <h2>雑多なテキストをテンプレートへ整形</h2>
+      <h2>{t('text.heading')}</h2>
       <p className="subtitle" style={{ marginBottom: 12 }}>
         問合せメールやメモをそのまま貼り付けると、AIが内容を読み取って、選んだテンプレートの
         各項目へ当てはめ・整理します。AIに見せたくない情報は、貼り付け後にマスクしてから渡せます。
@@ -447,6 +449,7 @@ export function TextShaper() {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onScroll={syncScroll}
+          aria-label={t('text.source')}
           placeholder={PLACEHOLDER}
           spellCheck={false}
         />
@@ -488,7 +491,7 @@ export function TextShaper() {
             ? '整形中…'
             : llmReady
               ? '✨ AIで整形する'
-              : '⚙ ローカルで整形する'}
+              : t('text.extractLocal')}
         </button>
         {llmReady && (
           <button onClick={() => handleExtract(true)} disabled={isExtracting}>
@@ -526,7 +529,7 @@ export function TextShaper() {
       {records.length > 0 && target && (
         <div className="text-result-list" data-tour="tour-text-results">
           <div className="preview-bar">
-            <h3 style={{ margin: 0 }}>整形結果（{records.length}件）</h3>
+            <h3 style={{ margin: 0 }}>{t('text.results', { count: records.length })}</h3>
             <span className="v-sub">
               各項目は編集できます。値はマスク解除済み（元の値）です。
             </span>
@@ -568,7 +571,7 @@ export function TextShaper() {
 
           <div className="btn-row">
             <button className="primary" onClick={startNextRecord}>
-              + さらに追加
+              {t('text.addAnother')}
             </button>
             <button onClick={exportCsv}>CSVでダウンロード</button>
             <button onClick={exportXlsx}>Excel(.xlsx)でダウンロード</button>
@@ -577,7 +580,7 @@ export function TextShaper() {
               {copied === 'text' ? '✓ コピーしました' : 'テキストでコピー'}
             </button>
             <button onClick={copyAsJson}>
-              {copied === 'json' ? '✓ コピーしました' : 'JSONでコピー'}
+              {copied === 'json' ? '✓ Copied' : t('text.copyJson')}
             </button>
           </div>
         </div>

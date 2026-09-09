@@ -1,3 +1,5 @@
+import { createTranslator } from '../core/i18n';
+import { useStore } from '../state/store';
 const EXAMPLES = [
   {
     title: '固定テキスト + 会社名',
@@ -82,14 +84,16 @@ const REFS = [
 ];
 
 export function FormulaReference() {
+  const locale = useStore((state) => state.settings.locale);
+  const t = createTranslator(locale);
   return (
     <div className="panel formula-reference" data-tour="tour-formula-panel">
-      <h2>自動記入ルール 式リファレンス</h2>
+      <h2>{t('formula.heading')}</h2>
       <p className="subtitle" style={{ marginBottom: 14 }}>
         テンプレート項目の自動記入ルールで使える安全なミニ式です。JavaScriptやPythonのコードは実行せず、ここに載っている構文だけを評価します。
       </p>
 
-      <h3>よく使う例</h3>
+      <h3>{t('formula.examples')}</h3>
       <div className="formula-example-list">
         {EXAMPLES.map((item) => (
           <section className="formula-example" key={item.title}>
@@ -100,7 +104,7 @@ export function FormulaReference() {
         ))}
       </div>
 
-      <h3>構文一覧</h3>
+      <h3>{t('formula.syntax')}</h3>
       <div className="formula-ref-table">
         {REFS.map(([syntax, description]) => (
           <div className="formula-ref-row" key={syntax}>

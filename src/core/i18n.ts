@@ -1447,13 +1447,214 @@ export const messages = {
   },
 } as const;
 
-export type TranslationKey = keyof (typeof messages)['en'];
+export const tourMessages = {
+  en: {
+    'tour.intro.title': 'Welcome to Auto Shaper',
+    'tour.intro.description':
+      'Shape messy data and export it entirely in your browser. Your data is never sent outside this browser.',
+    'tour.intro.flowHeading': 'Shape a table in four steps',
+    'tour.intro.flow.upload.label': 'Upload',
+    'tour.intro.flow.upload.note': 'Messy CSV / Excel',
+    'tour.intro.flow.destination.label': 'Destination',
+    'tour.intro.flow.destination.note': 'Choose an output format',
+    'tour.intro.flow.mapping.label': 'Mapping',
+    'tour.intro.flow.mapping.note': 'Review AI suggestions',
+    'tour.intro.flow.export.label': 'Export',
+    'tour.intro.flow.export.note': 'CSV / Excel',
+    'tour.intro.servicesHeading': 'What the four tabs can do',
+    'tour.intro.service.table.title': 'Data shaping',
+    'tour.intro.service.table.body':
+      'Automatically shape varied Excel and CSV columns for import.',
+    'tour.intro.service.text.title': 'Text shaping',
+    'tour.intro.service.text.body':
+      'Organize text such as inquiry emails into template fields.',
+    'tour.intro.service.templates.title': 'Template management',
+    'tour.intro.service.templates.body':
+      'Add and edit destination formats, then set auto-fill rules.',
+    'tour.intro.service.formulas.title': 'Formula reference',
+    'tour.intro.service.formulas.body':
+      'Look up auto-fill formulas such as if and case.',
+    'tour.intro.note':
+      'Next, use sample data to learn by operating the actual screens. You control the pace, so it is fine to stop at any time.',
+    'tour.intro.skip': 'Skip',
+    'tour.intro.start': 'Learn how it works →',
+    'tour.close': 'Close tour',
+    'tour.previous': '← Back',
+    'tour.next': 'Next →',
+    'tour.done': 'Got it',
+    'tour.waiting': 'Waiting for your action…',
+    'tour.source.title': 'Welcome',
+    'tour.source.body':
+      'Drag and drop a messy Excel or CSV file here to start reading it. Your data is processed only in this browser and is never sent outside it. Start with “Try a sample” to experience the full flow with five business-card contacts containing inconsistent notation.',
+    'tour.source.primary': 'Try a sample →',
+    'tour.target.title': '2. Choose a destination',
+    'tour.target.body':
+      'Choose the format your shaped data should match. Selecting one automatically creates mapping suggestions from the column names.',
+    'tour.target.waitHint':
+      'Click a destination below (for example, Salesforce — Lead).',
+    'tour.mappingRows.title': '3. Review how each field is shaped',
+    'tour.mappingRows.body':
+      'A small preview under each field shows how real data will be transformed. You only need to fix fields with low confidence or results that do not look right.',
+    'tour.mappingContext.title': 'Additional information for this run',
+    'tour.mappingContext.body':
+      'You can pass information missing from the source file, such as an event name, into formulas for this run only. It works only when an auto-fill rule is configured for that field in Templates and its formula includes {Import.key}.',
+    'tour.mappingPreview.title': 'Full preview',
+    'tour.mappingPreview.body':
+      'Review how the first few rows will be transformed. Turn off “Show empty fields” to also preview the result without unassigned columns; this also affects export.',
+    'tour.mappingConvert.title': 'Convert all rows',
+    'tour.mappingConvert.body':
+      'When you are happy with the content, use this action to transform every row at once. Conversion runs in this browser.',
+    'tour.mappingConvert.waitHint': 'Click “Convert with these settings →”.',
+    'tour.resultStats.title': '4. Review the conversion results',
+    'tour.resultStats.body':
+      'All rows have been converted. Counts and details below flag missing required fields, invalid email or phone formats, and values outside the allowed options. You can also spot possible duplicates here.',
+    'tour.resultExport.title': 'Download to finish',
+    'tour.resultExport.body':
+      'Export the shaped data as CSV or Excel. Everything so far has happened in this browser; nothing has been sent outside it.',
+    'tour.resultExport.waitHint': 'Try clicking either download button.',
+    'tour.navText.title': 'Next: text shaping',
+    'tour.navText.body':
+      'Alongside tables, you can organize text such as inquiry emails into templates.',
+    'tour.navText.waitHint': 'Click the “Text shaping” tab to move there.',
+    'tour.textInput.title': 'Text shaping',
+    'tour.textInput.body':
+      'Paste messy text such as an inquiry email, mask it if needed, then click “Shape with AI” to automatically distribute it into the selected template’s fields.',
+    'tour.textResults.title': 'Collect results and export',
+    'tour.textResults.body':
+      'You can collect multiple shaped results. Edit each field in place, then copy or export all of them together as CSV, Excel, or text.',
+    'tour.navAdmin.title': 'Next: template management',
+    'tour.navAdmin.body':
+      'You can freely create the destination format, called a template.',
+    'tour.navAdmin.waitHint':
+      'Click the “Template management” tab to move there.',
+    'tour.adminToolbar.title': 'Template management',
+    'tour.adminToolbar.body':
+      'Freely add and edit destination formats (templates). You can also create them from the header row of a JSON, CSV, or Excel file and export them to share with another environment.',
+    'tour.adminList.title': 'Field auto-fill rules',
+    'tour.adminList.body':
+      'Edit a template and open a field to configure its “Auto-fill rule”. Add {Import.key} to its formula to insert a value from “Additional information for this run” on the Data shaping screen.',
+    'tour.navFormula.title': 'Finally: formula reference',
+    'tour.navFormula.body':
+      'It summarizes how to write formulas for auto-fill rules.',
+    'tour.navFormula.waitHint':
+      'Click the “Formula reference” tab to move there.',
+    'tour.formula.title': 'Formula reference',
+    'tour.formula.body':
+      'This lists formulas such as if, case, and string concatenation for template auto-fill rules. Check here whenever you are unsure how to write one. That completes the overview.',
+    'tour.formula.primary': 'Finish tour',
+  },
+  ja: {
+    'tour.intro.title': 'Auto Shaper へようこそ',
+    'tour.intro.description':
+      '雑多なデータを、ブラウザ内だけで整形して書き出すツールです。実データが外部に送信されることはありません。',
+    'tour.intro.flowHeading': '表の整形は、この4ステップ',
+    'tour.intro.flow.upload.label': 'アップロード',
+    'tour.intro.flow.upload.note': '雑多なCSV/Excel',
+    'tour.intro.flow.destination.label': 'インポート先',
+    'tour.intro.flow.destination.note': '出力先を選ぶ',
+    'tour.intro.flow.mapping.label': 'マッピング',
+    'tour.intro.flow.mapping.note': 'AIの提案を確認',
+    'tour.intro.flow.export.label': '出力',
+    'tour.intro.flow.export.note': 'CSV / Excel',
+    'tour.intro.servicesHeading': '4つのタブでできること',
+    'tour.intro.service.table.title': '表の整形',
+    'tour.intro.service.table.body':
+      'バラバラなExcel/CSVのカラムを読み取り、インポート用フォーマットへ自動整形します。',
+    'tour.intro.service.text.title': 'テキスト整形',
+    'tour.intro.service.text.body':
+      '問合せメールなどの文章を、テンプレートの項目へ振り分けて整理します。',
+    'tour.intro.service.templates.title': 'テンプレート管理',
+    'tour.intro.service.templates.body':
+      '取り込み先フォーマットを追加・編集し、自動記入ルールも設定できます。',
+    'tour.intro.service.formulas.title': '式リファレンス',
+    'tour.intro.service.formulas.body':
+      '自動記入ルールで使える式(if/caseなど)の書き方を確認できます。',
+    'tour.intro.note':
+      'これから、サンプルデータを使って実際の画面を操作しながら案内します。操作はあなた自身が進めるので、途中でやめても大丈夫です。',
+    'tour.intro.skip': 'スキップ',
+    'tour.intro.start': '操作方法を学ぶ →',
+    'tour.close': 'ツアーを閉じる',
+    'tour.previous': '← 前へ',
+    'tour.next': '次へ →',
+    'tour.done': 'わかった',
+    'tour.waiting': '操作をお待ちしています…',
+    'tour.source.title': 'ようこそ',
+    'tour.source.body':
+      '雑多なExcel/CSVをここにドラッグ&ドロップすると読み込みが始まります。実データはこのブラウザ内だけで処理され、外部には送信されません。まずは「サンプルで試す」で、表記ゆれのある名刺リスト5件を使って一連の流れを体験してみましょう。',
+    'tour.source.primary': 'サンプルで試す →',
+    'tour.target.title': '2. インポート先を選ぶ',
+    'tour.target.body':
+      '整形後のデータをどのフォーマットに合わせるかを指定します。選ぶと、列名からマッピング候補が自動で作られます。',
+    'tour.target.waitHint':
+      'この中からインポート先を1つクリックしてください（例: Salesforce — リード）',
+    'tour.mappingRows.title': '3. 項目ごとに変換方法を確認',
+    'tour.mappingRows.body':
+      '各項目の下に、実際のデータでどう変換されるかのミニプレビューが出ます。確信度が低い項目や結果がおかしい項目だけ直せばOKです。',
+    'tour.mappingContext.title': '今回だけの追加情報',
+    'tour.mappingContext.body':
+      '元ファイルに無い情報(展示会名など)をこの回だけ式に渡せます。ただし効くのは、管理画面でその項目に自動記入ルールを設定し、式に{Import.キー}を書いた場合だけです。',
+    'tour.mappingPreview.title': '全体プレビュー',
+    'tour.mappingPreview.body':
+      '先頭数行が実際にどう変換されるかまとめて確認できます。「空欄の項目を表示」を外すと、未割当の列を消した見え方も確認できます(出力にも反映されます)。',
+    'tour.mappingConvert.title': '全件を変換する',
+    'tour.mappingConvert.body':
+      '内容を確認できたら、この操作で全行をまとめて変換します。変換はブラウザ内で実行されます。',
+    'tour.mappingConvert.waitHint':
+      '「この内容で変換する →」をクリックしてください',
+    'tour.resultStats.title': '4. 変換の結果を確認',
+    'tour.resultStats.body':
+      '全件を変換しました。必須項目の欠落、メール/電話の形式エラー、選択肢に無い値があれば件数と内容が下に表示されます。重複の可能性がある行もここで気づけます。',
+    'tour.resultExport.title': 'ダウンロードして完了',
+    'tour.resultExport.body':
+      '整形済みデータをCSVまたはExcelで書き出せます。ここまでの処理はすべてこのブラウザ内で完結しており、外部には送信されていません。',
+    'tour.resultExport.waitHint':
+      'どちらかのダウンロードボタンを実際に押してみてください',
+    'tour.navText.title': '次はテキスト整形',
+    'tour.navText.body':
+      '表だけでなく、問合せメールのような文章もテンプレートへ整理できます。',
+    'tour.navText.waitHint':
+      '「テキスト整形」タブをクリックして移動してください',
+    'tour.textInput.title': 'テキスト整形',
+    'tour.textInput.body':
+      '問合せメールなどの雑多な文章をそのまま貼り付け、必要ならマスクしてから「AIで整形する」を押すと、選んだテンプレートの項目へ自動で振り分けます。',
+    'tour.textResults.title': '結果をためて出力',
+    'tour.textResults.body':
+      '整形結果は複数件ためられます。各項目はその場で編集でき、最後にまとめてCSV/Excel/テキストとしてコピー・出力できます。',
+    'tour.navAdmin.title': '次はテンプレート管理',
+    'tour.navAdmin.body':
+      '整形先のフォーマット(テンプレート)は自由に作れます。',
+    'tour.navAdmin.waitHint':
+      '「テンプレート管理」タブをクリックして移動してください',
+    'tour.adminToolbar.title': 'テンプレート管理',
+    'tour.adminToolbar.body':
+      '取り込み先フォーマット(テンプレート)を自由に追加・編集できます。JSON/CSV/Excelのヘッダー行からも作成でき、エクスポートで他の環境に共有できます。',
+    'tour.adminList.title': '項目の自動記入ルール',
+    'tour.adminList.body':
+      '各テンプレートを「編集」して項目を開くと「自動記入ルール」を設定できます。式に{Import.キー}と書くと、表の整形画面の「今回の追加情報」で入力した値を差し込めます。',
+    'tour.navFormula.title': '最後に式リファレンス',
+    'tour.navFormula.body':
+      '自動記入ルールで使える式の書き方をまとめてあります。',
+    'tour.navFormula.waitHint':
+      '「式リファレンス」タブをクリックして移動してください',
+    'tour.formula.title': '式リファレンス',
+    'tour.formula.body':
+      'テンプレート管理の自動記入ルールで使える式(if/case/文字列連結など)の一覧です。書き方に迷ったらここを確認してください。以上でひと通りの流れは完了です。',
+    'tour.formula.primary': 'ツアーを終える',
+  },
+} as const;
+
+export type TourTranslationKey = keyof (typeof tourMessages)['en'];
+
+export type TranslationKey = keyof (typeof messages)['en'] | TourTranslationKey;
 
 export type TranslationValues = Record<string, string | number>;
 
 export function createTranslator(locale: Locale) {
   return (key: TranslationKey, values?: TranslationValues): string => {
-    const message = messages[locale][key];
+    const message =
+      key in messages[locale]
+        ? messages[locale][key as keyof (typeof messages)['en']]
+        : tourMessages[locale][key as TourTranslationKey];
     if (!values) return message;
     return message.replace(/\{(\w+)\}/g, (placeholder, name: string) =>
       name in values ? String(values[name]) : placeholder,

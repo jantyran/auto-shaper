@@ -1,9 +1,15 @@
 import { describe, expect, test } from 'vitest';
-import { createTranslator, messages } from './i18n';
+import { createTranslator, messages, tourMessages } from './i18n';
 
 test('has identical English and Japanese keys', () => {
   expect(Object.keys(messages.en).sort()).toEqual(
     Object.keys(messages.ja).sort(),
+  );
+});
+
+test('has identical English and Japanese tour keys', () => {
+  expect(Object.keys(tourMessages.en).sort()).toEqual(
+    Object.keys(tourMessages.ja).sort(),
   );
 });
 

@@ -38,11 +38,16 @@ function save(entries: LearnedEntry[]): void {
 }
 
 /** ユーザーが確定した「列名 → ターゲットキー」を記録する */
-export function recordAssociation(sourceHeader: string, targetKey: string): LearnedEntry[] {
+export function recordAssociation(
+  sourceHeader: string,
+  targetKey: string,
+): LearnedEntry[] {
   const header = normalizeHeader(sourceHeader);
   if (!header || !targetKey) return loadLearned();
   const entries = loadLearned();
-  const found = entries.find((e) => e.header === header && e.targetKey === targetKey);
+  const found = entries.find(
+    (e) => e.header === header && e.targetKey === targetKey,
+  );
   if (found) {
     found.count++;
   } else {
@@ -68,7 +73,9 @@ export function learnedBoost(
   entries: LearnedEntry[],
 ): number {
   const header = normalizeHeader(sourceHeader);
-  const e = entries.find((x) => x.header === header && x.targetKey === targetKey);
+  const e = entries.find(
+    (x) => x.header === header && x.targetKey === targetKey,
+  );
   if (!e) return 0;
   return Math.min(0.3, 0.12 + 0.06 * (e.count - 1));
 }

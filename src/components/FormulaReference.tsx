@@ -1,16 +1,18 @@
+import { createTranslator } from '../core/i18n';
+import { useStore } from '../state/store';
 const EXAMPLES = [
   {
-    title: '固定テキスト + 会社名',
+    title: 'formula.example.fixed.title',
     code: '"Public web: " & {Company Name}',
-    note: 'Public web: サンプル株式会社 のように出力します。',
+    note: 'formula.example.fixed.note',
   },
   {
-    title: 'if で2分岐',
+    title: 'formula.example.if.title',
     code: 'if({LeadSource} = "Web", "Public web: " & {Company Name}, "Other: " & {Company Name})',
-    note: '条件が真なら2つ目、偽なら3つ目の値を使います。',
+    note: 'formula.example.if.note',
   },
   {
-    title: 'case で複数分岐',
+    title: 'formula.example.case.title',
     code: [
       'case(',
       '  {LeadSource} = "Web", "Public web: " & {Company Name},',
@@ -19,10 +21,10 @@ const EXAMPLES = [
       '  "Other: " & {Company Name}',
       ')',
     ].join('\n'),
-    note: '上から順に条件を見て、最初に合った値を出します。最後の値はどれにも合わない時の既定値です。',
+    note: 'formula.example.case.note',
   },
   {
-    title: '部分一致で分岐',
+    title: 'formula.example.contains.title',
     code: [
       'case(',
       '  contains({LeadSource}, "Web"), "Public web: " & {Company Name},',
@@ -30,82 +32,72 @@ const EXAMPLES = [
       '  "Other: " & {Company Name}',
       ')',
     ].join('\n'),
-    note: '完全一致ではなく、文字列を含むかで判定します。',
+    note: 'formula.example.contains.note',
   },
   {
-    title: '今回の追加情報を使う',
+    title: 'formula.example.context.title',
     code: 'case({LeadSource} = "展示会", "EV(" & {Import.EventName} & "): " & {Company Name}, "Other: " & {Company Name})',
-    note: '表の整形画面で今回の追加情報に EventName を入れると、ファイルに無いイベント名をTOPICへ差し込めます。',
+    note: 'formula.example.context.note',
   },
   {
-    title: '最初の非空値を使う',
+    title: 'formula.example.coalesce.title',
     code: 'coalesce({Phone}, {MobilePhone}, "連絡先なし")',
-    note: '左から見て、最初に空ではない値を使います。',
+    note: 'formula.example.coalesce.note',
   },
   {
-    title: '項目ラベルを出す',
+    title: 'formula.example.label.title',
     code: '"{Company.label}: " & {Company.value}',
-    note: '会社名: サンプル株式会社 のように、項目の表示名と値を組み合わせます。',
+    note: 'formula.example.label.note',
   },
-];
+] as const;
 
 const REFS = [
-  ['{Field}', '項目の値を差し込みます。例: {Company}'],
-  ['{Field.value}', '項目の値を明示して差し込みます。'],
-  [
-    '{Field.label}',
-    '項目の表示名を差し込みます。{Field.labal} も typo 互換で使えます。',
-  ],
-  ['{Field.key}', '出力列名としてのキーを差し込みます。'],
-  [
-    '{Import.EventName}',
-    '表の整形で入力した「今回の追加情報」を差し込みます。EventName の部分は任意のキーにできます。',
-  ],
-  ['"文字列"', '固定テキストです。シングルクォートも使えます。'],
-  ['&', '文字列を連結します。'],
-  ['= / == / !=', '一致・不一致を判定します。'],
-  [
-    'contains(a, b)',
-    'a が b を含むかを判定します。中置で a contains b とも書けます。',
-  ],
-  ['startsWith(a, b)', 'a が b で始まるかを判定します。'],
-  ['endsWith(a, b)', 'a が b で終わるかを判定します。'],
-  ['empty(a)', 'a が空欄かを判定します。'],
-  ['notEmpty(a)', 'a が空欄ではないかを判定します。'],
-  ['if(cond, yes, no)', 'cond が真なら yes、偽なら no を返します。'],
-  [
-    'case(cond1, value1, ..., default)',
-    '複数条件を上から評価し、最初に合った値を返します。',
-  ],
-  ['coalesce(a, b, ...)', '最初の非空値を返します。'],
-  ['trim / upper / lower', '前後空白削除、大文字化、小文字化をします。'],
-];
+  ['{Field}', 'formula.syntax.field'],
+  ['{Field.value}', 'formula.syntax.fieldValue'],
+  ['{Field.label}', 'formula.syntax.fieldLabel'],
+  ['{Field.key}', 'formula.syntax.fieldKey'],
+  ['{Import.EventName}', 'formula.syntax.importValue'],
+  ['"文字列"', 'formula.syntax.string'],
+  ['&', 'formula.syntax.concat'],
+  ['= / == / !=', 'formula.syntax.comparison'],
+  ['contains(a, b)', 'formula.syntax.contains'],
+  ['startsWith(a, b)', 'formula.syntax.startsWith'],
+  ['endsWith(a, b)', 'formula.syntax.endsWith'],
+  ['empty(a)', 'formula.syntax.empty'],
+  ['notEmpty(a)', 'formula.syntax.notEmpty'],
+  ['if(cond, yes, no)', 'formula.syntax.if'],
+  ['case(cond1, value1, ..., default)', 'formula.syntax.case'],
+  ['coalesce(a, b, ...)', 'formula.syntax.coalesce'],
+  ['trim / upper / lower', 'formula.syntax.textTransform'],
+] as const;
 
 export function FormulaReference() {
+  const locale = useStore((state) => state.settings.locale);
+  const t = createTranslator(locale);
   return (
     <div className="panel formula-reference" data-tour="tour-formula-panel">
-      <h2>自動記入ルール 式リファレンス</h2>
+      <h2>{t('formula.heading')}</h2>
       <p className="subtitle" style={{ marginBottom: 14 }}>
-        テンプレート項目の自動記入ルールで使える安全なミニ式です。JavaScriptやPythonのコードは実行せず、ここに載っている構文だけを評価します。
+        {t('formula.description')}
       </p>
 
-      <h3>よく使う例</h3>
+      <h3>{t('formula.examples')}</h3>
       <div className="formula-example-list">
         {EXAMPLES.map((item) => (
           <section className="formula-example" key={item.title}>
-            <h4>{item.title}</h4>
+            <h4>{t(item.title)}</h4>
             <pre>{item.code}</pre>
-            <p>{item.note}</p>
+            <p>{t(item.note)}</p>
           </section>
         ))}
       </div>
 
-      <h3>構文一覧</h3>
+      <h3>{t('formula.syntax')}</h3>
       <div className="formula-ref-table">
         {REFS.map(([syntax, description]) => (
           <div className="formula-ref-row" key={syntax}>
             <code>{syntax}</code>
-            <span>{description}</span>
+            <span>{t(description)}</span>
           </div>
         ))}
       </div>

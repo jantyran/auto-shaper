@@ -1,3 +1,4 @@
+import { createTranslator, type TranslationKey } from '../core/i18n';
 /**
  * 参照テーブル(横引き)の設定。
  *
@@ -14,22 +15,25 @@ import type { LookupMatchAction, LookupMultiple, LookupTable } from '../types';
 import { activeColumns, activeKeys } from '../core/lookup';
 import { FileDrop } from './FileDrop';
 
-const MULTIPLE_LABELS: Record<LookupMultiple, string> = {
-  first: '最初の1件',
-  last: '最後の1件',
-  joinAll: 'すべて連結',
+const MULTIPLE_LABELS: Record<LookupMultiple, TranslationKey> = {
+  first: 'lookup.first',
+  last: 'lookup.last',
+  joinAll: 'lookup.joinAll',
 };
 
-const MATCH_ACTION_LABELS: Record<LookupMatchAction, string> = {
-  none: 'そのまま',
-  excludeMatched: '除外する',
-  keepMatched: 'だけ残す',
+const MATCH_ACTION_LABELS: Record<LookupMatchAction, TranslationKey> = {
+  none: 'lookup.keep',
+  excludeMatched: 'lookup.exclude',
+  keepMatched: 'rowFilter.include',
 };
 
 /** 一致状況を残すときの既定の列名 */
 const DEFAULT_STATUS_COLUMN = '参照結果';
 
 export function LookupPanel() {
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
+
   const source = useStore((s) => s.source);
   const tables = useStore((s) => s.lookupTables);
   const files = useStore((s) => s.lookupFiles);
@@ -42,17 +46,15 @@ export function LookupPanel() {
     return (
       <div className="read-options">
         <div className="read-options-head">
-          <span className="read-options-title">参照テーブル（横引き）</span>
-          <span className="read-options-inline">
-            別ファイルの情報をキーで突き合わせて取り込みます（行数は増えません）
-          </span>
+          <span className="read-options-title">{t('lookup.heading')}</span>
+          <span className="read-options-inline">{t('lookup.description')}</span>
           <div className="spacer" />
           <button
             type="button"
             className="ghost"
             onClick={() => setAdding(true)}
           >
-            + 参照テーブルを追加
+            {t('lookup.add')}
           </button>
         </div>
       </div>
@@ -62,12 +64,12 @@ export function LookupPanel() {
   return (
     <div className="read-options">
       <div className="read-options-head">
-        <span className="read-options-title">参照テーブル（横引き）</span>
+        <span className="read-options-title">{t('lookup.heading')}</span>
         <span className="read-options-inline">
-          {tables.length} 件
+          {t('lookup.count', { count: tables.length })}
           {pending.length > 0 && (
             <span className="read-options-auto">
-              {pending.length} 件がファイル待ち
+              {t('lookup.pending', { count: pending.length })}
             </span>
           )}
         </span>
@@ -78,15 +80,15 @@ export function LookupPanel() {
           onClick={() => setAdding((v) => !v)}
           aria-expanded={adding}
         >
-          {adding ? '閉じる' : '+ 参照テーブルを追加'}
+          {adding ? t('common.close') : t('lookup.add')}
         </button>
       </div>
 
       {adding && (
         <div style={{ margin: '10px 0' }}>
           <FileDrop
-            title="突き合わせ先のファイルをドロップ"
-            hint="CSV / Excel — キーが一致する行から、必要な列だけを取り込みます（行数は増えません）"
+            title={t('lookup.dropTitle')}
+            hint={t('lookup.dropHint')}
             onFile={(fileName, data) => {
               void addLookupFile({ fileName, data });
               setAdding(false);
@@ -125,6 +127,9 @@ export function LookupPanel() {
  * 実データは保存しない方針なので、ここで再投入してもらう。
  */
 function PendingLookupRow({ index }: { index: number }) {
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
+
   const saved = useStore((s) => s.pendingLookups[index]);
   const attach = useStore((s) => s.attachPendingLookup);
   const dismiss = useStore((s) => s.dismissPendingLookup);
@@ -141,19 +146,19 @@ function PendingLookupRow({ index }: { index: number }) {
     <div className="source-unit is-pending">
       <div className="source-unit-head">
         <span className="source-unit-name">{saved.fileName}</span>
-        <span className="source-unit-meta">レシピの設定を復元します</span>
+        <span className="source-unit-meta">{t('lookup.restore')}</span>
         <div className="spacer" />
         <button type="button" className="ghost" onClick={() => dismiss(index)}>
-          使わない
+          {t('lookup.dismiss')}
         </button>
       </div>
       <p className="subtitle" style={{ margin: '6px 0 8px' }}>
-        突き合わせ: {keys || '（未設定）'}
-        {columns && ` / 持ってくる列: ${columns}`}
+        {t('lookup.savedKeys', { keys: keys || t('common.unset') })}
+        {columns && t('lookup.savedColumns', { columns })}
       </p>
       <FileDrop
-        title={`${saved.fileName} を投入してください`}
-        hint="レシピにはファイルの中身を保存していません（実データを保存しないため）。同じ内容のファイルを入れると、覚えていた設定のまま復元します。"
+        title={t('lookup.attach', { fileName: saved.fileName })}
+        hint={t('lookup.restoreHint')}
         onFile={(fileName, data) => void attach(index, { fileName, data })}
       />
     </div>
@@ -171,6 +176,9 @@ function LookupRow({
   sheetNames: string[];
   sourceColumns: string[];
 }) {
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
+
   const tables = useStore((s) => s.lookupTables);
   const data = useStore((s) => s.lookupData);
   const stats = useStore((s) => s.lookupStats[table.id]);
@@ -195,7 +203,10 @@ function LookupRow({
           )}
         </span>
         <span className="source-unit-meta">
-          {lookupRowCount.toLocaleString()} 行 / {lookupColumns.length} 列
+          {t('lookup.dimensions', {
+            count: lookupRowCount.toLocaleString(locale),
+            columns: lookupColumns.length,
+          })}
         </span>
         {sheetNames.length > 1 && (
           <select
@@ -221,7 +232,7 @@ function LookupRow({
         <button
           type="button"
           className="ghost"
-          aria-label={`${fileName} を参照テーブルから外す`}
+          aria-label={t('lookup.remove', { fileName })}
           onClick={() => void remove(table.id)}
         >
           ×
@@ -230,13 +241,13 @@ function LookupRow({
 
       <div className="lookup-body">
         <div className="dedupe-row">
-          <span className="dedupe-label">突き合わせ</span>
+          <span className="dedupe-label">{t('lookup.keys')}</span>
           <div className="lookup-keys">
             {table.keys.map((pair, i) => (
               <div className="lookup-key-pair" key={i}>
                 <select
                   value={pair.sourceColumn}
-                  aria-label="元データの列"
+                  aria-label={t('lookup.sourceColumn')}
                   onChange={(e) =>
                     patch({
                       keys: table.keys.map((k, j) =>
@@ -245,7 +256,7 @@ function LookupRow({
                     })
                   }
                 >
-                  <option value="">（元データの列）</option>
+                  <option value="">{t('lookup.selectSource')}</option>
                   {sourceColumns.map((c) => (
                     <option key={c} value={c}>
                       {c}
@@ -255,7 +266,7 @@ function LookupRow({
                 <span className="value-map-arrow">↔</span>
                 <select
                   value={pair.lookupColumn}
-                  aria-label="参照表の列"
+                  aria-label={t('lookup.lookupColumn')}
                   onChange={(e) =>
                     patch({
                       keys: table.keys.map((k, j) =>
@@ -264,7 +275,7 @@ function LookupRow({
                     })
                   }
                 >
-                  <option value="">（参照表の列）</option>
+                  <option value="">{t('lookup.selectLookup')}</option>
                   {lookupColumns.map((c) => (
                     <option key={c} value={c}>
                       {c}
@@ -275,7 +286,7 @@ function LookupRow({
                   <button
                     type="button"
                     className="ghost"
-                    aria-label={`${i + 1}つ目のキーを削除`}
+                    aria-label={t('lookup.deleteKey', { count: i + 1 })}
                     onClick={() =>
                       patch({ keys: table.keys.filter((_, j) => j !== i) })
                     }
@@ -294,17 +305,17 @@ function LookupRow({
                 })
               }
             >
-              + キーを追加
+              {t('lookup.addKey')}
             </button>
           </div>
         </div>
 
         <div className="dedupe-row">
-          <span className="dedupe-label">持ってくる列</span>
+          <span className="dedupe-label">{t('lookup.columns')}</span>
           <div className="dedupe-keys">
             {lookupColumns.length === 0 && (
               <span className="subtitle" style={{ margin: 0 }}>
-                参照表の列を読み取れませんでした。
+                {t('lookup.noColumns')}
               </span>
             )}
             {lookupColumns.map((name) => (
@@ -327,7 +338,7 @@ function LookupRow({
         </div>
 
         <div className="dedupe-row">
-          <span className="dedupe-label">複数一致</span>
+          <span className="dedupe-label">{t('lookup.multiple')}</span>
           <select
             value={table.multiple}
             onChange={(e) =>
@@ -336,22 +347,22 @@ function LookupRow({
           >
             {(Object.keys(MULTIPLE_LABELS) as LookupMultiple[]).map((m) => (
               <option key={m} value={m}>
-                {MULTIPLE_LABELS[m]}
+                {t(MULTIPLE_LABELS[m])}
               </option>
             ))}
           </select>
-          <span className="dedupe-label">見つからないとき</span>
+          <span className="dedupe-label">{t('lookup.notFound')}</span>
           <input
             type="text"
             style={{ maxWidth: 160 }}
             value={table.notFound}
-            placeholder="空欄のまま"
+            placeholder={t('lookup.emptyPlaceholder')}
             onChange={(e) => patch({ notFound: e.target.value })}
           />
         </div>
 
         <div className="dedupe-row">
-          <span className="dedupe-label">一致した行を</span>
+          <span className="dedupe-label">{t('lookup.action')}</span>
           <select
             value={table.matchAction}
             onChange={(e) =>
@@ -361,7 +372,7 @@ function LookupRow({
             {(Object.keys(MATCH_ACTION_LABELS) as LookupMatchAction[]).map(
               (a) => (
                 <option key={a} value={a}>
-                  {MATCH_ACTION_LABELS[a]}
+                  {t(MATCH_ACTION_LABELS[a])}
                 </option>
               ),
             )}
@@ -378,7 +389,7 @@ function LookupRow({
                 })
               }
             />
-            一致状況を「{DEFAULT_STATUS_COLUMN}」列に残す
+            {t('lookup.status', { column: DEFAULT_STATUS_COLUMN })}
           </label>
           <label className="read-options-inline">
             <input
@@ -386,7 +397,7 @@ function LookupRow({
               checked={table.loose}
               onChange={(e) => patch({ loose: e.target.checked })}
             />
-            緩く照合（空白・全角半角・大小を無視）
+            {t('lookup.loose')}
           </label>
         </div>
 
@@ -396,20 +407,26 @@ function LookupRow({
             style={{ margin: '4px 0 0' }}
           >
             {stats.matched === 0
-              ? 'どの行も一致しませんでした。突き合わせるキーの列が正しいか確認してください。'
-              : `${(stats.matched + stats.unmatched).toLocaleString()} 行中 ${stats.matched.toLocaleString()} 行が一致（${stats.unmatched.toLocaleString()} 行は未一致）`}
+              ? t('lookup.noneMatched')
+              : t('lookup.matched', {
+                  total: (stats.matched + stats.unmatched).toLocaleString(
+                    locale,
+                  ),
+                  count: stats.matched.toLocaleString(locale),
+                  unmatched: stats.unmatched.toLocaleString(locale),
+                })}
             {stats.multiple > 0 && (
               <>
-                {' '}
-                / {stats.multiple.toLocaleString()}{' '}
-                行は参照表に複数の候補があり、 「
-                {MULTIPLE_LABELS[table.multiple]}」を採用しました。
+                {t('lookup.multipleCount', {
+                  count: stats.multiple.toLocaleString(locale),
+                  action: t(MULTIPLE_LABELS[table.multiple]),
+                })}
               </>
             )}
           </div>
         ) : (
           <p className="subtitle" style={{ margin: '4px 0 0' }}>
-            突き合わせるキーを両側とも選ぶと、一致件数を表示します。
+            {t('lookup.chooseKeys')}
           </p>
         )}
       </div>

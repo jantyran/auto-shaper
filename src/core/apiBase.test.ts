@@ -24,7 +24,9 @@ describe('apiBase', () => {
   it('設定すると絶対URLを前置し、末尾スラッシュは除去する', () => {
     setApiBase('http://localhost:8787/');
     expect(getApiBase()).toBe('http://localhost:8787');
-    expect(apiUrl('/api/auth/login')).toBe('http://localhost:8787/api/auth/login');
+    expect(apiUrl('/api/auth/login')).toBe(
+      'http://localhost:8787/api/auth/login',
+    );
   });
 
   it('空文字で解除すると相対パスへ戻る', () => {

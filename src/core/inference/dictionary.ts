@@ -39,7 +39,8 @@ export function similarity(a: string, b: string): number {
   if (na === nb) return 1;
   // 包含関係は強いシグナル
   if (na.includes(nb) || nb.includes(na)) {
-    const ratio = Math.min(na.length, nb.length) / Math.max(na.length, nb.length);
+    const ratio =
+      Math.min(na.length, nb.length) / Math.max(na.length, nb.length);
     return 0.7 + 0.25 * ratio;
   }
   const dist = levenshtein(na, nb);
@@ -63,9 +64,21 @@ export const FULL_NAME_KEYWORDS = [
 ];
 
 /** 姓を表す概念キーワード */
-export const LAST_NAME_KEYWORDS = ['姓', '苗字', '名字', 'lastname', 'last name', 'family name'];
+export const LAST_NAME_KEYWORDS = [
+  '姓',
+  '苗字',
+  '名字',
+  'lastname',
+  'last name',
+  'family name',
+];
 /** 名を表す概念キーワード */
-export const FIRST_NAME_KEYWORDS = ['名', 'firstname', 'first name', 'given name'];
+export const FIRST_NAME_KEYWORDS = [
+  '名',
+  'firstname',
+  'first name',
+  'given name',
+];
 
 /** ターゲットのキー/ラベルが指す概念を判定するヘルパー群 */
 export function isLastNameField(keyOrLabel: string): boolean {

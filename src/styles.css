@@ -162,6 +162,10 @@ a {
   padding: 24px 20px 80px;
 }
 
+.app[aria-hidden='true'] {
+  pointer-events: none;
+}
+
 .app-header {
   margin-bottom: 14px;
 }
@@ -2024,6 +2028,47 @@ td.rownum {
   font-size: 14px;
   color: var(--muted);
   align-self: center;
+}
+
+/* Language selection (shown before the first entrance screen) */
+.language-picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+}
+
+.language-picker-card {
+  width: min(100%, 390px);
+  padding: 32px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.language-picker-card h1 {
+  margin: 18px 0 8px;
+  font-size: 22px;
+}
+
+.language-picker-card p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.language-picker-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.language-picker-actions button {
+  width: 100%;
 }
 
 /* Entrance screen (first-time, logged-out visitors only) */

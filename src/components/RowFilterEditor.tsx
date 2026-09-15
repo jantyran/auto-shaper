@@ -1,3 +1,4 @@
+import { createTranslator, type TranslationKey } from '../core/i18n';
 /**
  * 行の絞り込みエディタ。
  *
@@ -14,13 +15,13 @@ import {
   createRowFilter,
 } from '../core/rowFilter';
 
-const OP_LABELS: Record<ConditionOp, string> = {
-  equals: 'と等しい',
-  contains: 'を含む',
-  startsWith: 'で始まる',
-  endsWith: 'で終わる',
-  isEmpty: 'が空欄',
-  notEmpty: 'が空欄でない',
+const OP_LABELS: Record<ConditionOp, TranslationKey> = {
+  equals: 'rowFilter.equals',
+  contains: 'rowFilter.contains',
+  startsWith: 'rowFilter.startsWith',
+  endsWith: 'rowFilter.endsWith',
+  isEmpty: 'rowFilter.isEmpty',
+  notEmpty: 'rowFilter.notEmpty',
 };
 
 const OPS = Object.keys(OP_LABELS) as ConditionOp[];
@@ -39,6 +40,9 @@ export function RowFilterEditor({
   columnNames: string[];
   onChange: (next: RowFilter | undefined) => void;
 }) {
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
+
   const source = useStore((s) => s.source);
   const rules = filter?.rules ?? [];
 
@@ -71,10 +75,10 @@ export function RowFilterEditor({
             })
           }
         >
-          行を絞り込む
+          {t('rowFilter.start')}
         </button>
         <span className="subtitle" style={{ margin: 0 }}>
-          条件に合う行だけを取り込む、または特定の行を除外します。
+          {t('rowFilter.description')}
         </span>
       </div>
     );
@@ -83,22 +87,22 @@ export function RowFilterEditor({
   return (
     <div className="value-map">
       <div className="value-map-head">
-        <span className="value-map-title">行の絞り込み</span>
+        <span className="value-map-title">{t('rowFilter.heading')}</span>
         <label className="read-options-inline">
-          条件に合う行を
+          {t('rowFilter.mode')}
           <select
             value={filter.mode}
             onChange={(e) =>
               onChange({ ...filter, mode: e.target.value as RowFilter['mode'] })
             }
           >
-            <option value="exclude">除く</option>
-            <option value="include">だけ残す</option>
+            <option value="exclude">{t('rowFilter.exclude')}</option>
+            <option value="include">{t('rowFilter.include')}</option>
           </select>
         </label>
         {rules.length > 1 && (
           <label className="read-options-inline">
-            条件は
+            {t('rowFilter.match')}
             <select
               value={filter.match}
               onChange={(e) =>
@@ -108,8 +112,8 @@ export function RowFilterEditor({
                 })
               }
             >
-              <option value="any">どれか1つ満たす</option>
-              <option value="all">すべて満たす</option>
+              <option value="any">{t('rowFilter.any')}</option>
+              <option value="all">{t('rowFilter.all')}</option>
             </select>
           </label>
         )}
@@ -119,7 +123,7 @@ export function RowFilterEditor({
           className="ghost"
           onClick={() => onChange(undefined)}
         >
-          絞り込みをやめる
+          {t('rowFilter.stop')}
         </button>
       </div>
 
@@ -128,9 +132,9 @@ export function RowFilterEditor({
           <select
             value={rule.column}
             onChange={(e) => setRule(i, { column: e.target.value })}
-            aria-label="対象の列"
+            aria-label={t('rowFilter.column')}
           >
-            <option value="">（列を選ぶ）</option>
+            <option value="">{t('rowFilter.selectColumn')}</option>
             {columnNames.map((c) => (
               <option key={c} value={c}>
                 {c}
@@ -140,11 +144,11 @@ export function RowFilterEditor({
           <select
             value={rule.op}
             onChange={(e) => setRule(i, { op: e.target.value as ConditionOp })}
-            aria-label="条件"
+            aria-label={t('rowFilter.condition')}
           >
             {OPS.map((op) => (
               <option key={op} value={op}>
-                {OP_LABELS[op]}
+                {t(OP_LABELS[op])}
               </option>
             ))}
           </select>
@@ -152,8 +156,8 @@ export function RowFilterEditor({
             <input
               type="text"
               value={rule.value}
-              placeholder="値"
-              aria-label="比較する値"
+              placeholder={t('common.value')}
+              aria-label={t('rowFilter.value')}
               onChange={(e) => setRule(i, { value: e.target.value })}
             />
           ) : (
@@ -162,7 +166,7 @@ export function RowFilterEditor({
           <button
             type="button"
             className="ghost"
-            aria-label={`${i + 1}つ目の条件を削除`}
+            aria-label={t('rowFilter.delete', { count: i + 1 })}
             onClick={() =>
               onChange({ ...filter, rules: rules.filter((_, j) => j !== i) })
             }
@@ -186,13 +190,17 @@ export function RowFilterEditor({
             })
           }
         >
-          + 条件を追加
+          {t('mapping.addCondition')}
         </button>
         <div className="spacer" />
         <span className="subtitle" style={{ margin: 0 }}>
           {effective === 0
-            ? '条件が未設定のため、全行が対象です。'
-            : `${(source?.rows.length ?? 0).toLocaleString()} 行のうち ${counts.kept.toLocaleString()} 行が対象（${counts.removed.toLocaleString()} 行を除外）`}
+            ? t('rowFilter.unset')
+            : t('rowFilter.count', {
+                total: (source?.rows.length ?? 0).toLocaleString(locale),
+                count: counts.kept.toLocaleString(locale),
+                removed: counts.removed.toLocaleString(locale),
+              })}
         </span>
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { createTranslator, type TranslationKey } from '../core/i18n';
 /**
  * 重複の照合設定と、見つけたときの処理。
  *
@@ -16,18 +17,18 @@ import {
 } from '../core/dedupe';
 import { fieldDisplayName } from '../core/fieldMeta';
 
-const ACTION_LABELS: Record<DedupeAction, string> = {
-  report: '検出して知らせるだけ（出力は全行）',
-  keepFirst: '最初の1行だけ残す',
-  keepLast: '最後の1行だけ残す',
-  merge: '1行に統合する',
+const ACTION_LABELS: Record<DedupeAction, TranslationKey> = {
+  report: 'dedupe.report',
+  keepFirst: 'dedupe.keepFirst',
+  keepLast: 'dedupe.keepLast',
+  merge: 'dedupe.merge',
 };
 
 const ACTIONS = Object.keys(ACTION_LABELS) as DedupeAction[];
 
-const MERGE_RULE_LABELS: Record<MergeRule, string> = {
-  firstNonEmpty: '空でない最初の値',
-  lastNonEmpty: '空でない最後の値',
+const MERGE_RULE_LABELS: Record<MergeRule, TranslationKey> = {
+  firstNonEmpty: 'dedupe.firstNonEmpty',
+  lastNonEmpty: 'dedupe.lastNonEmpty',
 };
 
 /** 展開表示するグループ数の上限 */
@@ -43,6 +44,9 @@ export function DedupePanel({
   sourceRows: Record<string, string>[];
   fields: TargetField[];
 }) {
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
+
   const config = useStore((s) => s.dedupeConfig);
   const setDedupeConfig = useStore((s) => s.setDedupeConfig);
   const [expanded, setExpanded] = useState<number | null>(null);
@@ -66,22 +70,31 @@ export function DedupePanel({
       <div className="dedupe-head">
         <span className="dedupe-title">
           {found
-            ? `🔎 重複の可能性: ${outcome.groups.length} グループ / ${outcome.duplicateRows.size} 行`
-            : '🔎 重複は見つかりませんでした'}
+            ? t('dedupe.found', {
+                groups: outcome.groups.length,
+                count: outcome.duplicateRows.size,
+              })
+            : t('dedupe.none')}
         </span>
         {outcome.removed > 0 && (
           <span className="dedupe-removed">
-            {sourceRows.length.toLocaleString()} 行 →{' '}
-            {outcome.rows.length.toLocaleString()} 行（
-            {outcome.removed.toLocaleString()} 行を
-            {config.action === 'merge' ? '統合' : '除外'}）
+            {t(
+              config.action === 'merge'
+                ? 'dedupe.mergedCount'
+                : 'dedupe.removedCount',
+              {
+                before: sourceRows.length.toLocaleString(locale),
+                after: outcome.rows.length.toLocaleString(locale),
+                count: outcome.removed.toLocaleString(locale),
+              },
+            )}
           </span>
         )}
       </div>
 
       <div className="dedupe-config">
         <div className="dedupe-row">
-          <span className="dedupe-label">照合キー</span>
+          <span className="dedupe-label">{t('dedupe.keys')}</span>
           <div className="dedupe-keys">
             {fields.map((f) => (
               <label key={f.key} className="chip-check">
@@ -96,26 +109,24 @@ export function DedupePanel({
           </div>
         </div>
         <p className="subtitle" style={{ margin: '2px 0 8px' }}>
-          複数選ぶと、そのすべてが一致した行を重複とみなします。キーを1つも選ばないと重複判定は行いません。
+          {t('dedupe.keysHint')}
         </p>
 
         <div className="dedupe-row">
-          <span className="dedupe-label">照合の緩さ</span>
+          <span className="dedupe-label">{t('dedupe.matching')}</span>
           <select
             value={config.loose ? 'loose' : 'strict'}
             onChange={(e) =>
               setDedupeConfig({ ...config, loose: e.target.value === 'loose' })
             }
           >
-            <option value="loose">
-              緩い（空白・記号・全角半角・大小を無視）
-            </option>
-            <option value="strict">厳密（文字が完全に一致）</option>
+            <option value="loose">{t('dedupe.loose')}</option>
+            <option value="strict">{t('dedupe.strict')}</option>
           </select>
         </div>
 
         <div className="dedupe-row dedupe-actions">
-          <span className="dedupe-label">見つけたら</span>
+          <span className="dedupe-label">{t('dedupe.action')}</span>
           <div className="dedupe-choices">
             {ACTIONS.map((a) => (
               <label key={a} className="read-options-inline">
@@ -125,7 +136,7 @@ export function DedupePanel({
                   checked={config.action === a}
                   onChange={() => setDedupeConfig({ ...config, action: a })}
                 />
-                {ACTION_LABELS[a]}
+                {t(ACTION_LABELS[a])}
               </label>
             ))}
           </div>
@@ -133,7 +144,7 @@ export function DedupePanel({
 
         {config.action === 'merge' && (
           <div className="dedupe-row">
-            <span className="dedupe-label">値の採用</span>
+            <span className="dedupe-label">{t('dedupe.value')}</span>
             <select
               value={config.mergeRule}
               onChange={(e) =>
@@ -145,12 +156,12 @@ export function DedupePanel({
             >
               {(Object.keys(MERGE_RULE_LABELS) as MergeRule[]).map((r) => (
                 <option key={r} value={r}>
-                  {MERGE_RULE_LABELS[r]}
+                  {t(MERGE_RULE_LABELS[r])}
                 </option>
               ))}
             </select>
             <span className="subtitle" style={{ margin: 0 }}>
-              後から追加したファイルほど新しい場合は「最後の値」を選びます。
+              {t('dedupe.valueHint')}
             </span>
           </div>
         )}
@@ -166,8 +177,10 @@ export function DedupePanel({
                 onClick={() => setExpanded(expanded === i ? null : i)}
                 aria-expanded={expanded === i}
               >
-                {g.rows.map((r) => `${r + 1}行目`).join('、')} が重複
-                {config.action === 'merge' && `（1行に統合）`}
+                {t('dedupe.group', {
+                  rows: g.rows.map((r) => r + 1).join(', '),
+                })}
+                {config.action === 'merge' && t('dedupe.merged')}
               </button>
               {expanded === i && (
                 <GroupPreview
@@ -185,7 +198,9 @@ export function DedupePanel({
           ))}
           {outcome.groups.length > SHOWN_GROUPS && (
             <li className="v-more">
-              …ほか {outcome.groups.length - SHOWN_GROUPS} グループ
+              {t('dedupe.more', {
+                count: outcome.groups.length - SHOWN_GROUPS,
+              })}
             </li>
           )}
         </ul>
@@ -206,6 +221,9 @@ function GroupPreview({
   fields: TargetField[];
   merged?: Record<string, string>;
 }) {
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
+
   // 全項目を出すと横に広がりすぎるので、このグループで値が入っている項目に絞る
   const shown = fields.filter((f) =>
     group.some((i) => (sourceRows[i]?.[f.key] ?? '').trim() !== ''),
@@ -225,7 +243,7 @@ function GroupPreview({
           {group.map((i) => (
             <tr key={i}>
               <th scope="row" className="preview-rowno">
-                {i + 1}行目
+                {t('common.row', { count: i + 1 })}
               </th>
               {shown.map((f) => (
                 <td key={f.key}>{sourceRows[i]?.[f.key] || '—'}</td>
@@ -235,7 +253,7 @@ function GroupPreview({
           {merged && (
             <tr className="preview-row is-header">
               <th scope="row" className="preview-rowno">
-                統合後
+                {t('dedupe.after')}
               </th>
               {shown.map((f) => (
                 <td key={f.key}>{merged[f.key] || '—'}</td>

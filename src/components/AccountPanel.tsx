@@ -11,6 +11,7 @@ import { useStore } from '../state/store';
 import { isValidEmail } from '../core/auth';
 import { getApiBase, setApiBase } from '../core/apiBase';
 import { detectBackend, resetStorageModeCache } from '../core/schemaRepository';
+import { createTranslator } from '../core/i18n';
 
 type Mode = 'login' | 'signup';
 
@@ -20,6 +21,8 @@ export function AccountPanel() {
   const signIn = useStore((s) => s.signIn);
   const signUp = useStore((s) => s.signUp);
   const signOut = useStore((s) => s.signOut);
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
 
   const [mode, setMode] = useState<Mode>('login');
   const [email, setEmail] = useState('');
@@ -30,24 +33,24 @@ export function AccountPanel() {
   if (user) {
     return (
       <div className="panel">
-        <h2>アカウント</h2>
+        <h2>{t('account.heading')}</h2>
         <p className="subtitle">
-          {'ログイン中はテンプレートとレシピが'}
-          <b>サーバー(DB)に保存</b>
-          {'され、複数端末で共有できます。'}
+          {t('account.signedInIntro.before')}
+          <b>{t('account.signedInIntro.emphasis')}</b>
+          {t('account.signedInIntro.after')}
         </p>
         <div className="account-row">
           <div>
             <div className="toggle-title">{user.email}</div>
             <div className="toggle-desc">
-              保存先:{' '}
+              {t('account.storageLocation')}{' '}
               {storageMode === 'api'
-                ? 'サーバー(DB)'
-                : 'localStorage(サーバー未接続)'}
+                ? t('account.storage.server')
+                : t('account.storage.local')}
             </div>
           </div>
           <button className="ghost" onClick={() => void signOut()}>
-            ログアウト
+            {t('account.signOut')}
           </button>
         </div>
         <ConnectionField />
@@ -58,11 +61,11 @@ export function AccountPanel() {
   const submit = async () => {
     setError(undefined);
     if (!isValidEmail(email)) {
-      setError('メールアドレスの形式が正しくありません。');
+      setError(t('account.emailInvalid'));
       return;
     }
     if (password.length < 8) {
-      setError('パスワードは8文字以上にしてください。');
+      setError(t('account.passwordInvalid'));
       return;
     }
     setBusy(true);
@@ -71,7 +74,7 @@ export function AccountPanel() {
       else await signIn(email, password);
       setPassword('');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'ログインに失敗しました。');
+      setError(e instanceof Error ? e.message : t('account.signInFailed'));
     } finally {
       setBusy(false);
     }
@@ -79,17 +82,13 @@ export function AccountPanel() {
 
   return (
     <div className="panel">
-      <h2>アカウント</h2>
+      <h2>{t('account.heading')}</h2>
       <p className="subtitle">
-        {'ログインは任意です。'}
-        <b>ログインしなくても利用でき</b>
-        {
-          '、テンプレート/レシピはこのブラウザ(localStorage)に保存されます。ログインすると'
-        }
-        <b>サーバー(DB)に保存</b>
-        {
-          'され、複数端末で共有できます（保存されるのはテンプレート定義とマッピングのみで、実データは送信しません）。'
-        }
+        {t('account.signedOutIntro.before')}
+        <b>{t('account.signedOutIntro.emphasis')}</b>
+        {t('account.signedOutIntro.middle')}
+        <b>{t('account.signedOutIntro.storage')}</b>
+        {t('account.signedOutIntro.after')}
       </p>
 
       <div className="auth-tabs">
@@ -100,7 +99,7 @@ export function AccountPanel() {
             setError(undefined);
           }}
         >
-          ログイン
+          {t('account.signIn')}
         </button>
         <button
           className={`navbtn${mode === 'signup' ? ' active' : ''}`}
@@ -109,13 +108,13 @@ export function AccountPanel() {
             setError(undefined);
           }}
         >
-          新規登録
+          {t('account.signUp')}
         </button>
       </div>
 
       <div className="settings-grid" style={{ marginTop: 12 }}>
         <label className="field-label" style={{ gridColumn: '1 / -1' }}>
-          メールアドレス
+          {t('account.email')}
           <input
             type="email"
             value={email}
@@ -125,7 +124,7 @@ export function AccountPanel() {
           />
         </label>
         <label className="field-label" style={{ gridColumn: '1 / -1' }}>
-          パスワード（8文字以上）
+          {t('account.password')}
           <input
             type="password"
             value={password}
@@ -154,21 +153,17 @@ export function AccountPanel() {
           disabled={busy}
         >
           {busy
-            ? '処理中…'
+            ? t('account.working')
             : mode === 'signup'
-              ? '登録してログイン'
-              : 'ログイン'}
+              ? t('account.signUpAndSignIn')
+              : t('account.signIn')}
         </button>
       </div>
 
       <div className="security-note" style={{ marginTop: 8 }}>
-        {
-          'パスワードはサーバーで scrypt によりハッシュ化して保存され、平文は保持されません。バックエンド('
-        }
+        {t('account.securityNote.before')}
         <code>npm run server</code>
-        {
-          ')が起動していない場合、ログインは利用できません（その場合も localStorage 保存でそのまま使えます）。'
-        }
+        {t('account.securityNote.after')}
       </div>
       <ConnectionField />
     </div>
@@ -181,6 +176,8 @@ export function AccountPanel() {
  * 場合だけ、APIサーバーの絶対URLを指定する。
  */
 function ConnectionField() {
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
   const [base, setBase] = useState(getApiBase());
   const [saved, setSaved] = useState(false);
   // 相対パス /api が既に届いているか(同一オリジン配信/Firebase Hosting等)。
@@ -223,42 +220,37 @@ function ConnectionField() {
 
   return (
     <details className="conn-field">
-      <summary>接続先の詳細設定</summary>
+      <summary>{t('account.connectionDetails')}</summary>
       <label className="field-label" style={{ maxWidth: 560 }}>
-        APIサーバーURL
+        {t('account.apiServerUrl')}
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <input
             type="text"
             style={{ flex: 1 }}
             value={base}
-            placeholder="通常は空欄"
+            placeholder={t('account.apiServerPlaceholder')}
             onChange={(e) => setBase(e.target.value)}
             onBlur={(e) => commit(e.target.value)}
           />
           <button type="button" onClick={() => commit(base)}>
-            {saved ? '✓ 保存' : '保存'}
+            {saved ? t('account.saved') : t('account.save')}
           </button>
         </div>
       </label>
       {mixedContent && (
         <div className="alert error" style={{ margin: '6px 0 8px' }}>
-          このページは https で配信されています。http://
-          で始まるAPIサーバーを指定するとブラウザに遮断され、通信できません。
+          {t('account.mixedContent')}
         </div>
       )}
       {canGuessHost && relativeApiOk === false && !base && (
         <div style={{ margin: '6px 0 8px' }}>
           <button type="button" className="ghost" onClick={useThisHost}>
-            このホストの :8787 を使う（{guessFromHost}）
+            {t('account.useHost', { host: guessFromHost })}
           </button>
         </div>
       )}
       <p className="subtitle" style={{ margin: '0 0 12px' }}>
-        Vite開発サーバーや同一オリジン配信では空欄のままでOKです。Viteを使わない静的配信など、
-        <code>/api</code>
-        が中継されない場合のみ入力してください。別マシンのブラウザから使う場合は
-        <code>localhost</code>
-        ではなく、APIサーバーが動いているホスト名またはIPアドレスを指定します。
+        {t('account.connectionHint')}
       </p>
     </details>
   );

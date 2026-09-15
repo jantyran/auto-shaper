@@ -1,3 +1,5 @@
+import { createTranslator } from '../core/i18n';
+import { useStore } from '../state/store';
 import { useCallback, useRef, useState } from 'react';
 
 interface Props {
@@ -13,6 +15,9 @@ interface Props {
 
 /** ドラッグ&ドロップ / クリックでファイルを受け取り、ArrayBufferを返す */
 export function FileDrop({ onFile, onFiles, multiple, title, hint }: Props) {
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
+
   const [drag, setDrag] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -52,6 +57,7 @@ export function FileDrop({ onFile, onFiles, multiple, title, hint }: Props) {
       <input
         ref={inputRef}
         type="file"
+        aria-label={t('fileDrop.input')}
         multiple={multiple}
         accept=".csv,.xlsx,.xls,.tsv"
         style={{ display: 'none' }}

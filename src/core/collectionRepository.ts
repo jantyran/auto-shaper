@@ -59,11 +59,14 @@ export function makeCollectionRepo<T extends HasId>(name: string) {
     async put(item: T): Promise<T[]> {
       if ((await detectStorageMode()) === 'api') {
         try {
-          const res = await fetch(apiUrl(`${base}/${encodeURIComponent(item.id)}`), {
-            method: 'PUT',
-            headers: jsonHeaders(),
-            body: JSON.stringify(item),
-          });
+          const res = await fetch(
+            apiUrl(`${base}/${encodeURIComponent(item.id)}`),
+            {
+              method: 'PUT',
+              headers: jsonHeaders(),
+              body: JSON.stringify(item),
+            },
+          );
           if (res.ok) return (await res.json()) as T[];
         } catch {
           /* fall through */

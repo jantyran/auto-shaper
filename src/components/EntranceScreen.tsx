@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../state/store';
+import { createTranslator } from '../core/i18n';
 
 /** この時間が経つと自動でフェードアウトする(クリックで即スキップも可) */
 const AUTO_DISMISS_MS = 1800;
@@ -12,7 +13,9 @@ const FADE_OUT_MS = 320;
  */
 export function EntranceScreen() {
   const dismissEntrance = useStore((s) => s.dismissEntrance);
+  const locale = useStore((s) => s.settings.locale);
   const [leaving, setLeaving] = useState(false);
+  const t = createTranslator(locale);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setLeaving(true), AUTO_DISMISS_MS);
@@ -33,7 +36,7 @@ export function EntranceScreen() {
       onClick={skip}
       role="button"
       tabIndex={0}
-      aria-label="はじめる"
+      aria-label={t('entrance.start')}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') skip();
       }}
@@ -43,10 +46,8 @@ export function EntranceScreen() {
           ✨
         </span>
         <h1 className="entrance-title">Auto Shaper</h1>
-        <p className="entrance-tagline">
-          雑多なデータを、ブラウザの中だけで整える。
-        </p>
-        <span className="entrance-hint">クリックしてはじめる</span>
+        <p className="entrance-tagline">{t('entrance.tagline')}</p>
+        <span className="entrance-hint">{t('entrance.start')}</span>
       </div>
     </div>
   );

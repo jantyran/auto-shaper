@@ -1,41 +1,39 @@
 import { useStore } from '../state/store';
 import {
   defaultModelFor,
+  type Locale,
   type FeatureFlags,
   type LlmProvider,
   type Settings,
 } from '../core/settings';
-import {
-  PRESET_SCHEMAS,
-  SCHEMA_CATEGORY_LABELS,
-  SCHEMA_CATEGORY_ORDER,
-} from '../core/targetSchemas';
+import { createTranslator, type TranslationKey } from '../core/i18n';
+import { PRESET_SCHEMAS, SCHEMA_CATEGORY_ORDER } from '../core/targetSchemas';
 import { THEMES, type ThemeId } from '../core/theme';
 import { AccountPanel } from './AccountPanel';
 
 const FEATURE_LABELS: Record<
   keyof FeatureFlags,
-  { title: string; desc: string }
+  { title: TranslationKey; desc: TranslationKey }
 > = {
   masking: {
-    title: 'マスキング',
-    desc: 'AIに渡す前に個人情報・機微情報を伏字にする（推奨: ON）',
+    title: 'settings.feature.masking.title',
+    desc: 'settings.feature.masking.description',
   },
   llm: {
-    title: 'LLM推論',
-    desc: 'カラム名＋匿名化サンプルからLLMでマッピングを推論（要APIキー）',
+    title: 'settings.feature.llm.title',
+    desc: 'settings.feature.llm.description',
   },
   learningDictionary: {
-    title: '学習辞書',
-    desc: 'あなたの修正履歴を蓄積し、次回以降のサジェスト精度を上げる',
+    title: 'settings.feature.learningDictionary.title',
+    desc: 'settings.feature.learningDictionary.description',
   },
   recipes: {
-    title: 'マッピングの記憶（レシピ）',
-    desc: '確定したマッピングを保存し、同じ列構成のファイルに再適用する',
+    title: 'settings.feature.recipes.title',
+    desc: 'settings.feature.recipes.description',
   },
   duplicateDetection: {
-    title: '重複検出・名寄せ',
-    desc: '変換後にメールや会社名+姓で重複の可能性がある行を検出する',
+    title: 'settings.feature.duplicateDetection.title',
+    desc: 'settings.feature.duplicateDetection.description',
   },
 };
 
@@ -50,6 +48,7 @@ export function SettingsPage() {
   const removeRecipe = useStore((s) => s.removeRecipe);
   const learnedEntries = useStore((s) => s.learnedEntries);
   const clearLearning = useStore((s) => s.clearLearning);
+  const t = createTranslator(settings.locale);
 
   const set = (patch: Partial<Settings>) => update({ ...settings, ...patch });
   const setFeature = (key: keyof FeatureFlags, value: boolean) => {
@@ -72,13 +71,28 @@ export function SettingsPage() {
       <AccountPanel />
 
       <div className="panel">
-        <h2>機能のON/OFF</h2>
-        <p className="subtitle">使う機能だけを有効化できます。</p>
+        <h2>{t('settings.language.title')}</h2>
+        <p className="subtitle">{t('settings.language.description')}</p>
+        <label className="field-label language-select">
+          {t('language.label')}
+          <select
+            value={settings.locale}
+            onChange={(e) => set({ locale: e.target.value as Locale })}
+          >
+            <option value="en">English</option>
+            <option value="ja">日本語</option>
+          </select>
+        </label>
+      </div>
+
+      <div className="panel">
+        <h2>{t('settings.features.title')}</h2>
+        <p className="subtitle">{t('settings.features.description')}</p>
         {(Object.keys(FEATURE_LABELS) as (keyof FeatureFlags)[]).map((key) => (
           <ToggleRow
             key={key}
-            title={FEATURE_LABELS[key].title}
-            desc={FEATURE_LABELS[key].desc}
+            title={t(FEATURE_LABELS[key].title)}
+            desc={t(FEATURE_LABELS[key].desc)}
             checked={settings.features[key]}
             onChange={(v) => setFeature(key, v)}
           />
@@ -86,31 +100,33 @@ export function SettingsPage() {
       </div>
 
       <div className="panel">
-        <h2>配色</h2>
-        <p className="subtitle">
-          画面全体の配色を切り替えます。選んだ配色はこのブラウザに保存されます。
-        </p>
+        <h2>{t('settings.theme.title')}</h2>
+        <p className="subtitle">{t('settings.theme.description')}</p>
         {(['light', 'dark'] as const).map((mode) => (
           <div key={mode} style={{ marginBottom: 14 }}>
             <div className="theme-group-label">
-              {mode === 'light' ? '明るい配色' : '暗い配色'}
+              {t(`settings.theme.${mode}`)}
             </div>
             <div className="theme-grid">
-              {THEMES.filter((t) => t.mode === mode).map((t) => (
+              {THEMES.filter((theme) => theme.mode === mode).map((theme) => (
                 <button
-                  key={t.id}
+                  key={theme.id}
                   type="button"
-                  className={`theme-card${settings.theme === t.id ? ' active' : ''}`}
-                  aria-pressed={settings.theme === t.id}
-                  onClick={() => set({ theme: t.id as ThemeId })}
+                  className={`theme-card${settings.theme === theme.id ? ' active' : ''}`}
+                  aria-pressed={settings.theme === theme.id}
+                  onClick={() => set({ theme: theme.id as ThemeId })}
                 >
                   <span className="theme-swatch" aria-hidden="true">
-                    {t.preview.map((c) => (
+                    {theme.preview.map((c) => (
                       <span key={c} style={{ background: c }} />
                     ))}
                   </span>
-                  <span className="theme-name">{t.name}</span>
-                  <span className="theme-desc">{t.desc}</span>
+                  <span className="theme-name">
+                    {t(`settings.theme.${theme.id}.name`)}
+                  </span>
+                  <span className="theme-desc">
+                    {t(`settings.theme.${theme.id}.description`)}
+                  </span>
                 </button>
               ))}
             </div>
@@ -119,23 +135,22 @@ export function SettingsPage() {
       </div>
 
       <div className="panel">
-        <h2>テンプレートのカテゴリ</h2>
-        <p className="subtitle">
-          インポート先の選択画面に出す内蔵テンプレートを、業務のカテゴリ単位で
-          追加できます。既定はCRMとMAのみです（必要なものだけONにすると選びやすくなります）。
-          ONにしたテンプレートは「テンプレート管理」から複製して、自分用に項目を
-          追加・変更することもできます。
-        </p>
+        <h2>{t('settings.schemaCategories.title')}</h2>
+        <p className="subtitle">{t('settings.schemaCategories.description')}</p>
         {SCHEMA_CATEGORY_ORDER.map((category) => {
-          const { title, desc } = SCHEMA_CATEGORY_LABELS[category];
           const count = PRESET_SCHEMAS.filter(
             (s) => s.category === category,
           ).length;
           return (
             <ToggleRow
               key={category}
-              title={`${title}（${count}件）`}
-              desc={desc}
+              title={t('settings.schemaCategories.itemTitle', {
+                title: t(`category.${category}.title`),
+                count: t('settings.schemaCategories.count', {
+                  count: count.toLocaleString(settings.locale),
+                }),
+              })}
+              desc={t(`category.${category}.description`)}
               checked={settings.schemaCategories.includes(category)}
               onChange={(v) => toggleCategory(category, v)}
             />
@@ -144,19 +159,11 @@ export function SettingsPage() {
       </div>
 
       <div className="panel">
-        <h2>AI（LLM）接続</h2>
-        <p className="subtitle">
-          LLM推論を使う場合の接続設定です。APIキーは
-          <b>このブラウザにのみ保存</b>され、
-          推論時は自前のバックエンド経由でプロバイダに送られます（送るのは
-          <b>マスキング済みのカラム名とサンプルのみ</b>
-          で、実データは送りません）。運営のサーバー費用を第三者の乱打から守るため、
-          <b>LLM推論・LLM抽出の利用にはログインが必要</b>
-          です（上の「アカウント」欄からログインしてください）。
-        </p>
+        <h2>{t('settings.llm.title')}</h2>
+        <p className="subtitle">{t('settings.llm.description')}</p>
         <div className="settings-grid">
           <label className="field-label">
-            プロバイダ
+            {t('settings.llm.provider')}
             <select
               value={settings.llm.provider}
               onChange={(e) => {
@@ -171,7 +178,7 @@ export function SettingsPage() {
             </select>
           </label>
           <label className="field-label">
-            モデル
+            {t('settings.llm.model')}
             <input
               type="text"
               value={settings.llm.model}
@@ -180,7 +187,7 @@ export function SettingsPage() {
             />
           </label>
           <label className="field-label" style={{ gridColumn: '1 / -1' }}>
-            APIキー
+            {t('settings.llm.apiKey')}
             <input
               type="password"
               value={settings.llm.apiKey}
@@ -198,62 +205,59 @@ export function SettingsPage() {
         </div>
         {settings.features.llm && !settings.llm.apiKey.trim() && (
           <div className="alert info" style={{ marginTop: 12 }}>
-            LLM推論がONですがAPIキーが未入力です。キーが無い間はローカル推論で動作します。
+            {t('settings.llm.missingApiKey')}
           </div>
         )}
         {settings.features.llm && settings.llm.apiKey.trim() && !user && (
           <div className="alert info" style={{ marginTop: 12 }}>
-            LLM推論・LLM抽出の利用にはログインが必要です。未ログインの間はローカル推論・ローカル抽出で動作します。
+            {t('settings.llm.signInRequired')}
           </div>
         )}
       </div>
 
       <div className="panel">
-        <h2>マスキング</h2>
-        <p className="subtitle">
-          AIに渡すサンプルの伏字ルールです。個人情報の列は自動で伏字にし、必要に応じて
-          追加の列を指定できます。
-        </p>
+        <h2>{t('settings.masking.title')}</h2>
+        <p className="subtitle">{t('settings.masking.description')}</p>
         <ToggleRow
-          title="個人情報の列を自動マスク"
-          desc="氏名・会社名・メール・電話・住所などの列を自動判定して伏字にする"
+          title={t('settings.masking.personalInfo.title')}
+          desc={t('settings.masking.personalInfo.description')}
           checked={settings.masking.maskPersonalInfo}
           onChange={(v) => setMasking({ maskPersonalInfo: v })}
         />
         <ToggleRow
-          title="メールアドレスをマスク"
-          desc="値の中のメール形式を user@example.com に置換"
+          title={t('settings.masking.emails.title')}
+          desc={t('settings.masking.emails.description')}
           checked={settings.masking.maskEmails}
           onChange={(v) => setMasking({ maskEmails: v })}
         />
         <ToggleRow
-          title="電話番号をマスク"
-          desc="電話番号らしき数字列を 0 で置換"
+          title={t('settings.masking.phones.title')}
+          desc={t('settings.masking.phones.description')}
           checked={settings.masking.maskPhones}
           onChange={(v) => setMasking({ maskPhones: v })}
         />
         <ToggleRow
-          title="長い数字列をマスク"
-          desc="5桁以上の連続数字（ID・口座番号など）を 0 で置換"
+          title={t('settings.masking.longNumbers.title')}
+          desc={t('settings.masking.longNumbers.description')}
           checked={settings.masking.maskLongNumbers}
           onChange={(v) => setMasking({ maskLongNumbers: v })}
         />
         <ToggleRow
-          title="サンプル値を一切送らない"
-          desc="最も安全。列名と型だけをAIに渡す（サジェスト精度は下がる場合あり）"
+          title={t('settings.masking.noSamples.title')}
+          desc={t('settings.masking.noSamples.description')}
           checked={!settings.masking.sendSampleValues}
           onChange={(v) => setMasking({ sendSampleValues: !v })}
         />
 
-        <h3>追加でマスクする列</h3>
+        <h3>{t('settings.masking.additional.title')}</h3>
         <p className="subtitle" style={{ marginBottom: 8 }}>
-          自動判定に加えて、完全に伏字にしたい列名をカンマ区切りで指定します。
+          {t('settings.masking.additional.description')}
         </p>
         <input
           type="text"
           style={{ width: '100%', maxWidth: 480 }}
           value={settings.masking.sensitiveColumns.join(', ')}
-          placeholder="例: 備考, 社内メモ, 顧客ID"
+          placeholder={t('settings.masking.additional.placeholder')}
           onChange={(e) =>
             setMasking({
               sensitiveColumns: e.target.value
@@ -267,46 +271,54 @@ export function SettingsPage() {
 
       {settings.features.recipes && (
         <div className="panel">
-          <h2>保存済みレシピ</h2>
-          <p className="subtitle">
-            「このソース形式 →
-            このCRM」の確定マッピングです。同じ列構成のファイルを
-            投入すると自動で候補に出ます。
-          </p>
+          <h2>{t('settings.recipes.title')}</h2>
+          <p className="subtitle">{t('settings.recipes.description')}</p>
           {recipes.length === 0 ? (
-            <div className="alert info">
-              まだレシピがありません。マッピング画面の「🔁
-              レシピとして保存」で作成できます。
-            </div>
+            <div className="alert info">{t('settings.recipes.empty')}</div>
           ) : (
             recipes.map((r) => (
               <div key={r.id} className="toggle-row">
                 <div>
                   <div className="toggle-title">{r.name}</div>
                   <div className="toggle-desc">
-                    {r.mapping.fields.length} 項目・{r.sourceColumns.length} 列
-                    {' / '}
-                    {new Date(r.updatedAt).toLocaleDateString()}
+                    {t('settings.recipes.summary', {
+                      fields: r.mapping.fields.length.toLocaleString(
+                        settings.locale,
+                      ),
+                      columns: r.sourceColumns.length.toLocaleString(
+                        settings.locale,
+                      ),
+                      date: new Date(r.updatedAt).toLocaleDateString(
+                        settings.locale,
+                      ),
+                    })}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button
                     onClick={() => {
-                      const name = prompt('レシピ名を変更', r.name);
+                      const name = prompt(
+                        t('settings.recipes.renamePrompt'),
+                        r.name,
+                      );
                       if (name && name.trim())
                         void renameRecipe(r.id, name.trim());
                     }}
                   >
-                    名前変更
+                    {t('settings.recipes.rename')}
                   </button>
                   <button
                     className="ghost"
                     onClick={() => {
-                      if (confirm(`「${r.name}」を削除しますか？`))
+                      if (
+                        confirm(
+                          t('settings.recipes.confirmDelete', { name: r.name }),
+                        )
+                      )
                         void removeRecipe(r.id);
                     }}
                   >
-                    削除
+                    {t('settings.recipes.delete')}
                   </button>
                 </div>
               </div>
@@ -317,15 +329,12 @@ export function SettingsPage() {
 
       {settings.features.learningDictionary && (
         <div className="panel">
-          <h2>学習辞書</h2>
-          <p className="subtitle">
-            あなたがマッピングを直した「列名 →
-            項目」の履歴です。使うほどサジェスト精度が 上がります。
-          </p>
+          <h2>{t('settings.learning.title')}</h2>
+          <p className="subtitle">{t('settings.learning.description')}</p>
           <div className="stat-row" style={{ marginBottom: 12 }}>
             <div className="stat">
               <span className="val">{learnedEntries.length}</span>
-              <span className="lbl">学習エントリ数</span>
+              <span className="lbl">{t('settings.learning.entryCount')}</span>
             </div>
           </div>
           {learnedEntries.length > 0 && (
@@ -334,9 +343,9 @@ export function SettingsPage() {
                 <table>
                   <thead>
                     <tr>
-                      <th>ソース列（正規化）</th>
-                      <th>割り当て先</th>
-                      <th>回数</th>
+                      <th>{t('settings.learning.sourceHeader')}</th>
+                      <th>{t('settings.learning.destination')}</th>
+                      <th>{t('settings.learning.count')}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -357,11 +366,11 @@ export function SettingsPage() {
               <button
                 className="ghost"
                 onClick={() => {
-                  if (confirm('学習辞書をすべて消去しますか？'))
+                  if (confirm(t('settings.learning.confirmClear')))
                     clearLearning();
                 }}
               >
-                学習辞書をクリア
+                {t('settings.learning.clear')}
               </button>
             </>
           )}
@@ -392,6 +401,7 @@ function ToggleRow({
         className={`switch${checked ? ' on' : ''}`}
         role="switch"
         aria-checked={checked}
+        aria-label={title}
         onClick={() => onChange(!checked)}
       >
         <span className="knob" />

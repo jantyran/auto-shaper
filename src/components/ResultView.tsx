@@ -1,10 +1,11 @@
+import { createTranslator } from '../core/i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../state/store';
 import { transformAll } from '../core/transformEngine';
 import { applyRowFilter } from '../core/rowFilter';
 import { importContextToRow } from '../core/importContext';
 import { toCsv, downloadCsv, downloadXlsx } from '../core/exportCsv';
-import { validateRows, ISSUE_LABELS } from '../core/validate';
+import { validateRows } from '../core/validate';
 import { applyDedupe } from '../core/dedupe';
 import type {
   TransformRequest,
@@ -16,6 +17,9 @@ import { DedupePanel } from './DedupePanel';
 
 /** ステップ4: 全件変換の実行と出力 */
 export function ResultView() {
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
+
   const source = useStore((s) => s.source);
   const target = useStore((s) => s.target);
   const mapping = useStore((s) => s.mapping);
@@ -145,12 +149,14 @@ export function ResultView() {
 
   return (
     <div className="panel">
-      <h2>4. 変換の実行と出力</h2>
+      <h2>{t('result.heading')}</h2>
 
       {isTransforming && (
         <>
           <div className="alert info">
-            全 {targetRows.length.toLocaleString()} 行をブラウザ内で変換中…
+            {t('result.converting', {
+              count: targetRows.length.toLocaleString(locale),
+            })}
           </div>
           <div className="progress">
             <div style={{ width: `${Math.round(progress * 100)}%` }} />
@@ -162,22 +168,26 @@ export function ResultView() {
         <>
           <div className="stat-row" data-tour="tour-result-stats">
             <div className="stat">
-              <span className="val">{outputRows.length.toLocaleString()}</span>
-              <span className="lbl">変換した行数</span>
+              <span className="val">
+                {outputRows.length.toLocaleString(locale)}
+              </span>
+              <span className="lbl">{t('result.rows')}</span>
             </div>
             {removedRows > 0 && (
               <div className="stat">
-                <span className="val">{removedRows.toLocaleString()}</span>
-                <span className="lbl">絞り込みで除外</span>
+                <span className="val">
+                  {removedRows.toLocaleString(locale)}
+                </span>
+                <span className="lbl">{t('result.filtered')}</span>
               </div>
             )}
             <div className="stat">
               <span className="val">{outputFields.length}</span>
-              <span className="lbl">出力フィールド数</span>
+              <span className="lbl">{t('result.fields')}</span>
             </div>
             <div className="stat">
               <span className="val">{target.name}</span>
-              <span className="lbl">フォーマット</span>
+              <span className="lbl">{t('result.format')}</span>
             </div>
           </div>
 
@@ -190,12 +200,10 @@ export function ResultView() {
               checked={!dropEmptyColumns}
               onChange={(e) => setDropEmptyColumns(!e.target.checked)}
             />
-            空（未割当）の項目も出力に含める
+            {t('result.includeEmpty')}
           </label>
 
-          <div className="security-note">
-            変換はすべてこのブラウザ内で完結しました。実データは外部サーバーを通過していません。
-          </div>
+          <div className="security-note">{t('result.security')}</div>
 
           {validation && (
             <ValidationPanel
@@ -221,11 +229,9 @@ export function ResultView() {
 
           <div className="btn-row" data-tour="tour-result-export">
             <button className="primary" onClick={handleExportCsv}>
-              整形済みCSVをダウンロード
+              {t('result.csv')}
             </button>
-            <button onClick={handleExportXlsx}>
-              Excel(.xlsx)でダウンロード
-            </button>
+            <button onClick={handleExportXlsx}>{t('result.xlsx')}</button>
           </div>
         </>
       )}
@@ -249,15 +255,16 @@ function ValidationPanel({
   validation: ReturnType<typeof validateRows>;
   total: number;
 }) {
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
+
   const { counts, invalidRows, issues } = validation;
   const totalIssues = issues.length;
 
   if (totalIssues === 0) {
     return (
       <div className="alert ok">
-        ✓ 検証OK —
-        必須項目の欠落やメール/電話の形式エラーは見つかりませんでした（
-        {total.toLocaleString()}行）。
+        {t('result.valid', { count: total.toLocaleString(locale) })}
       </div>
     );
   }
@@ -266,11 +273,13 @@ function ValidationPanel({
     <div className="validation">
       <div className="validation-head">
         <span className="v-title">
-          ⚠ 取り込み前に確認すべき点が {totalIssues} 件
+          {t('result.issues', { count: totalIssues })}
         </span>
         <span className="v-sub">
-          {invalidRows.size.toLocaleString()} / {total.toLocaleString()}{' '}
-          行に問題があります
+          {t('result.invalidRows', {
+            count: invalidRows.size.toLocaleString(locale),
+            total: total.toLocaleString(locale),
+          })}
         </span>
       </div>
       <div className="v-counts">
@@ -278,20 +287,24 @@ function ValidationPanel({
           .filter((k) => counts[k] > 0)
           .map((k) => (
             <span key={k} className="v-count">
-              {ISSUE_LABELS[k]}: <b>{counts[k]}</b>
+              {t(`validation.${k}`)}: <b>{counts[k]}</b>
             </span>
           ))}
       </div>
       <ul className="v-list">
         {issues.slice(0, 8).map((iss, i) => (
           <li key={i}>
-            <span className="v-row">{iss.row + 1}行目</span>「{iss.label}」
-            {ISSUE_LABELS[iss.kind]}
-            {iss.value ? `（値: ${iss.value}）` : ''}
+            <span className="v-row">
+              {t('common.row', { count: iss.row + 1 })}
+            </span>
+            「{iss.label}」{t(`validation.${iss.kind}`)}
+            {iss.value ? t('result.issueValue', { value: iss.value }) : ''}
           </li>
         ))}
         {issues.length > 8 && (
-          <li className="v-more">…ほか {issues.length - 8} 件</li>
+          <li className="v-more">
+            {t('result.moreIssues', { count: issues.length - 8 })}
+          </li>
         )}
       </ul>
     </div>
@@ -309,6 +322,9 @@ function ResultPreview({
   invalidRows: Set<number>;
   issueCells: Set<string>;
 }) {
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
+
   const [onlyIssues, setOnlyIssues] = useState(false);
   const [wrapCells, setWrapCells] = useState(false);
 
@@ -322,11 +338,9 @@ function ResultPreview({
     <>
       <div className="preview-bar">
         <h3 style={{ margin: 0 }}>
-          出力プレビュー（
           {onlyIssues
-            ? '問題のある行'
-            : `先頭${Math.min(12, filtered.length)}行`}
-          ）
+            ? t('result.issuesPreview')
+            : t('result.preview', { count: Math.min(12, filtered.length) })}
         </h3>
         {invalidRows.size > 0 && (
           <label className="toggle">
@@ -335,7 +349,7 @@ function ResultPreview({
               checked={onlyIssues}
               onChange={(e) => setOnlyIssues(e.target.checked)}
             />
-            問題のある行のみ表示
+            {t('result.onlyIssues')}
           </label>
         )}
         <label className="toggle">
@@ -344,7 +358,7 @@ function ResultPreview({
             checked={wrapCells}
             onChange={(e) => setWrapCells(e.target.checked)}
           />
-          長い値を折り返して全文表示
+          {t('common.wrap')}
         </label>
       </div>
       <div className={`table-wrap${wrapCells ? ' wrap-cells' : ''}`}>

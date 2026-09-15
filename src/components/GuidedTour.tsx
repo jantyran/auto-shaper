@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useStore, type Step, type View } from '../state/store';
 import { tourStepsFor, type TourStep } from '../core/tour';
+import { createTranslator, type TranslationKey } from '../core/i18n';
 
 const PAD = 6;
 const CARD_WIDTH = 330;
@@ -11,33 +12,57 @@ const CARD_WIDTH = 330;
  */
 const CARD_EST_HEIGHT = 210;
 
-const FLOW_STEPS = [
-  { icon: '📥', label: 'アップロード', note: '雑多なCSV/Excel' },
-  { icon: '🎯', label: 'インポート先', note: '出力先を選ぶ' },
-  { icon: '🔀', label: 'マッピング', note: 'AIの提案を確認' },
-  { icon: '📤', label: '出力', note: 'CSV / Excel' },
+const FLOW_STEPS: {
+  icon: string;
+  label: TranslationKey;
+  note: TranslationKey;
+}[] = [
+  {
+    icon: '📥',
+    label: 'tour.intro.flow.upload.label',
+    note: 'tour.intro.flow.upload.note',
+  },
+  {
+    icon: '🎯',
+    label: 'tour.intro.flow.destination.label',
+    note: 'tour.intro.flow.destination.note',
+  },
+  {
+    icon: '🔀',
+    label: 'tour.intro.flow.mapping.label',
+    note: 'tour.intro.flow.mapping.note',
+  },
+  {
+    icon: '📤',
+    label: 'tour.intro.flow.export.label',
+    note: 'tour.intro.flow.export.note',
+  },
 ];
 
-const SERVICE_INTRO_ITEMS: { icon: string; title: string; body: string }[] = [
+const SERVICE_INTRO_ITEMS: {
+  icon: string;
+  title: TranslationKey;
+  body: TranslationKey;
+}[] = [
   {
     icon: '📊',
-    title: '表の整形',
-    body: 'バラバラなExcel/CSVのカラムを読み取り、インポート用フォーマットへ自動整形します。',
+    title: 'tour.intro.service.table.title',
+    body: 'tour.intro.service.table.body',
   },
   {
     icon: '📝',
-    title: 'テキスト整形',
-    body: '問合せメールなどの文章を、テンプレートの項目へ振り分けて整理します。',
+    title: 'tour.intro.service.text.title',
+    body: 'tour.intro.service.text.body',
   },
   {
     icon: '🗂️',
-    title: 'テンプレート管理',
-    body: '取り込み先フォーマットを追加・編集し、自動記入ルールも設定できます。',
+    title: 'tour.intro.service.templates.title',
+    body: 'tour.intro.service.templates.body',
   },
   {
     icon: '📐',
-    title: '式リファレンス',
-    body: '自動記入ルールで使える式(if/caseなど)の書き方を確認できます。',
+    title: 'tour.intro.service.formulas.title',
+    body: 'tour.intro.service.formulas.body',
   },
 ];
 
@@ -90,6 +115,7 @@ export function GuidedTour() {
   const tourActive = useStore((s) => s.tourActive);
   const tourNonce = useStore((s) => s.tourNonce);
   const view = useStore((s) => s.view);
+  const locale = useStore((s) => s.settings.locale);
   const step = useStore((s) => s.step);
   const closeTour = useStore((s) => s.closeTour);
   const loadDemoSource = useStore((s) => s.loadDemoSource);
@@ -141,6 +167,7 @@ export function GuidedTour() {
   if (session.phase === 'intro') {
     return (
       <IntroModal
+        locale={locale}
         onStart={() => setSession({ ...session, phase: 'steps' })}
         onSkip={closeTour}
       />
@@ -149,6 +176,7 @@ export function GuidedTour() {
 
   return (
     <TourSteps
+      locale={locale}
       view={view}
       step={step}
       screenKey={screenKey}
@@ -160,12 +188,15 @@ export function GuidedTour() {
 }
 
 function IntroModal({
+  locale,
   onStart,
   onSkip,
 }: {
+  locale: 'en' | 'ja';
   onStart: () => void;
   onSkip: () => void;
 }) {
+  const t = createTranslator(locale);
   return (
     <div className="intro-overlay">
       <div className="intro-card">
@@ -174,26 +205,23 @@ function IntroModal({
             ✨
           </span>
           <div>
-            <h3>Auto Shaper へようこそ</h3>
-            <p>
-              雑多なデータを、<b>ブラウザ内だけ</b>
-              で整形して書き出すツールです。実データが外部に送信されることはありません。
-            </p>
+            <h3>{t('tour.intro.title')}</h3>
+            <p>{t('tour.intro.description')}</p>
           </div>
         </header>
 
         <section className="intro-section">
-          <h4>表の整形は、この4ステップ</h4>
+          <h4>{t('tour.intro.flowHeading')}</h4>
           <div className="intro-flow">
             {FLOW_STEPS.map((s, i) => (
-              <div className="intro-flow-cell" key={s.label}>
+              <div className="intro-flow-cell" key={t(s.label)}>
                 <div className="intro-flow-step">
                   <span className="intro-flow-icon" aria-hidden="true">
                     {s.icon}
                   </span>
                   <span className="intro-flow-num">{i + 1}</span>
-                  <span className="intro-flow-label">{s.label}</span>
-                  <span className="intro-flow-note">{s.note}</span>
+                  <span className="intro-flow-label">{t(s.label)}</span>
+                  <span className="intro-flow-note">{t(s.note)}</span>
                 </div>
                 {i < FLOW_STEPS.length - 1 && (
                   <span className="intro-flow-arrow" aria-hidden="true">
@@ -206,33 +234,30 @@ function IntroModal({
         </section>
 
         <section className="intro-section">
-          <h4>4つのタブでできること</h4>
+          <h4>{t('tour.intro.servicesHeading')}</h4>
           <div className="intro-item-list">
             {SERVICE_INTRO_ITEMS.map((item) => (
-              <div className="intro-item" key={item.title}>
+              <div className="intro-item" key={t(item.title)}>
                 <span className="intro-item-icon" aria-hidden="true">
                   {item.icon}
                 </span>
                 <div className="intro-item-text">
-                  <span className="intro-item-title">{item.title}</span>
-                  <span className="intro-item-body">{item.body}</span>
+                  <span className="intro-item-title">{t(item.title)}</span>
+                  <span className="intro-item-body">{t(item.body)}</span>
                 </div>
               </div>
             ))}
           </div>
         </section>
 
-        <p className="intro-foot-note">
-          これから、サンプルデータを使って実際の画面を操作しながら案内します。
-          操作はあなた自身が進めるので、途中でやめても大丈夫です。
-        </p>
+        <p className="intro-foot-note">{t('tour.intro.note')}</p>
 
         <footer className="intro-actions">
           <button type="button" className="ghost" onClick={onSkip}>
-            スキップ
+            {t('tour.intro.skip')}
           </button>
           <button type="button" className="primary" onClick={onStart}>
-            操作方法を学ぶ →
+            {t('tour.intro.start')}
           </button>
         </footer>
       </div>
@@ -241,6 +266,7 @@ function IntroModal({
 }
 
 function TourSteps({
+  locale,
   view,
   step,
   screenKey,
@@ -248,6 +274,7 @@ function TourSteps({
   onFinishScreen,
   onHardClose,
 }: {
+  locale: 'en' | 'ja';
   view: View;
   step: Step;
   screenKey: string;
@@ -256,7 +283,10 @@ function TourSteps({
   onHardClose: () => void;
 }) {
   const exportedOnce = useStore((s) => s.exportedOnce);
-  const steps = useMemo(() => tourStepsFor(view, step), [view, step]);
+  const steps = useMemo(
+    () => tourStepsFor(locale, view, step),
+    [locale, view, step],
+  );
 
   const [local, setLocal] = useState({ key: screenKey, index: 0 });
   // 画面が変わったら、レンダー中にこの画面用のインデックスへリセットする
@@ -338,6 +368,7 @@ function TourSteps({
         onPrev={local.index > 0 ? handlePrev : undefined}
         onNext={handleNext}
         onSkipScreen={() => onFinishScreen(screenKey, true, !!current.final)}
+        locale={locale}
         onHardClose={onHardClose}
       />
     </div>
@@ -396,6 +427,7 @@ function TourCard({
   onNext,
   onSkipScreen,
   onHardClose,
+  locale,
 }: {
   rect: DOMRect | null;
   step: TourStep;
@@ -407,7 +439,9 @@ function TourCard({
   onNext: () => void;
   onSkipScreen: () => void;
   onHardClose: () => void;
+  locale: 'en' | 'ja';
 }) {
+  const t = createTranslator(locale);
   const cardRef = useRef<HTMLDivElement>(null);
   const [style, setStyle] = useState(() => cardStyle(rect, CARD_EST_HEIGHT));
 
@@ -427,7 +461,7 @@ function TourCard({
         <button
           type="button"
           className="icon"
-          title="ツアーを閉じる"
+          title={t('tour.close')}
           onClick={onHardClose}
         >
           ×
@@ -445,18 +479,18 @@ function TourCard({
       <div className="tour-card-actions">
         {onPrev ? (
           <button type="button" className="ghost" onClick={onPrev}>
-            ← 前へ
+            {t('tour.previous')}
           </button>
         ) : (
           <button type="button" className="ghost" onClick={onSkipScreen}>
-            スキップ
+            {t('tour.intro.skip')}
           </button>
         )}
         {waiting ? (
-          <span className="tour-waiting-label">操作をお待ちしています…</span>
+          <span className="tour-waiting-label">{t('tour.waiting')}</span>
         ) : (
           <button type="button" className="primary" onClick={onNext}>
-            {step.primaryLabel ?? (isLast ? 'わかった' : '次へ →')}
+            {step.primaryLabel ?? (isLast ? t('tour.done') : t('tour.next'))}
           </button>
         )}
       </div>

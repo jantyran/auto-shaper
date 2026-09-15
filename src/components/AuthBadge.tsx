@@ -4,12 +4,15 @@
  * ログイン済み: メールアドレスと保存先(DB同期)の表示。クリックで設定へ。
  */
 import { useStore } from '../state/store';
+import { createTranslator } from '../core/i18n';
 
 export function AuthBadge() {
   const user = useStore((s) => s.user);
   const authReady = useStore((s) => s.authReady);
   const storageMode = useStore((s) => s.storageMode);
   const setView = useStore((s) => s.setView);
+  const locale = useStore((s) => s.settings.locale);
+  const t = createTranslator(locale);
 
   if (!authReady) return null;
 
@@ -18,9 +21,9 @@ export function AuthBadge() {
       <button
         className="navbtn auth-badge-btn"
         onClick={() => setView('settings')}
-        title="ログインするとテンプレート/レシピをDBに保存できます"
+        title={t('authBadge.signedOutTitle')}
       >
-        🔒 ログイン
+        🔒 {t('account.signIn')}
       </button>
     );
   }
@@ -29,11 +32,13 @@ export function AuthBadge() {
     <button
       className="auth-badge"
       onClick={() => setView('settings')}
-      title="アカウント設定へ"
+      title={t('authBadge.signedInTitle')}
     >
       <span className="dot" />
       <span className="mail">{user.email}</span>
-      <span className="sync">{storageMode === 'api' ? 'DB同期' : 'ローカル'}</span>
+      <span className="sync">
+        {storageMode === 'api' ? t('authBadge.sync') : t('authBadge.local')}
+      </span>
     </button>
   );
 }

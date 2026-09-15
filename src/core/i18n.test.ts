@@ -56,4 +56,30 @@ describe('createTranslator', () => {
       japanese('settings.recipes.confirmDelete', { name: 'Quarterly import' }),
     ).toBe('「Quarterly import」を削除しますか？');
   });
+
+  test('localizes account authentication controls and connection settings', () => {
+    const english = createTranslator('en') as (
+      key: string,
+      values?: Record<string, string | number>,
+    ) => string;
+    const japanese = createTranslator('ja') as (
+      key: string,
+      values?: Record<string, string | number>,
+    ) => string;
+
+    expect(english('account.heading')).toBe('Account');
+    expect(japanese('account.heading')).toBe('アカウント');
+    expect(english('account.signIn')).toBe('Sign in');
+    expect(japanese('account.signUp')).toBe('新規登録');
+    expect(english('account.passwordInvalid')).toBe(
+      'Password must be at least 8 characters.',
+    );
+    expect(japanese('account.passwordInvalid')).toBe(
+      'パスワードは8文字以上にしてください。',
+    );
+    expect(english('account.connectionDetails')).toBe('Connection details');
+    expect(japanese('account.connectionDetails')).toBe('接続先の詳細設定');
+    expect(english('authBadge.signedInTitle')).toBe('Go to account settings');
+    expect(japanese('authBadge.local')).toBe('ローカル');
+  });
 });

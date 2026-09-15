@@ -11,10 +11,7 @@
  *  - サンプル値を一切送らず「列名と型だけ」を渡す最強モード
  */
 import type { SourceColumn, SuggestContext, TargetSchema } from '../types';
-import {
-  DEFAULT_SETTINGS,
-  type MaskingSettings,
-} from './settings';
+import { DEFAULT_SETTINGS, type MaskingSettings } from './settings';
 
 const EMAIL_RE = /[^\s@]+@[^\s@]+\.[^\s@]+/g;
 const PHONE_RE = /(\+?\d[\d\-\s()]{6,}\d)/g;
@@ -23,13 +20,52 @@ const REDACTED = '■■■(機微)';
 
 /** 個人情報に該当する列名のキーワード(氏名・会社名・連絡先・住所など) */
 const PERSONAL_KEYWORDS = [
-  '氏名', '名前', 'お名前', '姓', '名', '苗字', '名字', '担当者', '担当',
-  'name', 'firstname', 'first name', 'lastname', 'last name',
-  '会社', '企業', '法人', '団体', '組織', '御社', 'company', 'organization', 'account',
-  'メール', 'mail', 'email', 'e-mail',
-  '電話', 'tel', 'phone', '携帯', 'mobile', '連絡先', 'fax',
-  '住所', '所在地', 'address', '郵便', 'zip', 'postal',
-  '生年月日', '誕生日', 'birthday', 'dob', 'マイナンバー', '口座',
+  '氏名',
+  '名前',
+  'お名前',
+  '姓',
+  '名',
+  '苗字',
+  '名字',
+  '担当者',
+  '担当',
+  'name',
+  'firstname',
+  'first name',
+  'lastname',
+  'last name',
+  '会社',
+  '企業',
+  '法人',
+  '団体',
+  '組織',
+  '御社',
+  'company',
+  'organization',
+  'account',
+  'メール',
+  'mail',
+  'email',
+  'e-mail',
+  '電話',
+  'tel',
+  'phone',
+  '携帯',
+  'mobile',
+  '連絡先',
+  'fax',
+  '住所',
+  '所在地',
+  'address',
+  '郵便',
+  'zip',
+  'postal',
+  '生年月日',
+  '誕生日',
+  'birthday',
+  'dob',
+  'マイナンバー',
+  '口座',
 ];
 
 /**
@@ -38,9 +74,15 @@ const PERSONAL_KEYWORDS = [
  */
 export function isPersonalColumn(name: string, inferredType: string): boolean {
   if (inferredType === 'email' || inferredType === 'phone') return true;
-  const n = name.normalize('NFKC').toLowerCase().replace(/[\s_\-.・:：/]/g, '');
+  const n = name
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[\s_\-.・:：/]/g, '');
   return PERSONAL_KEYWORDS.some((k) => {
-    const nk = k.normalize('NFKC').toLowerCase().replace(/[\s_\-.・:：/]/g, '');
+    const nk = k
+      .normalize('NFKC')
+      .toLowerCase()
+      .replace(/[\s_\-.・:：/]/g, '');
     return n.includes(nk);
   });
 }
@@ -92,7 +134,10 @@ export function buildSuggestContext(
   if (maskingEnabled) {
     for (const col of columns) {
       if (sensitive.has(col.name)) redactColumns.add(col.name);
-      else if (masking.maskPersonalInfo && isPersonalColumn(col.name, col.inferredType))
+      else if (
+        masking.maskPersonalInfo &&
+        isPersonalColumn(col.name, col.inferredType)
+      )
         redactColumns.add(col.name);
     }
   }

@@ -125,7 +125,10 @@ function buildDisplay(
 }
 
 /** 既存トークンから同じ original を探す（同一値は同じトークンに寄せる） */
-function findByOriginal(dict: MaskDictionary, original: string): MaskToken | undefined {
+function findByOriginal(
+  dict: MaskDictionary,
+  original: string,
+): MaskToken | undefined {
   for (const t of dict.values()) if (t.original === original) return t;
   return undefined;
 }
@@ -199,7 +202,9 @@ export function manualMaskSelection(
   const used = collectNames(next);
 
   const existing = findByOriginal(next, original);
-  const display = existing ? existing.display : buildDisplay(category, next, used);
+  const display = existing
+    ? existing.display
+    : buildDisplay(category, next, used);
   if (!existing) {
     next.set(display, {
       id: `${category}_${Date.now()}_${used.size + 1}`,
@@ -220,7 +225,9 @@ export function manualMaskSelection(
  */
 export function unmaskText(text: string, dict: MaskDictionary): string {
   let out = text;
-  const tokens = [...dict.values()].sort((a, b) => b.display.length - a.display.length);
+  const tokens = [...dict.values()].sort(
+    (a, b) => b.display.length - a.display.length,
+  );
   for (const t of tokens) out = out.split(t.display).join(t.original);
   return out;
 }

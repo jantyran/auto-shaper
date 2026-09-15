@@ -49,8 +49,6 @@ const MANUAL_CATEGORIES: MaskCategory[] = [
   'CUSTOM',
 ];
 
-
-
 type TextRecordMethod = 'llm' | 'local';
 
 interface ShapedTextRecord {
@@ -66,7 +64,11 @@ function newRecordId(): string {
     : 'text-' + Date.now() + '-' + Math.random().toString(36).slice(2);
 }
 
-function recordTitle(item: ShapedTextRecord, fields: TargetField[], t: ReturnType<typeof createTranslator>): string {
+function recordTitle(
+  item: ShapedTextRecord,
+  fields: TargetField[],
+  t: ReturnType<typeof createTranslator>,
+): string {
   const topic = fields.find((f) =>
     /topic|TOPIC|トピック/i.test(f.key + f.label),
   );
@@ -76,7 +78,9 @@ function recordTitle(item: ShapedTextRecord, fields: TargetField[], t: ReturnTyp
     (company && item.record[company.key]?.trim()) ||
     fields.map((f) => item.record[f.key]?.trim()).find(Boolean) ||
     '';
-  return primary ? `${item.index}. ${primary}` : `${item.index}. ${t('text.results', { count: 1 })}`;
+  return primary
+    ? `${item.index}. ${primary}`
+    : `${item.index}. ${t('text.results', { count: 1 })}`;
 }
 
 export function TextShaper() {
@@ -175,9 +179,7 @@ export function TextShaper() {
 
   const handleSchemaChange = (nextSchemaId: string) => {
     if (records.length > 0) {
-      const ok = confirm(
-        t('text.confirmChangeTemplate'),
-      );
+      const ok = confirm(t('text.confirmChangeTemplate'));
       if (!ok) return;
       setRecords([]);
       setOpenRecordIds(new Set());
@@ -344,7 +346,9 @@ export function TextShaper() {
   return (
     <div className="panel">
       <h2>{t('text.heading')}</h2>
-      <p className="subtitle" style={{ marginBottom: 12 }}>{t('text.description')}</p>
+      <p className="subtitle" style={{ marginBottom: 12 }}>
+        {t('text.description')}
+      </p>
 
       <div className="security-note">{t('text.security')}</div>
 
@@ -358,13 +362,23 @@ export function TextShaper() {
           {schemas.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
-              {s.isDefault ? t('text.default') : ''}{t('text.fieldCount', { count: s.fields.length })}
+              {s.isDefault ? t('text.default') : ''}
+              {t('text.fieldCount', { count: s.fields.length })}
             </option>
           ))}
         </select>
       </label>
       <p className="subtitle" style={{ margin: '6px 0 14px' }}>
-        {t('text.managePrefix')}<button className="ghost" style={{ padding: '2px 8px', margin: '0 2px' }} onClick={() => setView('admin')}>{t('text.manage')}</button>{t('text.manageSuffix')}</p>
+        {t('text.managePrefix')}
+        <button
+          className="ghost"
+          style={{ padding: '2px 8px', margin: '0 2px' }}
+          onClick={() => setView('admin')}
+        >
+          {t('text.manage')}
+        </button>
+        {t('text.manageSuffix')}
+      </p>
 
       {/* マスキング・ツールバー */}
       <div className="mask-toolbar" data-tour="tour-text-input">
@@ -438,9 +452,7 @@ export function TextShaper() {
       {/* トークン一覧 */}
       <div className="mask-tokens">
         {tokens.length === 0 ? (
-          <span className="empty">
-            {t('text.noTokens')}
-          </span>
+          <span className="empty">{t('text.noTokens')}</span>
         ) : (
           tokens.map((token) => (
             <span
@@ -487,7 +499,15 @@ export function TextShaper() {
 
       {!llmReady && (
         <div className="alert info" style={{ marginTop: 12 }}>
-          {t('text.llmUnavailablePrefix')}<button className="ghost" style={{ padding: '2px 8px', margin: '0 2px' }} onClick={() => setView('settings')}>{t('nav.settings')}</button>{t('text.llmUnavailableSuffix')}
+          {t('text.llmUnavailablePrefix')}
+          <button
+            className="ghost"
+            style={{ padding: '2px 8px', margin: '0 2px' }}
+            onClick={() => setView('settings')}
+          >
+            {t('nav.settings')}
+          </button>
+          {t('text.llmUnavailableSuffix')}
         </div>
       )}
 
@@ -501,10 +521,10 @@ export function TextShaper() {
       {records.length > 0 && target && (
         <div className="text-result-list" data-tour="tour-text-results">
           <div className="preview-bar">
-            <h3 style={{ margin: 0 }}>{t('text.results', { count: records.length })}</h3>
-            <span className="v-sub">
-              {t('text.resultsHint')}
-            </span>
+            <h3 style={{ margin: 0 }}>
+              {t('text.results', { count: records.length })}
+            </h3>
+            <span className="v-sub">{t('text.resultsHint')}</span>
           </div>
 
           {records.map((item) => (
@@ -525,7 +545,9 @@ export function TextShaper() {
               <summary className="text-result-summary">
                 <span>{recordTitle(item, target.fields, t)}</span>
                 <span className="field-kind-badge">
-                  {item.method === 'llm' ? t('text.llmMethod') : t('text.localMethod')}
+                  {item.method === 'llm'
+                    ? t('text.llmMethod')
+                    : t('text.localMethod')}
                 </span>
               </summary>
               <div className="fill-grid">
@@ -580,7 +602,9 @@ function FillRow({
     <>
       <div className="fill-label">
         {fieldDisplayName(field)}
-        {field.required && <span className="required-badge">{t('text.required')}</span>}
+        {field.required && (
+          <span className="required-badge">{t('text.required')}</span>
+        )}
         <span className="field-kind-badge">
           {inputKind === 'select'
             ? t('text.selectKind')

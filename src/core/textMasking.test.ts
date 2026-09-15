@@ -27,7 +27,9 @@ describe('autoMaskText', () => {
   it('同じ値は同じトークンに寄せる', () => {
     const src = 'a@x.com に送付、控えも a@x.com へ。';
     const { maskedText, dictionary } = autoMaskText(src, empty());
-    const emailTokens = [...dictionary.values()].filter((t) => t.category === 'EMAIL');
+    const emailTokens = [...dictionary.values()].filter(
+      (t) => t.category === 'EMAIL',
+    );
     expect(emailTokens.length).toBe(1);
     expect(maskedText.match(/\[EMAIL_1\]/g)?.length).toBe(2);
   });
@@ -56,7 +58,8 @@ describe('autoMaskText', () => {
 
 describe('manualMaskSelection', () => {
   it('選択範囲を指定カテゴリでマスクし、同一文字列を全置換する', () => {
-    const src = '株式会社サンプルの件、サンプル担当者より連絡します。（株式会社サンプル）';
+    const src =
+      '株式会社サンプルの件、サンプル担当者より連絡します。（株式会社サンプル）';
     const start = src.indexOf('株式会社サンプル');
     const end = start + '株式会社サンプル'.length;
     const res = manualMaskSelection(src, start, end, 'COMPANY', empty());
@@ -74,7 +77,10 @@ describe('manualMaskSelection', () => {
 describe('unmaskRecord / splitByTokens', () => {
   it('レコードの各値を復元する', () => {
     const { dictionary } = autoMaskText('a@x.com', empty());
-    const restored = unmaskRecord({ Email: '[EMAIL_1]', Name: '山田' }, dictionary);
+    const restored = unmaskRecord(
+      { Email: '[EMAIL_1]', Name: '山田' },
+      dictionary,
+    );
     expect(restored.Email).toBe('a@x.com');
     expect(restored.Name).toBe('山田');
   });

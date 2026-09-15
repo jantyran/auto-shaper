@@ -68,9 +68,13 @@ export function createSqliteStore() {
   const insSession = db.prepare(
     'INSERT INTO sessions (token, user_id, expires_at) VALUES (@token, @user_id, @expires_at)',
   );
-  const selSession = db.prepare('SELECT user_id, expires_at FROM sessions WHERE token = ?');
+  const selSession = db.prepare(
+    'SELECT user_id, expires_at FROM sessions WHERE token = ?',
+  );
   const delSession = db.prepare('DELETE FROM sessions WHERE token = ?');
-  const delExpiredSessions = db.prepare('DELETE FROM sessions WHERE expires_at < ?');
+  const delExpiredSessions = db.prepare(
+    'DELETE FROM sessions WHERE expires_at < ?',
+  );
 
   // ── schemas ──
   const selSchemas = db.prepare(
@@ -81,7 +85,9 @@ export function createSqliteStore() {
     VALUES (@user_id, @id, @name, @fields, @updated_at)
     ON CONFLICT(user_id, id) DO UPDATE SET name = @name, fields = @fields, updated_at = @updated_at
   `);
-  const delSchema = db.prepare('DELETE FROM schemas WHERE user_id = ? AND id = ?');
+  const delSchema = db.prepare(
+    'DELETE FROM schemas WHERE user_id = ? AND id = ?',
+  );
 
   // ── collections ──
   const selCollection = db.prepare(

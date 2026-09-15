@@ -54,31 +54,19 @@ const EXAMPLES = [
 const REFS = [
   ['{Field}', 'formula.syntax.field'],
   ['{Field.value}', 'formula.syntax.fieldValue'],
-  [
-    '{Field.label}',
-    'formula.syntax.fieldLabel',
-  ],
+  ['{Field.label}', 'formula.syntax.fieldLabel'],
   ['{Field.key}', 'formula.syntax.fieldKey'],
-  [
-    '{Import.EventName}',
-    'formula.syntax.importValue',
-  ],
+  ['{Import.EventName}', 'formula.syntax.importValue'],
   ['"文字列"', 'formula.syntax.string'],
   ['&', 'formula.syntax.concat'],
   ['= / == / !=', 'formula.syntax.comparison'],
-  [
-    'contains(a, b)',
-    'formula.syntax.contains',
-  ],
+  ['contains(a, b)', 'formula.syntax.contains'],
   ['startsWith(a, b)', 'formula.syntax.startsWith'],
   ['endsWith(a, b)', 'formula.syntax.endsWith'],
   ['empty(a)', 'formula.syntax.empty'],
   ['notEmpty(a)', 'formula.syntax.notEmpty'],
   ['if(cond, yes, no)', 'formula.syntax.if'],
-  [
-    'case(cond1, value1, ..., default)',
-    'formula.syntax.case',
-  ],
+  ['case(cond1, value1, ..., default)', 'formula.syntax.case'],
   ['coalesce(a, b, ...)', 'formula.syntax.coalesce'],
   ['trim / upper / lower', 'formula.syntax.textTransform'],
 ] as const;

@@ -112,9 +112,7 @@ export function TemplateExportDialog({
     <div className="tpl-overlay" role="dialog" aria-modal="true">
       <div className="tpl-card">
         <h3 style={{ marginTop: 0 }}>{t('template.exportTitle')}</h3>
-        <p className="subtitle">
-          {t('template.exportDescription')}
-        </p>
+        <p className="subtitle">{t('template.exportDescription')}</p>
         <PickerActions
           count={chosen.length}
           total={schemas.length}
@@ -198,7 +196,10 @@ export function TemplateImportDialog({
       <div className="tpl-card">
         <h3 style={{ marginTop: 0 }}>{t('template.importTitle')}</h3>
         <p className="subtitle">
-          {t('template.importDescription', { fileName, count: candidates.length })}
+          {t('template.importDescription', {
+            fileName,
+            count: candidates.length,
+          })}
           <b>{t('template.importNoReplace')}</b>
           {t('template.importAsNew')}
         </p>
@@ -218,7 +219,9 @@ export function TemplateImportDialog({
                 checked={selected.has(i)}
                 note={
                   collides
-                    ? t('template.duplicateName', { name: uniqueSchemaName(s.name, existing) })
+                    ? t('template.duplicateName', {
+                        name: uniqueSchemaName(s.name, existing),
+                      })
                     : undefined
                 }
                 onToggle={() =>

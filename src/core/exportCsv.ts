@@ -45,7 +45,10 @@ export async function downloadXlsx(
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'shaped');
-  const buf = XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer;
+  const buf = XLSX.write(wb, {
+    bookType: 'xlsx',
+    type: 'array',
+  }) as ArrayBuffer;
   triggerDownload(
     new Blob([buf], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

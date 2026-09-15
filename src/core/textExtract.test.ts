@@ -7,11 +7,41 @@ const target: TargetSchema = {
   name: '問合せ',
   origin: 'preset',
   fields: [
-    { key: 'Company', label: '会社名', required: true, type: 'string', aliases: ['会社', '企業名', 'company'] },
-    { key: 'Name', label: '氏名', required: true, type: 'string', aliases: ['担当者', 'name', 'お名前'] },
-    { key: 'Email', label: 'メール', required: false, type: 'email', aliases: ['email', 'mail', '連絡先'] },
-    { key: 'Phone', label: '電話番号', required: false, type: 'phone', aliases: ['tel', 'phone', '電話'] },
-    { key: 'Body', label: '要件', required: false, type: 'string', aliases: ['内容', '本文'] },
+    {
+      key: 'Company',
+      label: '会社名',
+      required: true,
+      type: 'string',
+      aliases: ['会社', '企業名', 'company'],
+    },
+    {
+      key: 'Name',
+      label: '氏名',
+      required: true,
+      type: 'string',
+      aliases: ['担当者', 'name', 'お名前'],
+    },
+    {
+      key: 'Email',
+      label: 'メール',
+      required: false,
+      type: 'email',
+      aliases: ['email', 'mail', '連絡先'],
+    },
+    {
+      key: 'Phone',
+      label: '電話番号',
+      required: false,
+      type: 'phone',
+      aliases: ['tel', 'phone', '電話'],
+    },
+    {
+      key: 'Body',
+      label: '要件',
+      required: false,
+      type: 'string',
+      aliases: ['内容', '本文'],
+    },
   ],
 };
 
@@ -51,7 +81,9 @@ describe('localTextExtract', () => {
 
 describe('sanitizeExtraction', () => {
   it('{ fields: {...} } 形式を受け付け、テンプレ外のキーを捨てる', () => {
-    const raw = { fields: { Company: ' A社 ', Email: 'x@y.com', Bogus: 'ignore' } };
+    const raw = {
+      fields: { Company: ' A社 ', Email: 'x@y.com', Bogus: 'ignore' },
+    };
     const rec = sanitizeExtraction(raw, target);
     expect(rec.Company).toBe('A社');
     expect(rec.Email).toBe('x@y.com');

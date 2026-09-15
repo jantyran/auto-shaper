@@ -19,9 +19,10 @@ describe('プリセットのカテゴリ', () => {
     for (const category of SCHEMA_CATEGORY_ORDER) {
       expect(SCHEMA_CATEGORY_LABELS[category]).toBeDefined();
       const inCategory = PRESET_SCHEMAS.filter((s) => s.category === category);
-      expect(inCategory.length, `${category} のプリセットが0件`).toBeGreaterThan(
-        0,
-      );
+      expect(
+        inCategory.length,
+        `${category} のプリセットが0件`,
+      ).toBeGreaterThan(0);
     }
   });
 
@@ -70,10 +71,12 @@ describe('表示カテゴリの設定', () => {
   });
 
   it('保存済みのカテゴリ設定はそのまま復元する(空選択も尊重する)', () => {
-    expect(mergeSettings({ schemaCategories: ['hr'] }).schemaCategories).toEqual(
-      ['hr'],
+    expect(
+      mergeSettings({ schemaCategories: ['hr'] }).schemaCategories,
+    ).toEqual(['hr']);
+    expect(mergeSettings({ schemaCategories: [] }).schemaCategories).toEqual(
+      [],
     );
-    expect(mergeSettings({ schemaCategories: [] }).schemaCategories).toEqual([]);
   });
 
   it('補完した既定値は共有されず、変更しても DEFAULT_SETTINGS に影響しない', () => {

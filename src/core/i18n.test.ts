@@ -30,4 +30,30 @@ describe('createTranslator', () => {
       '3行を処理しました',
     );
   });
+
+  test('localizes settings controls, counts, and destructive confirmations', () => {
+    const english = createTranslator('en') as (
+      key: string,
+      values?: Record<string, string | number>,
+    ) => string;
+    const japanese = createTranslator('ja') as (
+      key: string,
+      values?: Record<string, string | number>,
+    ) => string;
+
+    expect(english('settings.features.title')).toBe('Features');
+    expect(japanese('settings.features.title')).toBe('機能のON/OFF');
+    expect(english('settings.schemaCategories.count', { count: 3 })).toBe(
+      '3 templates',
+    );
+    expect(japanese('settings.schemaCategories.count', { count: 3 })).toBe(
+      '3件',
+    );
+    expect(
+      english('settings.recipes.confirmDelete', { name: 'Quarterly import' }),
+    ).toBe('Delete “Quarterly import”?');
+    expect(
+      japanese('settings.recipes.confirmDelete', { name: 'Quarterly import' }),
+    ).toBe('「Quarterly import」を削除しますか？');
+  });
 });

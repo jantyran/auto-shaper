@@ -128,9 +128,9 @@ def main() -> None:
         page.get_by_role("button", name="Text shaping", exact=True).click()
         assert page.get_by_role("heading", name="Shape text into a template").count() == 1, page.locator(".panel").inner_text()
         page.get_by_role("textbox", name="Source text").fill("会社名: 株式会社そのまま\nメール: hello@example.com")
-        assert page.get_by_role("button", name="🛡 Scan and mask automatically", exact=True).count() == 1
+        assert page.get_by_role("button", name="Scan and mask automatically", exact=True).count() == 1
         assert page.get_by_text("Mask selection:", exact=True).count() == 1
-        page.get_by_role("button", name="⚙ Shape locally", exact=True).click()
+        page.get_by_role("button", name="Shape locally", exact=True).click()
         page.get_by_role("heading", name="Shaped results (1)", exact=True).wait_for()
         assert page.get_by_role("button", name="Copy as JSON", exact=True).count() == 1
         assert page.get_by_role("button", name="+ Add another", exact=True).count() == 1

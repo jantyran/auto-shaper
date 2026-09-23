@@ -48,7 +48,7 @@ export const messages = {
     'lookup.matched': '{count} of {total} rows matched ({unmatched} unmatched)',
     'lookup.multipleCount':
       ' / {count} rows had multiple lookup matches; applied “{action}”.',
-    'dedupe.found': '🔎 Possible duplicates: {groups} groups / {count} rows',
+    'dedupe.found': 'Possible duplicates: {groups} groups / {count} rows',
     'dedupe.mergedCount': '{before} rows → {after} rows ({count} rows merged)',
     'dedupe.removedCount':
       '{before} rows → {after} rows ({count} rows removed)',
@@ -57,8 +57,8 @@ export const messages = {
     'common.row': 'Row {count}',
     'result.converting': 'Converting all {count} rows in this browser…',
     'result.valid':
-      '✓ Validation passed — no missing required fields or email/phone format errors were found ({count} rows).',
-    'result.issues': '⚠ {count} issues to review before importing',
+      'Validation passed — no missing required fields or email/phone format errors were found ({count} rows).',
+    'result.issues': '{count} issues to review before importing',
     'result.invalidRows': '{count} / {total} rows have issues',
     'result.issueValue': ' (value: {value})',
     'result.moreIssues': '…{count} more issues',
@@ -114,7 +114,7 @@ export const messages = {
     'read.otherSheets': 'Combine other sheets from this file:',
     'target.heading': '2. Select destination format',
     'target.description': 'Choose the destination format for your shaped data.',
-    'target.recipes': '💡 Recipes matching these columns were found',
+    'target.recipes': 'Recipes matching these columns were found',
     'target.recipesHint': 'Reapply a previously saved mapping.',
     'target.suggesting': 'AI is suggesting a mapping…',
     'target.custom': 'Your templates',
@@ -275,7 +275,7 @@ export const messages = {
     'dedupe.merge': 'Merge into one row',
     'dedupe.firstNonEmpty': 'First non-empty value',
     'dedupe.lastNonEmpty': 'Last non-empty value',
-    'dedupe.none': '🔎 No duplicates found',
+    'dedupe.none': 'No duplicates found',
     'dedupe.keys': 'Match keys',
     'dedupe.keysHint':
       'When multiple keys are selected, all must match for rows to count as duplicates. No keys means no duplicate detection.',
@@ -354,7 +354,7 @@ export const messages = {
     'account.apiServerUrl': 'API server URL',
     'account.apiServerPlaceholder': 'Usually leave blank',
     'account.save': 'Save',
-    'account.saved': '✓ Saved',
+    'account.saved': 'Saved',
     'account.mixedContent':
       'This page is served over HTTPS. An API server URL starting with http:// will be blocked by the browser.',
     'account.useHost': 'Use this host on :8787 ({host})',
@@ -449,7 +449,7 @@ export const messages = {
     'settings.recipes.description':
       'Confirmed mappings from a source format to a destination format. They are suggested automatically for files with the same columns.',
     'settings.recipes.empty':
-      'There are no recipes yet. Create one with “🔁 Save as recipe” on the mapping screen.',
+      'There are no recipes yet. Create one with “Save as recipe” on the mapping screen.',
     'settings.recipes.summary': '{fields} fields · {columns} columns / {date}',
     'settings.recipes.rename': 'Rename',
     'settings.recipes.renamePrompt': 'Rename recipe',
@@ -488,7 +488,7 @@ export const messages = {
     'mapping.recipe.defaultName': 'Recipe',
     'mapping.recipe.prompt': 'Enter a recipe name',
     'mapping.backToTarget': '← Choose destination again',
-    'mapping.saveRecipe': '🔁 Save as recipe',
+    'mapping.saveRecipe': 'Save as recipe',
     'mapping.requiredHint': 'Assign all required fields',
     'mapping.convert': 'Convert with these settings →',
     'result.backToMapping': '← Edit mapping',
@@ -505,7 +505,7 @@ export const messages = {
     'text.managePrefix':
       'If you need fields that are not available, create a custom template in ',
     'text.manageSuffix': '.',
-    'text.autoMask': '🛡 Scan and mask automatically',
+    'text.autoMask': 'Scan and mask automatically',
     'text.maskSelection': 'Mask selection:',
     'text.clearMasks': 'Clear masks',
     'text.placeholder':
@@ -515,7 +515,7 @@ export const messages = {
     'text.originalValue': 'Original value: {value}',
     'text.removeMask': 'Remove this mask',
     'text.extracting': 'Shaping…',
-    'text.extractAi': '✨ Shape with AI',
+    'text.extractAi': 'Shape with AI',
     'text.extractWithoutAi': 'Extract locally without AI',
     'text.batch': '{count} result(s) collected',
     'text.llmUnavailablePrefix':
@@ -528,7 +528,7 @@ export const messages = {
     'text.downloadCsv': 'Download CSV',
     'text.downloadXlsx': 'Download Excel (.xlsx)',
     'text.copyText': 'Copy as text',
-    'text.copied': '✓ Copied',
+    'text.copied': 'Copied',
     'text.required': ' Required',
     'text.selectKind': 'Selection',
     'text.longKind': 'Long text',
@@ -636,7 +636,7 @@ export const messages = {
     'formula.description':
       'Safe mini expressions for template auto-fill rules. JavaScript and Python are not executed; only the syntax shown here is evaluated.',
     'text.source': 'Source text',
-    'text.extractLocal': '⚙ Shape locally',
+    'text.extractLocal': 'Shape locally',
     'text.results': 'Shaped results ({count})',
     'text.copyJson': 'Copy as JSON',
     'text.addAnother': '+ Add another',
@@ -777,7 +777,7 @@ export const messages = {
     'lookup.matched': '{total} 行中 {count} 行が一致（{unmatched} 行は未一致）',
     'lookup.multipleCount':
       ' / {count} 行は参照表に複数の候補があり、「{action}」を採用しました。',
-    'dedupe.found': '🔎 重複の可能性: {groups} グループ / {count} 行',
+    'dedupe.found': '重複の可能性: {groups} グループ / {count} 行',
     'dedupe.mergedCount': '{before} 行 → {after} 行（{count} 行を統合）',
     'dedupe.removedCount': '{before} 行 → {after} 行（{count} 行を除外）',
     'dedupe.group': '{rows} が重複',
@@ -785,8 +785,8 @@ export const messages = {
     'common.row': '{count}行目',
     'result.converting': '全 {count} 行をブラウザ内で変換中…',
     'result.valid':
-      '✓ 検証OK — 必須項目の欠落やメール/電話の形式エラーは見つかりませんでした（{count}行）。',
-    'result.issues': '⚠ 取り込み前に確認すべき点が {count} 件',
+      '検証OK — 必須項目の欠落やメール/電話の形式エラーは見つかりませんでした（{count}行）。',
+    'result.issues': '取り込み前に確認すべき点が {count} 件',
     'result.invalidRows': '{count} / {total} 行に問題があります',
     'result.issueValue': '（値: {value}）',
     'result.moreIssues': '…ほか {count} 件',
@@ -842,7 +842,7 @@ export const messages = {
     'target.heading': '2. インポート先フォーマットを選ぶ',
     'target.description':
       '整形後のデータをどのフォーマットに合わせるかを指定します。',
-    'target.recipes': '💡 この列構成に合うレシピが見つかりました',
+    'target.recipes': 'この列構成に合うレシピが見つかりました',
     'target.recipesHint':
       '過去に保存したマッピングを、そのまま再適用できます。',
     'target.suggesting': 'AIがマッピングを推論しています…',
@@ -1003,7 +1003,7 @@ export const messages = {
     'dedupe.merge': '1行に統合する',
     'dedupe.firstNonEmpty': '空でない最初の値',
     'dedupe.lastNonEmpty': '空でない最後の値',
-    'dedupe.none': '🔎 重複は見つかりませんでした',
+    'dedupe.none': '重複は見つかりませんでした',
     'dedupe.keys': '照合キー',
     'dedupe.keysHint':
       '複数選ぶと、そのすべてが一致した行を重複とみなします。キーを1つも選ばないと重複判定は行いません。',
@@ -1080,7 +1080,7 @@ export const messages = {
     'account.apiServerUrl': 'APIサーバーURL',
     'account.apiServerPlaceholder': '通常は空欄',
     'account.save': '保存',
-    'account.saved': '✓ 保存',
+    'account.saved': '保存',
     'account.mixedContent':
       'このページは https で配信されています。http://で始まるAPIサーバーを指定するとブラウザに遮断され、通信できません。',
     'account.useHost': 'このホストの :8787 を使う（{host}）',
@@ -1170,7 +1170,7 @@ export const messages = {
     'settings.recipes.description':
       '「このソース形式 → このCRM」の確定マッピングです。同じ列構成のファイルを投入すると自動で候補に出ます。',
     'settings.recipes.empty':
-      'まだレシピがありません。マッピング画面の「🔁 レシピとして保存」で作成できます。',
+      'まだレシピがありません。マッピング画面の「レシピとして保存」で作成できます。',
     'settings.recipes.summary': '{fields} 項目・{columns} 列 / {date}',
     'settings.recipes.rename': '名前変更',
     'settings.recipes.renamePrompt': 'レシピ名を変更',
@@ -1187,7 +1187,7 @@ export const messages = {
     'settings.learning.confirmClear': '学習辞書をすべて消去しますか？',
     'document.title': 'Auto Shaper — データ整形',
     'status.rows': '{count}行を処理しました',
-    'demo.banner': '🧪 デモデータで操作を体験中です（実データではありません）',
+    'demo.banner': 'デモデータで操作を体験中です（実データではありません）',
     'demo.startOwn': '自分のデータで始める',
     'view.app.description':
       '毎回フォーマットが違うExcel/CSVを、取り込み先の形式に合わせて整形します。表記ゆれの統一・姓名の分割・重複チェックまで。',
@@ -1210,7 +1210,7 @@ export const messages = {
     'mapping.recipe.defaultName': 'レシピ',
     'mapping.recipe.prompt': 'レシピ名を入力してください',
     'mapping.backToTarget': '← インポート先を選び直す',
-    'mapping.saveRecipe': '🔁 レシピとして保存',
+    'mapping.saveRecipe': 'レシピとして保存',
     'mapping.requiredHint': '必須項目を割り当ててください',
     'mapping.convert': 'この内容で変換する →',
     'result.backToMapping': '← マッピングを修正',
@@ -1226,7 +1226,7 @@ export const messages = {
     'text.manage': 'テンプレート管理',
     'text.managePrefix': '目的に合う項目が無いときは',
     'text.manageSuffix': 'で独自の項目のテンプレートを作れます。',
-    'text.autoMask': '🛡 自動スキャンでマスク',
+    'text.autoMask': '自動スキャンでマスク',
     'text.maskSelection': '選択範囲をマスク:',
     'text.clearMasks': 'マスク解除',
     'text.placeholder':
@@ -1236,7 +1236,7 @@ export const messages = {
     'text.originalValue': '元の値: {value}',
     'text.removeMask': 'このマスクを解除',
     'text.extracting': '整形中…',
-    'text.extractAi': '✨ AIで整形する',
+    'text.extractAi': 'AIで整形する',
     'text.extractWithoutAi': 'AIを使わずローカル抽出',
     'text.batch': '現在 {count} 件をまとめ中',
     'text.llmUnavailablePrefix':
@@ -1249,7 +1249,7 @@ export const messages = {
     'text.downloadCsv': 'CSVでダウンロード',
     'text.downloadXlsx': 'Excel(.xlsx)でダウンロード',
     'text.copyText': 'テキストでコピー',
-    'text.copied': '✓ コピーしました',
+    'text.copied': 'コピーしました',
     'text.required': ' ※必須',
     'text.selectKind': '選択式',
     'text.longKind': '長文',
@@ -1355,7 +1355,7 @@ export const messages = {
     'formula.description':
       'テンプレート項目の自動記入ルールで使える安全なミニ式です。JavaScriptやPythonのコードは実行せず、ここに載っている構文だけを評価します。',
     'text.source': '本文',
-    'text.extractLocal': '⚙ ローカルで整形する',
+    'text.extractLocal': 'ローカルで整形する',
     'text.results': '整形結果（{count}件）',
     'text.copyJson': 'JSONでコピー',
     'text.addAnother': '+ さらに追加',

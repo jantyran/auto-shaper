@@ -1,3 +1,4 @@
+import { ArrowLeftRight } from 'lucide-react';
 import { createTranslator, type TranslationKey } from '../core/i18n';
 /**
  * 参照テーブル(横引き)の設定。
@@ -263,7 +264,12 @@ function LookupRow({
                     </option>
                   ))}
                 </select>
-                <span className="value-map-arrow">↔</span>
+                <span
+                  className="value-map-arrow"
+                  style={{ display: 'inline-flex', alignItems: 'center' }}
+                >
+                  <ArrowLeftRight size={14} aria-hidden="true" />
+                </span>
                 <select
                   value={pair.lookupColumn}
                   aria-label={t('lookup.lookupColumn')}

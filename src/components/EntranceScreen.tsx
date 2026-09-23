@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Sparkles } from 'lucide-react';
 import { useStore } from '../state/store';
 import { createTranslator } from '../core/i18n';
 
@@ -43,7 +44,7 @@ export function EntranceScreen() {
     >
       <div className="entrance-content">
         <span className="entrance-mark" aria-hidden="true">
-          ✨
+          <Sparkles size={32} />
         </span>
         <h1 className="entrance-title">Auto Shaper</h1>
         <p className="entrance-tagline">{t('entrance.tagline')}</p>

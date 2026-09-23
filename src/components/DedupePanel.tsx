@@ -1,3 +1,4 @@
+import { Search } from 'lucide-react';
 import { createTranslator, type TranslationKey } from '../core/i18n';
 /**
  * 重複の照合設定と、見つけたときの処理。
@@ -68,7 +69,11 @@ export function DedupePanel({
   return (
     <div className="dedupe-panel">
       <div className="dedupe-head">
-        <span className="dedupe-title">
+        <span
+          className="dedupe-title"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+        >
+          <Search size={16} aria-hidden="true" />
           {found
             ? t('dedupe.found', {
                 groups: outcome.groups.length,

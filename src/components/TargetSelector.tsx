@@ -1,5 +1,6 @@
 import { createTranslator } from '../core/i18n';
 import { useMemo } from 'react';
+import { Lightbulb, Repeat } from 'lucide-react';
 import { useStore } from '../state/store';
 import { PRESET_SCHEMAS, SCHEMA_CATEGORY_ORDER } from '../core/targetSchemas';
 import { sortCustomSchemas } from '../core/schemaStore';
@@ -59,7 +60,16 @@ export function TargetSelector() {
 
       {matchingRecipes.length > 0 && (
         <>
-          <h3>{t('target.recipes')}</h3>
+          <h3
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <Lightbulb size={18} aria-hidden="true" />
+            {t('target.recipes')}
+          </h3>
           <p className="subtitle" style={{ marginBottom: 10 }}>
             {t('target.recipesHint')}
           </p>
@@ -71,7 +81,17 @@ export function TargetSelector() {
                 style={{ borderColor: 'var(--green)' }}
                 onClick={() => applyRecipe(r)}
               >
-                <span className="name">🔁 {r.name}</span>
+                <span
+                  className="name"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <Repeat size={14} aria-hidden="true" />
+                  {r.name}
+                </span>
                 <span className="meta">
                   {t('target.recipeFields', { count: r.mapping.fields.length })}
                 </span>

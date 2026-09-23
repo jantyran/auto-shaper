@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Check, FlaskConical, Repeat } from 'lucide-react';
 import { useStore, type Step } from './state/store';
 import { FileDrop } from './components/FileDrop';
 import { TargetSelector } from './components/TargetSelector';
@@ -120,7 +121,16 @@ export function App() {
         <GuidedTour />
         {demoActive && (
           <div className="demo-banner">
-            <span>{t('demo.banner')}</span>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <FlaskConical size={16} aria-hidden="true" />
+              {t('demo.banner')}
+            </span>
             <button
               type="button"
               className="ghost"
@@ -199,7 +209,9 @@ function Stepper({
             i < currentIdx ? ' done' : ''
           }`}
         >
-          <span className="num">{i < currentIdx ? '✓' : i + 1}</span>
+          <span className="num">
+            {i < currentIdx ? <Check size={14} aria-hidden="true" /> : i + 1}
+          </span>
           {s.label}
         </div>
       ))}
@@ -263,7 +275,12 @@ function MappingStep() {
           {t('mapping.backToTarget')}
         </button>
         {recipesEnabled && (
-          <button className="ghost" onClick={handleSaveRecipe}>
+          <button
+            className="ghost"
+            onClick={handleSaveRecipe}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <Repeat size={14} aria-hidden="true" />
             {t('mapping.saveRecipe')}
           </button>
         )}

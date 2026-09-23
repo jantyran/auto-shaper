@@ -1,4 +1,17 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import {
+  Upload,
+  Target,
+  ArrowLeftRight,
+  Download,
+  Table2,
+  FileText,
+  Folders,
+  Calculator,
+  Sparkles,
+  MousePointerClick,
+} from 'lucide-react';
 import { useStore, type Step, type View } from '../state/store';
 import { tourStepsFor, type TourStep } from '../core/tour';
 import { createTranslator, type TranslationKey } from '../core/i18n';
@@ -13,54 +26,54 @@ const CARD_WIDTH = 330;
 const CARD_EST_HEIGHT = 210;
 
 const FLOW_STEPS: {
-  icon: string;
+  icon: LucideIcon;
   label: TranslationKey;
   note: TranslationKey;
 }[] = [
   {
-    icon: '📥',
+    icon: Upload,
     label: 'tour.intro.flow.upload.label',
     note: 'tour.intro.flow.upload.note',
   },
   {
-    icon: '🎯',
+    icon: Target,
     label: 'tour.intro.flow.destination.label',
     note: 'tour.intro.flow.destination.note',
   },
   {
-    icon: '🔀',
+    icon: ArrowLeftRight,
     label: 'tour.intro.flow.mapping.label',
     note: 'tour.intro.flow.mapping.note',
   },
   {
-    icon: '📤',
+    icon: Download,
     label: 'tour.intro.flow.export.label',
     note: 'tour.intro.flow.export.note',
   },
 ];
 
 const SERVICE_INTRO_ITEMS: {
-  icon: string;
+  icon: LucideIcon;
   title: TranslationKey;
   body: TranslationKey;
 }[] = [
   {
-    icon: '📊',
+    icon: Table2,
     title: 'tour.intro.service.table.title',
     body: 'tour.intro.service.table.body',
   },
   {
-    icon: '📝',
+    icon: FileText,
     title: 'tour.intro.service.text.title',
     body: 'tour.intro.service.text.body',
   },
   {
-    icon: '🗂️',
+    icon: Folders,
     title: 'tour.intro.service.templates.title',
     body: 'tour.intro.service.templates.body',
   },
   {
-    icon: '📐',
+    icon: Calculator,
     title: 'tour.intro.service.formulas.title',
     body: 'tour.intro.service.formulas.body',
   },
@@ -201,8 +214,16 @@ function IntroModal({
     <div className="intro-overlay">
       <div className="intro-card">
         <header className="intro-head">
-          <span className="intro-badge" aria-hidden="true">
-            ✨
+          <span
+            className="intro-badge"
+            aria-hidden="true"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Sparkles size={20} />
           </span>
           <div>
             <h3>{t('tour.intro.title')}</h3>
@@ -213,40 +234,62 @@ function IntroModal({
         <section className="intro-section">
           <h4>{t('tour.intro.flowHeading')}</h4>
           <div className="intro-flow">
-            {FLOW_STEPS.map((s, i) => (
-              <div className="intro-flow-cell" key={t(s.label)}>
-                <div className="intro-flow-step">
-                  <span className="intro-flow-icon" aria-hidden="true">
-                    {s.icon}
-                  </span>
-                  <span className="intro-flow-num">{i + 1}</span>
-                  <span className="intro-flow-label">{t(s.label)}</span>
-                  <span className="intro-flow-note">{t(s.note)}</span>
+            {FLOW_STEPS.map((s, i) => {
+              const FlowIcon = s.icon;
+              return (
+                <div className="intro-flow-cell" key={t(s.label)}>
+                  <div className="intro-flow-step">
+                    <span
+                      className="intro-flow-icon"
+                      aria-hidden="true"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <FlowIcon size={20} />
+                    </span>
+                    <span className="intro-flow-num">{i + 1}</span>
+                    <span className="intro-flow-label">{t(s.label)}</span>
+                    <span className="intro-flow-note">{t(s.note)}</span>
+                  </div>
+                  {i < FLOW_STEPS.length - 1 && (
+                    <span className="intro-flow-arrow" aria-hidden="true">
+                      →
+                    </span>
+                  )}
                 </div>
-                {i < FLOW_STEPS.length - 1 && (
-                  <span className="intro-flow-arrow" aria-hidden="true">
-                    →
-                  </span>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
         <section className="intro-section">
           <h4>{t('tour.intro.servicesHeading')}</h4>
           <div className="intro-item-list">
-            {SERVICE_INTRO_ITEMS.map((item) => (
-              <div className="intro-item" key={t(item.title)}>
-                <span className="intro-item-icon" aria-hidden="true">
-                  {item.icon}
-                </span>
-                <div className="intro-item-text">
-                  <span className="intro-item-title">{t(item.title)}</span>
-                  <span className="intro-item-body">{t(item.body)}</span>
+            {SERVICE_INTRO_ITEMS.map((item) => {
+              const ItemIcon = item.icon;
+              return (
+                <div className="intro-item" key={t(item.title)}>
+                  <span
+                    className="intro-item-icon"
+                    aria-hidden="true"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <ItemIcon size={20} />
+                  </span>
+                  <div className="intro-item-text">
+                    <span className="intro-item-title">{t(item.title)}</span>
+                    <span className="intro-item-body">{t(item.body)}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
@@ -472,7 +515,17 @@ function TourCard({
 
       {waiting && step.waitHint && (
         <p className="tour-wait-hint">
-          <span aria-hidden="true">👉</span> {step.waitHint}
+          <span
+            aria-hidden="true"
+            style={{
+              display: 'inline-flex',
+              verticalAlign: 'middle',
+              marginRight: 4,
+            }}
+          >
+            <MousePointerClick size={16} />
+          </span>
+          {step.waitHint}
         </p>
       )}
 

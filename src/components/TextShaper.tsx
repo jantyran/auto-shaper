@@ -10,6 +10,7 @@
  *  - AI の応答に含まれるトークンは、ローカルで元の値へ復元してから表示・出力する。
  */
 import { useMemo, useRef, useState } from 'react';
+import { Check, Settings, Shield, Sparkles } from 'lucide-react';
 import { useStore } from '../state/store';
 import { createTranslator } from '../core/i18n';
 import { getAllSchemas, getDefaultSchema } from '../core/schemaStore';
@@ -386,7 +387,9 @@ export function TextShaper() {
           className="btn-mini"
           onClick={runAutoMask}
           disabled={!text.trim()}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
         >
+          <Shield size={14} aria-hidden="true" />
           {t('text.autoMask')}
         </button>
         <span className="mask-sep">{t('text.maskSelection')}</span>
@@ -478,12 +481,21 @@ export function TextShaper() {
           className="primary"
           onClick={() => handleExtract(false)}
           disabled={isExtracting || !text.trim()}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
         >
-          {isExtracting
-            ? t('text.extracting')
-            : llmReady
-              ? t('text.extractAi')
-              : t('text.extractLocal')}
+          {isExtracting ? (
+            t('text.extracting')
+          ) : llmReady ? (
+            <>
+              <Sparkles size={14} aria-hidden="true" />
+              {t('text.extractAi')}
+            </>
+          ) : (
+            <>
+              <Settings size={14} aria-hidden="true" />
+              {t('text.extractLocal')}
+            </>
+          )}
         </button>
         {llmReady && (
           <button onClick={() => handleExtract(true)} disabled={isExtracting}>
@@ -570,10 +582,18 @@ export function TextShaper() {
             <button onClick={exportCsv}>{t('text.downloadCsv')}</button>
             <button onClick={exportXlsx}>{t('text.downloadXlsx')}</button>
             <div className="spacer" />
-            <button onClick={copyAsText}>
+            <button
+              onClick={copyAsText}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              {copied === 'text' && <Check size={14} aria-hidden="true" />}
               {copied === 'text' ? t('text.copied') : t('text.copyText')}
             </button>
-            <button onClick={copyAsJson}>
+            <button
+              onClick={copyAsJson}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              {copied === 'json' && <Check size={14} aria-hidden="true" />}
               {copied === 'json' ? t('text.copied') : t('text.copyJson')}
             </button>
           </div>

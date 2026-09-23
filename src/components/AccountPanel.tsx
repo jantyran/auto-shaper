@@ -7,6 +7,7 @@
  *   レシピがサーバー(DB)に保存され、複数端末で共有できる。
  */
 import { useEffect, useState } from 'react';
+import { Check } from 'lucide-react';
 import { useStore } from '../state/store';
 import { isValidEmail } from '../core/auth';
 import { getApiBase, setApiBase } from '../core/apiBase';
@@ -232,7 +233,12 @@ function ConnectionField() {
             onChange={(e) => setBase(e.target.value)}
             onBlur={(e) => commit(e.target.value)}
           />
-          <button type="button" onClick={() => commit(base)}>
+          <button
+            type="button"
+            onClick={() => commit(base)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            {saved && <Check size={14} aria-hidden="true" />}
             {saved ? t('account.saved') : t('account.save')}
           </button>
         </div>

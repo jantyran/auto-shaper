@@ -3,6 +3,7 @@
  * 未ログイン: 「ログイン」ボタン(設定ページのアカウント欄へ誘導)。
  * ログイン済み: メールアドレスと保存先(DB同期)の表示。クリックで設定へ。
  */
+import { Lock } from 'lucide-react';
 import { useStore } from '../state/store';
 import { createTranslator } from '../core/i18n';
 
@@ -22,8 +23,10 @@ export function AuthBadge() {
         className="navbtn auth-badge-btn"
         onClick={() => setView('settings')}
         title={t('authBadge.signedOutTitle')}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
       >
-        🔒 {t('account.signIn')}
+        <Lock size={14} aria-hidden="true" />
+        {t('account.signIn')}
       </button>
     );
   }

@@ -1,4 +1,5 @@
 import { createTranslator } from '../core/i18n';
+import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from '../state/store';
 import { transformAll } from '../core/transformEngine';
@@ -263,8 +264,14 @@ function ValidationPanel({
 
   if (totalIssues === 0) {
     return (
-      <div className="alert ok">
-        {t('result.valid', { count: total.toLocaleString(locale) })}
+      <div
+        className="alert ok"
+        style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+      >
+        <CheckCircle2 size={18} aria-hidden="true" style={{ flexShrink: 0 }} />
+        <span>
+          {t('result.valid', { count: total.toLocaleString(locale) })}
+        </span>
       </div>
     );
   }
@@ -272,7 +279,15 @@ function ValidationPanel({
   return (
     <div className="validation">
       <div className="validation-head">
-        <span className="v-title">
+        <span
+          className="v-title"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+        >
+          <AlertTriangle
+            size={18}
+            aria-hidden="true"
+            style={{ flexShrink: 0 }}
+          />
           {t('result.issues', { count: totalIssues })}
         </span>
         <span className="v-sub">

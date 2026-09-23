@@ -1,4 +1,5 @@
 import { useRef, type KeyboardEvent } from 'react';
+import { Globe } from 'lucide-react';
 import type { Locale } from '../core/settings';
 import { createTranslator } from '../core/i18n';
 
@@ -38,7 +39,7 @@ export function LanguagePicker({ onSelect }: LanguagePickerProps) {
     >
       <div className="language-picker-card">
         <span className="entrance-mark" aria-hidden="true">
-          🌐
+          <Globe size={32} />
         </span>
         <h1 id="language-picker-title">{t('language.choose')}</h1>
         <p>{t('language.description')}</p>
